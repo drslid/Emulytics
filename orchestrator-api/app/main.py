@@ -19,6 +19,8 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from .run_routes import router as run_router
+
 
 APP_NAME = os.getenv("APP_NAME", "Emulytix Orchestrator API")
 AGENT_SERVICE_URL = os.getenv("AGENT_SERVICE_URL", "http://agent-service:8011")
@@ -452,6 +454,8 @@ app = FastAPI(
     description="API de pilotage pour sessions Android Emulytix.",
     version="0.2.0",
 )
+
+app.include_router(run_router)
 
 app.add_middleware(
     CORSMiddleware,
