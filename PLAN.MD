@@ -1,15 +1,15 @@
 # Emulytix × Google ARTEMIS — Plan de réalisation
 
 Date : 5 novembre 2026.  
-Statut : plan de cadrage et d'exécution ; prérequis métier et décisions de lancement encore ouverts.  
+Statut : validation structurelle effectuée ; tranche S101a/S105a implémentée et vérifiée. La réalisation du runtime et les jalons S1/S2/S3 restent ouverts.
 Référence prioritaire : [study_v2.md](study_v2.md), dont le contenu correspond à la **v3 consolidée**.  
-Périmètre de cette intervention : installation des skills, analyse des documents et des sources, rédaction du plan.
+Périmètre de cette intervention : validation du plan avec les skills installées, correction du séquencement et début d'implémentation des contrats et de la persistance.
 
 ## 1. Besoin compris
 
 Faire évoluer Emulytix vers une plateforme permettant à un opérateur de sélectionner des appareils Android physiques ou émulés, lancer un workflow sur un lot, suivre chaque exécution, arrêter le traitement et reprendre les échecs sans répéter un effet métier incertain.
 
-La première livraison couvre **trois workflows courts et déterministes**, chacun comportant moins de quinze étapes. Le chemin nominal utilise des scripts et des assertions. La vision LLM sert à récupérer une situation inattendue, avec un budget limité par étape et par exécution. Le résultat métier doit être vérifié.
+La livraison cible couvre **trois workflows courts et déterministes**, chacun comportant moins de quinze étapes. Le chemin nominal utilise des scripts et des assertions. La vision LLM sert à récupérer une situation inattendue, avec un budget limité par étape et par exécution. Le résultat métier doit être vérifié. La première tranche technique, décrite en section 8, prépare ces exécutions sans commander d'appareil.
 
 La trajectoire est progressive : un physique et un émulateur, puis 10–20 exécutions simultanées sur plusieurs hôtes, enfin des essais à 25, 50 et 100 appareils actifs. Le calendrier indicatif reprend trois sprints de deux semaines avec deux développeurs Backend/Runtime, un développeur Frontend et un référent Infra/Exploitation. Il dépend des accès, du matériel et des parcours disponibles.
 
@@ -17,7 +17,7 @@ L'utilisateur a confirmé que la base Android visée est **[Google ARTEMIS](http
 
 ## 2. État constaté et écart avec la cible
 
-L'analyse locale est statique. Les validations historiques mentionnées dans `technical-status.md` n'ont pas été rejouées pendant cette intervention.
+Ce tableau décrit l'état de référence avant la première tranche. Les validations historiques mentionnées dans `technical-status.md` ne constituent pas des preuves pour la nouvelle implémentation ; ses vérifications seront consignées dans le suivi.
 
 | Domaine | Présent dans les sources | Travail nécessaire |
 |---|---|---|
@@ -30,7 +30,7 @@ L'analyse locale est statique. Les validations historiques mentionnées dans `te
 | Fichiers | Stockage local des APK et captures | Stockage objet, contrôle d'accès, rétention, chiffrement et masquage |
 | Déploiement | Compose et image all-in-one | Déploiement multi-hôtes et capacité mesurée |
 
-Les sources inspectées ne contiennent pas encore l'intégration ARTEMIS, les contrats de runs, le scheduler PostgreSQL, les baux, le watchdog ou les SSE durables. Le dossier de travail n'est actuellement pas un dépôt Git.
+À l'état de référence, le dossier ne contenait ni dépôt Git ni contrats de runs. Le dépôt Git et la branche `feature/persistent-runs` sont maintenant établis, avec le catalogue, les migrations et les runs de la première tranche. L'intégration ARTEMIS, le scheduler, les baux, le watchdog et les SSE restent à réaliser.
 
 Points documentaires à corriger pendant la réalisation : anciens liens `/home/slid/Emulytix`, indications contradictoires sur KVM et sur l'état de l'all-in-one. Le fonctionnement réel doit être mesuré sur l'hôte retenu.
 
@@ -46,16 +46,18 @@ Installation utilisateur dans `/home/slid/.codex/skills`, vérification de 144 f
 | Humanizer | [blader/humanizer](https://github.com/blader/humanizer), `0ef9fe5bc3572734fd3ae6c448fe00a30cd5dcf0` | 1 skill |
 | Designer Skills | [Owl-Listener/designer-skills](https://github.com/Owl-Listener/designer-skills), `9a6930cf84a822eb458624bd11c61aac5bbdf224` | Les 111 skills présentes dans ce dépôt |
 
-Les références partagées d'Addy Osmani sont conservées dans `~/.codex/skill-support/` et les liens locaux concernés sont adaptés. Graphify utilise sa variante Codex officielle. Les hooks, adaptateurs de commandes des autres assistants et collections hébergées dans d'autres dépôts ne font pas partie de cette installation. Aucun graphe du projet n'a été généré.
+Les références partagées d'Addy Osmani sont conservées dans `~/.codex/skill-support/` et les liens locaux concernés sont adaptés. Graphify utilise sa variante Codex officielle. Les hooks, adaptateurs de commandes des autres assistants et collections hébergées dans d'autres dépôts ne font pas partie de cette installation. Aucun graphe du projet n'avait été généré lors de l'installation.
 
-Manifeste d'installation sur cette machine : `/home/slid/.codex/skill-support/emulytix-install-2026-11-05.json`. La découverte automatique des nouvelles skills se rafraîchit au prochain tour utilisateur. Pour ce plan, les instructions de planification, de cadrage et de rédaction pertinentes ont été lues directement. `PLAN.MD` regroupe le plan et sa liste de tâches, conformément au nom demandé.
+Manifeste d'installation sur cette machine : `/home/slid/.codex/skill-support/emulytix-install-2026-11-05.json`. Les skills sont disponibles dans cette session. La validation applique la revue adversariale et la décomposition d'Addy Osmani, le cadrage et les états de Designer Skills, ainsi que Humanizer pour la rédaction. `PLAN.MD` regroupe le plan et sa liste de tâches, conformément au nom demandé.
+
+Graphify a produit un instantané AST local du prototype : 13 fichiers, 273 nœuds et 541 arêtes, sans appel LLM externe. Les artefacts `graphify-out/` sont exclus de Git. Les limites et exclusions figurent dans leur rapport ; cet instantané précède les nouvelles routes. La revue du plan et du code a été effectuée par des agents distincts. L'utilisateur a choisi de conserver cette revue, sans ajouter de revue par un autre modèle.
 
 ## 4. Décisions et prérequis
 
 | Sujet | Position de départ | Décision ou preuve attendue |
 |---|---|---|
 | ARTEMIS | Dépôt `google/artemis` identifié ; commit `351ca8422f7b5b54e80a9c1ce03a222e02415b6b` audité statiquement | Valider ce commit comme base du fork ; choisir sa destination ; conserver licences et notices |
-| Métier | Trois workflows annoncés, parcours absents | Application/APK, étapes, paramètres, sélecteurs, assertions et preuves des effets non idempotents |
+| Métier | WF01 Chrome → Wikipédia → recherche `football` défini fonctionnellement ; deux autres parcours ouverts | [Fiche WF01](docs/workflows/WF01-chrome-wikipedia-football.md), observation des sélecteurs et provisionnement Chrome ; définir WF02/WF03 |
 | Inférence | Device Code envisagé, provider abstrait | Spike technique et avis de viabilité d'usage ; choix au Go/No-Go J3 |
 | Secours | API payante ou VLM local | Au moins un provider de secours réellement fonctionnel avant le Go/No-Go |
 | Exploitation | Plusieurs hôtes et parc mixte | Inventaire, accès ADB autorisés, KVM pour le banc d'émulation accélérée, budget et responsable |
@@ -124,6 +126,8 @@ Topologie initiale : le scheduler est central et déclenche les workers sur l'h�
 
 ### API et événements
 
+- `POST /devices` : déclarer une identité immuable (`device_id`, `host_id`, `serial`, `kind`). Une déclaration a le statut `registered` ; elle ne prouve ni la présence physique, ni l'autorisation ADB, ni la disponibilité. Une réémission identique retrouve l'entrée existante ; une identité différente sous le même identifiant provoque un conflit.
+- `POST /workflows` : publier une définition validée sous une paire `workflow_id`/version immuable. Une réémission identique retrouve cette version ; une modification sous la même paire provoque un conflit. La validation structurelle ne remplace pas la validation du parcours métier.
 - `POST /runs` : `workflow_id`, version, paramètres, liste figée de `device_id`, concurrence maximale et `idempotency_key` ; réponse `202` et `run_id`. Même clé et même demande : même run ; contenu différent : conflit explicite.
 - `GET /devices`, `GET /runs/{id}` et détail des exécutions : états, progression, erreurs, preuves et capacité disponible.
 - `POST /runs/{id}/cancel` : demande durable d'arrêt ; suivi jusqu'à neutralisation effective et traitement de toute action métier incertaine.
@@ -131,6 +135,10 @@ Topologie initiale : le scheduler est central et déclenche les workers sur l'h�
 - `POST /executions/{id}/resolve-review` : décision opérateur tracée, avec preuve et auteur ; succès, échec ou autorisation d'une nouvelle tentative.
 - SSE par run : identifiant durable, type, date, `run_id`, `execution_id`, `device_id`, `lease_epoch` et données minimales. Reprise par `Last-Event-ID` ; prévoir un resynchronisme explicite si le curseur a dépassé la rétention.
 - Écrire changement d'état et événement dans la même transaction. Le contrat est partagé avec le frontend avant implémentations parallèles. Conserver OpenAPI/Swagger.
+
+Dans la première tranche, les listes de devices, workflows et runs sont paginées, et les détails référencent les versions et identités déclarées. Les événements d'un run sont consultables en JSON avec pagination/curseur. Le transport SSE et son contrat de reconnexion restent à implémenter ensuite.
+
+Les nouvelles routes exigent `Authorization: Bearer <token>`. Leur activation nécessite `EMULYTIX_DATABASE_URL` et `EMULYTIX_CONTROL_TOKEN` ; une configuration incomplète n'autorise pas un accès anonyme. Le jeton protège aussi les lectures et reste absent des réponses et journaux. Ce contrôle initial est propre aux nouvelles routes ; l'authentification et les rôles de l'ensemble du produit restent le lot S109.
 
 ### Données
 
@@ -176,6 +184,8 @@ stateDiagram-v2
 
 Ce diagramme fixe le parcours principal. La table de transitions devra couvrir chaque timeout, perte de bail, perte d'hôte, annulation et erreur. `cancel_requested` est une intention durable distincte de l'état final. Une action incertaine passe par `verifying_state` puis éventuellement `needs_review`, même si un arrêt a été demandé. Une relance après revue crée une nouvelle tentative.
 
+Pour S101a/S105a, seules les transitions `queued` → `cancelled` existent : le run et ses exécutions sont créés `queued`, puis l'annulation de toutes les exécutions en attente rend le run `cancelled` dans la même transaction. Répéter cette annulation conserve le résultat. Une exécution déjà sortie de `queued` doit empêcher cette opération initiale ; la neutralisation d'une exécution active sera ajoutée avec S106. Le statut `queued` signifie que la demande est enregistrée et en attente d'un moteur, sans annoncer de démarrage automatique.
+
 ## 7. Garanties de commande et de reprise
 
 1. **Un seul point d'envoi Android par hôte.** Toutes les commandes, y compris APK, chat, contrôles manuels et récupération ARTEMIS, passent par l'autorité hôte. Couvrir sous-processus ADB, appels `adbutils`, UIAutomator et outils auxiliaires ; un wrapper du seul binaire ADB serait incomplet. Restreindre aussi le contrôle interactif noVNC pendant un bail actif ; masquer un bouton dans le navigateur ne suffit pas.
@@ -191,6 +201,25 @@ Ce diagramme fixe le parcours principal. La table de transitions devra couvrir c
 
 Rôles : **BE** Backend, **RT** Runtime, **FE** Frontend, **INF** Infra/Exploitation, **MET** responsable métier. Chaque ligne est un lot ; les lots comportant plusieurs changements seront découpés en tâches de session lors de leur prise en charge. Leur critère de sortie reste commun et vérifiable.
 
+### Première tranche — S101a/S105a, indépendante des parcours métier
+
+Objectif : déclarer un appareil, publier une version de workflow, créer un run durable, le consulter et l'annuler tant qu'il reste en attente. Cette tranche avance sans P02/P03 avec des données synthétiques de banc explicitement identifiées. Les parcours réels, l'inventaire connecté, les appels LLM, les workers et les commandes ADB restent des étapes ultérieures.
+
+S101a stabilise l'enveloppe des contrats et les deux états initiaux ; S105a réalise leur persistance PostgreSQL et les routes correspondantes. Ces sous-lots ne terminent ni S101 ni S105 dans leur périmètre complet. La définition d'un workflow et sa publication ne l'autorisent pas encore à agir sur un appareil.
+
+| Tâche | Livrable | Vérification attendue |
+|---|---|---|
+| S101a-01 | Schémas de device déclaré et de version immuable de workflow | Champs invalides refusés ; réémission identique stable ; modification conflictuelle refusée |
+| S101a-02 | Contrat de création/lecture du run, lot figé et états `queued`/`cancelled` | Lot vide ou dupliqué et références inconnues refusés ; versions et devices figés |
+| S105a-01 | Migrations PostgreSQL reproductibles pour le catalogue, les runs, exécutions et événements | Installation vierge et réapplication vérifiées sur PostgreSQL ; données conservées après réouverture |
+| S105a-02 | Activation explicite et authentification Bearer sur toutes les nouvelles routes | Configuration absente/incomplète et jeton invalide refusés ; jeton non renvoyé |
+| S105a-03 | Création transactionnelle d'un run avec une exécution par device et événements durables | Soumissions concurrentes avec une clé identique sans doublon ; conflit si le contenu change |
+| S105a-04 | Lectures paginées et détail des événements en JSON | Limites et curseurs validés ; lecture cohérente après redémarrage de l'API |
+| S105a-05 | Annulation atomique des seuls lots en attente | Toutes les exécutions et l'état agrégé changent ensemble ; annulation répétée sans nouvel effet |
+| S105a-06 | Documentation d'activation et exemple synthétique complet | Parcours déclaration → publication → création → lecture → annulation reproductible sans Android ni provider |
+
+Checkpoint atteint : 79 tests sur PostgreSQL réel, compatibilité des sessions et d'OpenAPI vérifiée, puis parcours HTTP exécuté dans l'image Docker avec persistance après deux redémarrages API. Les preuves et limites figurent dans le suivi ci-dessous. Cela ne valide pas l'exécution Android de WF01.
+
 ### Préparation — avant les essais J1
 
 | ID | Travail et livrable | Responsable | Dépendances | Critère de validation |
@@ -204,12 +233,12 @@ Rôles : **BE** Backend, **RT** Runtime, **FE** Frontend, **INF** Infra/Exploita
 
 | ID | Travail et livrable | Responsable | Dépendances | Critère de validation |
 |---|---|---|---|---|
-| S101 | Contrats API, données, workflow, événements et table des transitions | BE + RT + FE | P01–P02 | Exemples nominaux et erreurs partagés ; invariants et compatibilité documentés |
+| S101 | Compléter les contrats API, données, workflow, événements et table des transitions pour l'exécution réelle | BE + RT + FE | S101a, P01–P02 | Exemples métier nominaux et erreurs partagés ; invariants et compatibilité documentés |
 | S102 | Interface vision, adaptateur Codex et un secours API ou local fonctionnel | BE | P03, S101 | Même récupération visuelle réussie avec les deux providers ; action rejetée si réponse invalide |
 | S103 | Spike d'inférence soutenu 48 h, quotas observés, latence, coût et analyse d'usage | BE + INF | P04, S102 | Rapport et choix au J3 ; bascule de secours démontrée si No-Go |
 | S104 | Fork ARTEMIS minimal et profil contrôlé : LLM, résumés, mémoire, préchauffage, juges et outils auxiliaires | RT | P01 | Les chemins conservés passent par la passerelle, démarrage inclus ; sorties réseau non autorisées bloquées |
-| S105 | PostgreSQL et migrations du premier run, journal et événements durables | BE | S101 | Redémarrage API sans perte ; double soumission idempotente sans nouvelle exécution |
-| S106 | Autorité hôte minimale, ciblage serial, exclusivité et annulation | RT | S101, S104–S105 | Deux pilotes concurrents refusés ; contrôle manuel ne contourne pas le bail ; arrêt constaté |
+| S105 | Compléter PostgreSQL avec journal d'actions et état durable d'exécution | BE | S105a, S101 | Redémarrage API sans perte ; intentions d'action et résultats persistés transactionnellement |
+| S106 | Autorité hôte minimale, baux locaux durables avec epoch, ciblage serial, exclusivité et annulation active | RT | S101, S104–S105 | Deux pilotes concurrents refusés ; contrôle manuel ne contourne pas le bail ; arrêt constaté |
 | S107 | Exécuteur scripté et premier workflow complet avec assertions | RT | S102, S105–S106, P02 | Succès physique et émulateur sans LLM nominal ; pop-up injecté récupéré dans le budget |
 | S108 | Console minimale : sélectionner, lancer, suivre, arrêter, ouvrir preuves et erreurs | FE | S101, S105 | Parcours opérateur complet avec erreurs et états d'attente visibles |
 | S109 | Mesure USB/émulation, stockage objet, secrets, logs et contrôle d'accès minimal | INF + BE | P03, S101 | Budget chiffré ; captures accessibles selon droits ; secrets absents des journaux |
@@ -222,7 +251,7 @@ Rôles : **BE** Backend, **RT** Runtime, **FE** Frontend, **INF** Infra/Exploita
 
 | ID | Travail et livrable | Responsable | Dépendances | Critère de validation |
 |---|---|---|---|---|
-| S201 | Scheduler PostgreSQL, concurrence par run/hôte et baux renouvelables | BE | Sortie S1 | Allocation sans doublon sous demandes concurrentes ; saturation placée en attente |
+| S201 | Étendre les baux S1 au scheduler PostgreSQL multi-hôtes, à la concurrence par run/hôte et au renouvellement distribué | BE | Sortie S1 | Allocation sans doublon sous demandes concurrentes ; saturation placée en attente |
 | S202 | Fencing complet, watchdog, échéance locale et quarantaine sur tous les canaux à effet | RT + INF | S106, S201 | Ancien epoch, partition réseau et restart refusés ; couverture ADB, `adbutils` et UIAutomator démontrée |
 | S203 | Vérification après crash, préservation des preuves et revue humaine | RT + MET | S107, S202 | Crash avant/après effet réconcilié ; effet incertain jamais rejoué automatiquement |
 | S204 | Porter les deux autres workflows et leurs procédures de reprise | RT + MET | P02, S203 | Trois workflows avec nominal, récupération et preuve métier vérifiés |
@@ -248,7 +277,7 @@ La cible de 100 n'est pas une condition déjà acquise en fin S2. Ce plan corrig
 
 ### Ordre et parallélisation
 
-Chemin critique : P02/P03 → S101 → S102/S103 et S104/S105 → S106/S107 → S201/S202 → S203/S204 → S207 → S301/S302 → S305.
+Les contrats S101a et la persistance S105a peuvent démarrer immédiatement avec le banc synthétique. Le chemin d'exécution métier reste conditionné par P02/P03 : S101 → S102/S103 et S104/S105 → S106/S107 → S201/S202 → S203/S204 → S207 → S301/S302 → S305. Les baux minimaux existent en S1 ; S2 les étend à l'allocation distribuée et aux scénarios de panne complets.
 
 Après les contrats, le frontend peut avancer avec des événements simulés pendant le travail runtime ; le banc Infra et le spike provider avancent en parallèle. Les migrations, modifications du contrôle hôte et changements de format de workflow sont coordonnés avant intégration. Les checkpoints sont les sorties S1/S2/S3 et le Go/No-Go J3.
 
@@ -299,6 +328,16 @@ Le multitenant avancé, l'éditeur généraliste de workflows, la génération a
 - [x] Identifier Google ARTEMIS à la suite de la précision utilisateur.
 - [x] Installer et vérifier les cinq ensembles de skills demandés.
 - [x] Rédiger `PLAN.MD` avec dépendances, critères de validation et risques.
+- [x] Effectuer la revue structurelle : tranche indépendante du métier, catalogue d'entrée, états agrégés et distinction des baux S1/S2.
+- [x] S101a-01 — Vérifier les schémas de devices déclarés et de workflows immuables.
+- [x] S101a-02 — Vérifier les références, le lot figé et les deux états initiaux.
+- [x] S105a-01 — Vérifier les migrations et la persistance sur PostgreSQL réel.
+- [x] S105a-02 — Vérifier l'activation par configuration et la protection Bearer.
+- [x] S105a-03 — Vérifier l'idempotence concurrente et l'atomicité de création.
+- [x] S105a-04 — Vérifier les lectures paginées et les événements JSON après redémarrage.
+- [x] S105a-05 — Vérifier l'annulation transactionnelle des seuls lots en attente.
+- [x] S105a-06 — Rejouer l'exemple synthétique documenté et les contrôles de non-régression.
+- [x] Définir le premier parcours fonctionnel : [WF01 Chrome/Wikipédia/football](docs/workflows/WF01-chrome-wikipedia-football.md).
 - [ ] Décrire les trois workflows et leurs preuves métier (P02).
 - [ ] Valider les accès, appareils et le protocole de mesure (P03–P04).
 - [ ] Figer les contrats et la référence du fork (P01/S101).
@@ -308,3 +347,15 @@ Le multitenant avancé, l'éditeur généraliste de workflows, la génération a
 - [ ] Atteindre et documenter la sortie S3.
 
 Les cases de réalisation restent ouvertes jusqu'à production des preuves correspondantes. La rédaction de ce plan ne valide ni le fonctionnement Android actuel, ni la capacité à 100 devices, ni les conditions commerciales d'un provider.
+
+### Preuves de la tranche S101a/S105a — 5 novembre 2026
+
+- `.venv/bin/python -m pytest orchestrator-api/tests -q` : **79 tests réussis**. PostgreSQL 17 dans un conteneur éphémère, schéma distinct par test ; aucune connexion aux bases des stacks existantes.
+- Huit soumissions concurrentes avec une clé identique donnent un seul run, une exécution par appareil et un seul événement de création. Un contenu différent pour une clé existante renvoie `409`, avant vérification de nouvelles références.
+- Annulations concurrentes : un seul événement d'annulation. Des fautes injectées à l'écriture des événements démontrent le rollback commun des runs, exécutions et événements.
+- Migrations réapplicables avec contrôle d'empreinte ; redémarrage API sans perte ; métadonnées immuables ; protection Bearer et erreurs de validation vérifiées, y compris bornes SQL et JSON incompatible avec PostgreSQL.
+- Mutation de la comparaison d'idempotence dans une copie temporaire : le test ciblé échoue comme attendu ; le code du workspace conserve son empreinte. Preuve locale : `/tmp/emulytix-idempotency-mutation.json`.
+- Image `emulytix-api:runs-foundation` construite. Huit contrôles HTTP réels réussis sur réseau et PostgreSQL éphémères : migration, démarrage, authentification, catalogue, création/lecture, idempotence après redémarrage, annulation et événements après un second redémarrage. Preuve locale sans secrets : `/tmp/emulytix-container-smoke.json`.
+- Configurations Compose historique et profil `runs`, compilation Python et absence d'erreurs de diff vérifiées. Les avertissements de dépréciation FastAPI/TestClient existants restent visibles ; aucun changement du frontend n'a nécessité de build UI.
+
+Les contrats de cette tranche portent sur des métadonnées. Les arguments d'actions, sélecteurs et assertions devront être validés pour le moteur réel avant exécution. Les paramètres de banc sont persistés en PostgreSQL ; le coffre et l'injection de secrets ne sont pas encore implémentés. Les nouvelles routes sont protégées par un jeton partagé ; les anciens endpoints ne sont pas encore couverts par cette protection.
