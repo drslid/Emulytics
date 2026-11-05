@@ -1,0 +1,15 @@
+.env
+.next
+node_modules
+__pycache__
+.pytest_cache
+*.pyc
+dist
+build
+.venv/
+graphify-out/
+.env.*
+!.env.example
+storage/*
+!storage/.gitkeep
+

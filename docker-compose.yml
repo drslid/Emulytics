@@ -1,0 +1,117 @@
+services:
+  emulytix-all-in-one:
+    profiles: ["all-in-one"]
+    build:
+      context: .
+      dockerfile: ./all-in-one/Dockerfile
+    container_name: emulytix-all-in-one
+    restart: unless-stopped
+    shm_size: "2gb"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_DEFAULT_MODEL: ${OPENAI_DEFAULT_MODEL:-gpt-5.4}
+      OPENAI_ALLOWED_MODELS: ${OPENAI_ALLOWED_MODELS:-gpt-5.4,gpt-5.4-mini,gpt-5.4-nano,gpt-4o-mini}
+      PUBLIC_ANDROID_EMBED_URL: ${PUBLIC_ANDROID_EMBED_URL:-http://localhost:6080/vnc.html?autoconnect=1&resize=scale&show_dot=1}
+      ANDROID_STREAM_PROVIDER: ${ANDROID_STREAM_PROVIDER:-novnc}
+      WEB_UI_PORT: 3000
+      ORCHESTRATOR_API_PORT: 8010
+      AGENT_SERVICE_PORT: 8011
+    devices:
+      - /dev/kvm:/dev/kvm
+    ports:
+      - "${WEB_UI_PORT:-3000}:3000"
+      - "${ORCHESTRATOR_API_PORT:-8010}:8010"
+      - "${AGENT_SERVICE_PORT:-8011}:8011"
+      - "${ANDROID_WEB_VNC_PORT:-6080}:6080"
+      - "5554:5554"
+      - "${ANDROID_ADB_PORT:-5555}:5555"
+    volumes:
+      - ./storage:/storage
+    networks:
+      - emulytix
+
+  orchestrator-api:
+    build:
+      context: ./orchestrator-api
+    container_name: emulytix-orchestrator-api
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8010
+      APP_NAME: Emulytix Orchestrator API
+      AGENT_SERVICE_URL: http://agent-service:8011
+      ANDROID_STREAM_URL: ${ANDROID_STREAM_URL:-http://android-runtime:6080}
+      PUBLIC_ANDROID_EMBED_URL: ${PUBLIC_ANDROID_EMBED_URL:-http://localhost:6080/vnc.html?autoconnect=1&resize=scale&show_dot=1}
+      ANDROID_STREAM_PROVIDER: ${ANDROID_STREAM_PROVIDER:-novnc}
+      ANDROID_RUNTIME_CONTAINER: ${ANDROID_RUNTIME_CONTAINER:-emulytix-android-runtime}
+      ALLOW_DOCKER_CONTROL: "true"
+      EMULYTIX_STORAGE_ROOT: /storage
+    ports:
+      - "${ORCHESTRATOR_API_PORT:-8010}:8010"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./storage:/storage
+    depends_on:
+      - agent-service
+    networks:
+      - emulytix
+
+  agent-service:
+    build:
+      context: ./agent-service
+    container_name: emulytix-agent-service
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8011
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_DEFAULT_MODEL: ${OPENAI_DEFAULT_MODEL:-gpt-5.4}
+      OPENAI_ALLOWED_MODELS: ${OPENAI_ALLOWED_MODELS:-gpt-5.4,gpt-5.4-mini,gpt-5.4-nano,gpt-4o-mini}
+    ports:
+      - "${AGENT_SERVICE_PORT:-8011}:8011"
+    networks:
+      - emulytix
+
+  web-ui:
+    build:
+      context: ./web-ui
+    container_name: emulytix-web-ui
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      NEXT_PUBLIC_ORCHESTRATOR_API_URL: http://localhost:${ORCHESTRATOR_API_PORT:-8010}
+      NEXT_PUBLIC_ANDROID_SCREEN_URL: ${PUBLIC_ANDROID_EMBED_URL:-http://localhost:6080/vnc.html?autoconnect=1&resize=scale&show_dot=1}
+    ports:
+      - "${WEB_UI_PORT:-3000}:3000"
+    depends_on:
+      - orchestrator-api
+    networks:
+      - emulytix
+
+  android-runtime:
+    profiles: ["android"]
+    build:
+      context: ./android-runtime
+    container_name: emulytix-android-runtime
+    restart: unless-stopped
+    shm_size: "2gb"
+    environment:
+      WEB_VNC: "true"
+      EMULATOR_DEVICE: "Samsung Galaxy S10"
+    devices:
+      - /dev/kvm:/dev/kvm
+    ports:
+      - "${ANDROID_WEB_VNC_PORT:-6080}:6080"
+      - "5554:5554"
+      - "${ANDROID_ADB_PORT:-5555}:5555"
+    volumes:
+      - android_data:/home/androidusr
+    networks:
+      - emulytix
+
+networks:
+  emulytix:
+    name: emulytix-network
+
+volumes:
+  android_data:

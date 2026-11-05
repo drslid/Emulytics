@@ -1,0 +1,9 @@
+.git
+.env
+.next
+node_modules
+storage/apks
+storage/screenshots
+__pycache__
+*.pyc
+
