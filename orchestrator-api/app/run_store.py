@@ -53,6 +53,10 @@ class RunStore:
 
     def register_workflow(self, workflow: WorkflowRegistration) -> tuple[dict, bool]:
         definition = workflow.model_dump(mode="json", by_alias=True)
+        for step in definition["steps"]:
+            # Preserve existing immutable hashes when upgrading the optional step envelope.
+            if step.get("when") is None:
+                step.pop("when", None)
         content_hash = fingerprint(definition)
         with self.connect() as connection:
             inserted = connection.execute(

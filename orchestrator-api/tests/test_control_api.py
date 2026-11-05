@@ -39,6 +39,7 @@ def submit_concurrently(app, path, payloads):
     ("GET", "/runs/ffffffff-ffff-4fff-bfff-ffffffffffff"),
     ("POST", "/runs/ffffffff-ffff-4fff-bfff-ffffffffffff/cancel"),
     ("GET", "/runs/ffffffff-ffff-4fff-bfff-ffffffffffff/events"),
+    ("GET", "/executions/ffffffff-ffff-4fff-bfff-ffffffffffff/actions"),
 ])
 def test_control_routes_require_authentication(client, method, path):
     response = client.request(method, path, json={} if method == "POST" else None)

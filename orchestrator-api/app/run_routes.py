@@ -14,10 +14,11 @@ from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .run_models import (
-    DeviceRegistration, DeviceView, EventPage, Identifier, Page, RunDetail, RunSubmission,
+    ActionView, DeviceRegistration, DeviceView, EventPage, Identifier, Page, RunDetail, RunSubmission,
     RunSummary, WorkflowRegistration, WorkflowView,
 )
 from .run_store import RunStore
+from .execution_store import ExecutionStore
 
 
 logger = logging.getLogger(__name__)
@@ -104,11 +105,18 @@ def get_run(run_id: UUID, store: Store) -> dict:
     return store.get_run(run_id)
 
 
-@router.post("/runs/{run_id}/cancel", response_model=RunDetail)
-def cancel_run(run_id: UUID, store: Store) -> dict:
-    return store.cancel_run(run_id)
+@router.post("/runs/{run_id}/cancel", response_model=RunDetail, responses={202: {"model": RunDetail}})
+def cancel_run(run_id: UUID, store: Store, response: Response) -> dict:
+    record = ExecutionStore(store.dsn).cancel_run(run_id)
+    response.status_code = 202 if record["status"] == "running" else 200
+    return record
 
 
 @router.get("/runs/{run_id}/events", response_model=EventPage)
 def list_events(run_id: UUID, store: Store, after: Offset = 0, limit: Limit = 100) -> dict:
     return {"items": store.list_events(run_id, after, limit), "limit": limit, "after": after}
+
+
+@router.get("/executions/{execution_id}/actions", response_model=Page[ActionView])
+def list_actions(execution_id: UUID, store: Store, limit: Limit = 100, offset: Offset = 0) -> dict:
+    return {"items": ExecutionStore(store.dsn).list_actions(execution_id, limit, offset), "limit": limit, "offset": offset}

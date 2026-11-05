@@ -47,7 +47,7 @@ class DeviceRegistration(Contract):
 
 class WorkflowStep(Contract):
     id: Identifier
-    action: Literal["press_key", "open_app", "tap", "swipe", "type_text", "screenshot"]
+    action: Literal["press_key", "open_app", "tap", "swipe", "type_text", "screenshot", "ensure_package", "open_url"]
     args: dict[str, JsonValue] = Field(default_factory=dict, max_length=32)
     selectors: list[dict[str, JsonValue]] = Field(default_factory=list, max_length=8)
     timeout_ms: int = Field(default=10_000, ge=1, le=300_000)
@@ -56,6 +56,7 @@ class WorkflowStep(Contract):
     recovery_budget: int = Field(default=0, ge=0, le=5)
     recovery_actions: list[str] = Field(default_factory=list, max_length=10)
     verify_after_crash: dict[str, JsonValue] | None = None
+    when: dict[str, JsonValue] | None = None
 
     @model_validator(mode="after")
     def require_effect_verification(self) -> Self:
@@ -118,6 +119,9 @@ class ExecutionView(BaseModel):
     attempt: int
     created_at: datetime
     updated_at: datetime
+    lease_epoch: int | None = None
+    error: str | None = None
+    evidence: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class RunSummary(BaseModel):
@@ -160,3 +164,16 @@ class EventPage(BaseModel):
     items: list[RunEvent]
     limit: int
     after: int
+
+
+class ActionView(BaseModel):
+    id: UUID
+    execution_id: UUID
+    step_id: str
+    lease_epoch: int
+    action: dict[str, JsonValue]
+    non_idempotent: bool
+    status: Literal["intent", "done", "failed", "cancelled", "uncertain"]
+    evidence: dict[str, JsonValue]
+    started_at: datetime
+    finished_at: datetime | None

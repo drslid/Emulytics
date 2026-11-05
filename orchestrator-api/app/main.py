@@ -278,6 +278,7 @@ def require_runtime_container() -> Any:
 
 
 def runtime_exec(command: str) -> str:
+    require_legacy_control()
     if EMULYTIX_RUNTIME_MODE == "local":
         output = local_exec(command)
         assert isinstance(output, str)
@@ -292,6 +293,7 @@ def runtime_exec(command: str) -> str:
 
 
 def runtime_exec_binary(command: str) -> bytes:
+    require_legacy_control()
     if EMULYTIX_RUNTIME_MODE == "local":
         output = local_exec(command, binary=True)
         assert isinstance(output, bytes)
@@ -306,6 +308,11 @@ def runtime_exec_binary(command: str) -> bytes:
             detail=output.decode("utf-8", errors="ignore") or "Android runtime binary command failed.",
         )
     return output
+
+
+def require_legacy_control() -> None:
+    if os.getenv("EMULYTIX_LEGACY_CONTROL_ENABLED", "true").lower() not in {"true", "1", "yes"}:
+        raise HTTPException(409, "Legacy Android control is disabled while managed workers are enabled")
 
 
 def adb(command: str) -> str:
