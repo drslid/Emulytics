@@ -102,9 +102,9 @@ Sans `KVM`, le conteneur démarre quand même les services UI/API/agent mais l'A
 
 La première tranche du [plan](PLAN.MD) ajoute une API PostgreSQL pour déclarer des appareils, enregistrer des versions immuables de workflows, créer des runs idempotents, consulter leurs exécutions et événements, et annuler les runs encore en attente.
 
-Les appareils déclarés ne sont pas considérés comme connectés. Les runs restent `queued` jusqu'à l'arrivée du scheduler et des workers : cette tranche ne déclenche aucune action Android ni aucun appel LLM. Les événements se consultent en JSON paginé ; le flux SSE sera ajouté ensuite.
+Les appareils déclarés ne sont pas considérés comme connectés. Les runs restent `queued` tant qu'aucun worker du bon hôte n'est lancé. Le worker local décrit ci-dessous peut maintenant les exécuter sur un appareil ciblé. Les événements se consultent en JSON paginé ; le flux SSE sera ajouté ensuite.
 
-Le premier parcours métier demandé est décrit dans [WF01 : Chrome → Wikipédia → recherche football](docs/workflows/WF01-chrome-wikipedia-football.md). Son provisionnement et ses sélecteurs doivent être validés sur l'émulateur avant de le brancher au moteur d'exécution. Pour l'instant, utiliser des métadonnées de banc sans secrets : les paramètres sont stockés dans PostgreSQL, et le coffre n'est pas encore intégré.
+Le premier parcours métier demandé est décrit dans [WF01 : Chrome → Wikipédia → recherche football](docs/workflows/WF01-chrome-wikipedia-football.md), avec une [version exécutable](workflows/chrome-wikipedia-football.v1.json). Pour l'instant, utiliser des métadonnées de banc sans secrets : les paramètres sont stockés dans PostgreSQL, et le coffre n'est pas encore intégré.
 
 ### Activer PostgreSQL et appliquer les migrations
 
@@ -139,8 +139,9 @@ Chaque requête de cette tranche utilise `Authorization: Bearer $EMULYTIX_CONTRO
 | `GET /workflows/{workflow_id}/versions/{version}` | Lire la version utilisée par les runs |
 | `POST /runs`, `GET /runs` | Créer un run et lister les runs persistants |
 | `GET /runs/{run_id}` | Lire un run et ses exécutions |
-| `POST /runs/{run_id}/cancel` | Annuler un run encore `queued` |
+| `POST /runs/{run_id}/cancel` | Annuler un run en attente, ou demander l'arrêt au worker actif |
 | `GET /runs/{run_id}/events` | Lire les événements durables, en JSON |
+| `GET /executions/{execution_id}/actions` | Consulter les intentions et résultats des actions Android |
 
 Les listes acceptent `limit` (1 à 100, défaut 100) et `offset` (défaut 0). Les événements acceptent `after` (identifiant d'événement, défaut 0) et `limit`, et répondent avec `{items, limit, after}`. Les contrats détaillés figurent dans Swagger : `http://localhost:8010/docs`.
 
@@ -198,4 +199,73 @@ docker pull postgres:17-alpine
 
 Les tests PostgreSQL utilisent Docker et une base éphémère avec des schémas isolés ; aucune URL de base applicative n'est nécessaire. Les cas couverts et les limites restantes sont suivis dans `PLAN.MD`.
 
-Un [rapport Graphify local](graphify-out/GRAPH_REPORT.md) et un [graphe HTML](graphify-out/graph.html) décrivent les dépendances du prototype avant cette implémentation. Ces artefacts locaux sont un instantané de navigation et doivent être rafraîchis après les changements de code.
+Un [rapport Graphify local](graphify-out/GRAPH_REPORT.md) et un [graphe HTML](graphify-out/graph.html) décrivent les dépendances des sources analysées, avec leur portée et leurs limites. Ces artefacts locaux sont rafraîchis après les changements de code.
+
+## Worker local et parcours Chrome/Wikipédia
+
+Le worker sélectionne les exécutions de son `host_id`, obtient un bail PostgreSQL avec epoch et garde un verrou local par appareil. Il valide toutes les étapes avant de commencer, cible chaque commande par serial et journalise les intentions avant les actions à effet. Les observations sont soumises aux mêmes contrôles de bail et conservées dans les preuves des étapes.
+
+Un watchdog indépendant arrête le client ADB à l'échéance locale même si une requête PostgreSQL bloque. Le lanceur Linux lie aussi la vie du client ADB à celle du worker. Un bail expiré occupé ou une action dont l'effet est incertain entraîne `needs_review` et la quarantaine du device, sans reprise automatique.
+
+Cette tranche utilise un contrôleur ADB déterministe. L'adaptation des composants ARTEMIS, la récupération LLM et la revue opérateur restent au plan. Le profil courant autorise les actions prévues pour Chrome/Wikipédia ; il n'expose pas de shell libre.
+
+### Démarrer le banc observé
+
+Le script de banc utilise une image **déjà présente localement**, `emulytix/android-runtime-check:0.8.1`, contenant Android 10/x86_64 et Chrome 74. Il ne la télécharge pas et ne représente pas la validation Android 14 prévue au plan. Il faut Docker et `/dev/kvm` :
+
+```bash
+./android-runtime/scripts/start-bench.sh
+```
+
+Un nouvel AVD est créé dans le conteneur `emulytix-wf01-android`, sur le réseau privé `emulytix-wf01-bench`. Aucun port Android/ADB n'est publié. Le script refuse de remplacer un conteneur existant. Les noms et l'image sont configurables par `EMULYTIX_BENCH_CONTAINER`, `EMULYTIX_BENCH_NETWORK` et `EMULYTIX_BENCH_IMAGE`.
+
+Le package `com.android.chrome` est déjà installé dans ce banc. Le workflow vérifie sa présence avant de naviguer. Pour un appareil sans Chrome, le driver attend un APK approuvé sous `storage/runtime-apks/` avec une empreinte SHA256 ; la signature et l'ABI doivent être contrôlées lors de cette approbation. Les installations par Play Store et APK fractionnés ne sont pas automatisées dans cette tranche.
+
+### Relier API, PostgreSQL et worker
+
+Après avoir défini les secrets et `EMULYTIX_DATABASE_URL` comme indiqué plus haut :
+
+```bash
+export EMULYTIX_HOST_ID=bench-host
+export ADB_SERVER_SOCKET=tcp:emulytix-wf01-android:5037
+
+docker compose -f docker-compose.yml -f docker-compose.runtime.yml \
+  --profile runs --profile worker up -d postgres
+docker compose -f docker-compose.yml -f docker-compose.runtime.yml \
+  --profile runs --profile worker run --build --rm migrate
+docker compose -f docker-compose.yml -f docker-compose.runtime.yml \
+  --profile runs --profile worker up -d --build orchestrator-api worker
+```
+
+L'override runtime désactive le contrôle Android historique de l'API pour éviter son utilisation parallèle avec le worker. Le banc n'expose pas de contrôle interactif noVNC. Les workers du même hôte doivent partager le volume `worker_locks`, le même identifiant d'hôte et le même serveur ADB. Le worker ne monte ni socket Docker ni `/dev/kvm`.
+
+Déclarer l'appareil et publier le workflow, puis créer le run :
+
+```bash
+curl --fail-with-body http://localhost:8010/devices \
+  -H "Authorization: Bearer ${EMULYTIX_CONTROL_TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d '{"device_id":"wf01-emulator","host_id":"bench-host","serial":"emulator-5554","kind":"emulator"}'
+curl --fail-with-body http://localhost:8010/workflows \
+  -H "Authorization: Bearer ${EMULYTIX_CONTROL_TOKEN}" \
+  -H 'Content-Type: application/json' \
+  --data-binary @workflows/chrome-wikipedia-football.v1.json
+curl --fail-with-body http://localhost:8010/runs \
+  -H "Authorization: Bearer ${EMULYTIX_CONTROL_TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d '{"workflow_id":"chrome-wikipedia-football","workflow_version":1,"device_ids":["wf01-emulator"],"max_concurrency":1,"idempotency_key":"wf01-001"}'
+```
+
+Le résultat de `GET /runs/{run_id}` contient l'état et les preuves des étapes dans `executions[].evidence.steps`. Les captures et observations XML sont écrites sous `storage/runs/{execution_id}/{lease_epoch}/`. Utiliser une nouvelle clé d'idempotence pour demander une nouvelle exécution.
+
+L'annulation d'un run actif retourne `202` avec `cancel_requested=true` tant que le worker n'a pas confirmé la fin. Une action incertaine peut aboutir à `needs_review`. L'annulation d'un lot encore en attente reste immédiate (`200`). Les exécutions sans propriétaire confirmé ne sont pas présentées comme neutralisées.
+
+Pour arrêter le banc créé par le script après arrêt du worker :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.runtime.yml \
+  --profile runs --profile worker stop worker
+docker rm --force --volumes emulytix-wf01-android
+```
+
+Les preuves locales de validation sont conservées dans `storage/wf01-worker/`. Le stockage local, l'absence d'interface de résolution de quarantaine et le banc Android 10 restent des limites de cette tranche ; les jalons S1/S2/S3 restent ouverts.

@@ -2,7 +2,7 @@
 
 Demande utilisateur du 5 novembre 2026 : depuis l'émulateur, installer Chrome, aller sur Wikipédia et faire une recherche sur le football.
 
-Statut : parcours fonctionnel défini ; exécution Android et sélecteurs à valider sur le banc. La tranche S101a/S105a livre le catalogue et les runs persistants. Elle n'exécute pas encore ce workflow.
+Statut : version exécutable livrée et deux exécutions réussies via l'API et le worker sur le banc Android 10. L'installation d'un APK neuf et la cible Android 14 restent à valider.
 
 ## Résultat attendu
 
@@ -32,7 +32,7 @@ La recherche française [Spécial:Recherche?search=football](https://fr.wikipedi
 | 07 | Soumettre la recherche | Navigation ou résultats Wikipédia observés | Si interruption, examiner URL et contenu avant une nouvelle soumission |
 | 08 | Vérifier le résultat et conserver la preuve | Chrome au premier plan, domaine Wikipédia, résultat ou article Football ; capture et observation UI horodatées | Si preuve insuffisante, échec explicite ou revue ; ne pas déclarer un succès sur le seul retour ADB |
 
-Les sélecteurs UIAutomator, textes et assertions d'écran précis doivent être relevés sur l'émulateur. Aucun resource-id ni coordonnée n'est considéré comme acquis. La préparation fonctionnelle ne remplace pas cette observation.
+Les sélecteurs ont été relevés sur le banc : `searchIcon` pour la recherche du site, `android.widget.EditText` avec `focused=true` pour la saisie, puis `firstHeading` avec `text=Football`. Les fixtures UI sont conservées dans `orchestrator-api/tests/fixtures/wf01/`. Les coordonnées des taps sont calculées depuis les bounds de l'élément identifié, sans emplacement fixe.
 
 L'installation constitue une modification persistante de l'appareil ; son résultat doit être réconcilié après interruption. La navigation et la recherche sont rejouables sous les conditions du tableau. Aucun effacement de données Chrome ni désinstallation n'est requis pour répéter le parcours.
 
@@ -44,10 +44,14 @@ L'installation constitue une modification persistante de l'appareil ; son résul
 - Erreurs explicites si l'APK est incompatible, si l'émulateur est offline, si le réseau échoue ou si un écran non reconnu apparaît.
 - Passage de toutes les actions par le contrôle exclusif du device avant branchement au worker ; mêmes garanties pour ADB, UIAutomator et récupération.
 
-## État du banc au cadrage
+## Banc et validation
 
-L'hôte expose `/dev/kvm`, mais aucun émulateur connecté n'a été constaté pendant cette intervention. Le serveur ADB existant interrogé dans un autre projet retourne un parc vide. Aucun appareil n'a été commandé.
+L'hôte expose `/dev/kvm`. Un nouveau banc isolé a été créé avec le script `android-runtime/scripts/start-bench.sh` : Android 10/x86_64, écran 320 × 640 et Chrome 74.0.3729.185 préinstallé. Aucun service d'un autre projet n'a été modifié.
 
-Une image locale de vérification Android 10/x86_64 a été identifiée ; elle ne démarre pas automatiquement un émulateur et ne constitue pas une validation du runtime Android 14 de ce dépôt. Le banc retenu, la présence de Chrome et les sélecteurs restent à vérifier lors de la tranche runtime.
+La [version exécutable](../../workflows/chrome-wikipedia-football.v1.json) comporte 11 étapes. Les conditions facultatives gèrent les écrans de bienvenue et la proposition de traduction observés sur ce banc. La prévalidation de toutes les étapes précède les commandes Android ; chaque étape conserve assertion, capture et observation XML.
 
-P02 est partiellement renseigné : WF01 est défini fonctionnellement ; les deux autres workflows restent à préciser. Les actions de provisionnement APK/navigation et les assertions seront intégrées au format exécutable après observation du banc, avant publication de cette version comme workflow métier validé.
+Deux runs complets ont réussi par l'API et le worker, avec epochs 1 et 2 : 11 étapes validées, 8 actions à effet confirmées et 19 événements par exécution, sans appel LLM. Le terme `football` a été saisi dans l'interface, puis l'URL et le titre Football ont été vérifiés. Les preuves se trouvent dans [validation.json](../../storage/wf01-worker/validation.json), avec [saisie](../../storage/wf01-worker/run-1-query-entered.png) et [résultat](../../storage/wf01-worker/run-1-result.png).
+
+Chrome était présent et déjà initialisé lors de ces deux runs du worker. Le cas « déjà installé » et la répétition sont démontrés ; l'installation d'un nouvel APK, les branches de premier lancement par le worker sur un profil vierge, Android 14 et le device physique restent à tester. Le banc temporaire est arrêté après validation et peut être recréé par le script.
+
+P02 reste partiel : WF01 est défini et vérifié sur ce banc ; les deux autres workflows doivent être précisés. Le worker local n'intègre pas encore le fork ARTEMIS ni la récupération LLM.

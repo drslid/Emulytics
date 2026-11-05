@@ -1,7 +1,7 @@
 # Emulytix × Google ARTEMIS — Plan de réalisation
 
 Date : 5 novembre 2026.  
-Statut : validation structurelle effectuée ; tranche S101a/S105a implémentée et vérifiée. La réalisation du runtime et les jalons S1/S2/S3 restent ouverts.
+Statut : catalogue et runs persistants livrés ; worker local et WF01 vérifiés sur un émulateur. Les jalons complets S1/S2/S3 restent ouverts.
 Référence prioritaire : [study_v2.md](study_v2.md), dont le contenu correspond à la **v3 consolidée**.  
 Périmètre de cette intervention : validation du plan avec les skills installées, correction du séquencement et début d'implémentation des contrats et de la persistance.
 
@@ -9,7 +9,7 @@ Périmètre de cette intervention : validation du plan avec les skills installé
 
 Faire évoluer Emulytix vers une plateforme permettant à un opérateur de sélectionner des appareils Android physiques ou émulés, lancer un workflow sur un lot, suivre chaque exécution, arrêter le traitement et reprendre les échecs sans répéter un effet métier incertain.
 
-La livraison cible couvre **trois workflows courts et déterministes**, chacun comportant moins de quinze étapes. Le chemin nominal utilise des scripts et des assertions. La vision LLM sert à récupérer une situation inattendue, avec un budget limité par étape et par exécution. Le résultat métier doit être vérifié. La première tranche technique, décrite en section 8, prépare ces exécutions sans commander d'appareil.
+La livraison cible couvre **trois workflows courts et déterministes**, chacun comportant moins de quinze étapes. Le chemin nominal utilise des scripts et des assertions. La vision LLM servira à récupérer une situation inattendue, avec un budget limité par étape et par exécution. Le catalogue et les runs persistants sont livrés ; une deuxième tranche exécute maintenant WF01 sur un émulateur avec vérification du résultat métier.
 
 La trajectoire est progressive : un physique et un émulateur, puis 10–20 exécutions simultanées sur plusieurs hôtes, enfin des essais à 25, 50 et 100 appareils actifs. Le calendrier indicatif reprend trois sprints de deux semaines avec deux développeurs Backend/Runtime, un développeur Frontend et un référent Infra/Exploitation. Il dépend des accès, du matériel et des parcours disponibles.
 
@@ -30,7 +30,7 @@ Ce tableau décrit l'état de référence avant la première tranche. Les valida
 | Fichiers | Stockage local des APK et captures | Stockage objet, contrôle d'accès, rétention, chiffrement et masquage |
 | Déploiement | Compose et image all-in-one | Déploiement multi-hôtes et capacité mesurée |
 
-À l'état de référence, le dossier ne contenait ni dépôt Git ni contrats de runs. Le dépôt Git et la branche `feature/persistent-runs` sont maintenant établis, avec le catalogue, les migrations et les runs de la première tranche. L'intégration ARTEMIS, le scheduler, les baux, le watchdog et les SSE restent à réaliser.
+À l'état de référence, le dossier ne contenait ni dépôt Git ni contrats de runs. Le dépôt Git et la branche `feature/persistent-runs` sont maintenant établis. Le catalogue, les migrations, les runs et le worker local disposent de tests. L'intégration ARTEMIS, l'allocation multi-hôtes complète, la récupération LLM et les SSE restent à réaliser.
 
 Points documentaires à corriger pendant la réalisation : anciens liens `/home/slid/Emulytix`, indications contradictoires sur KVM et sur l'état de l'all-in-one. Le fonctionnement réel doit être mesuré sur l'hôte retenu.
 
@@ -50,7 +50,7 @@ Les références partagées d'Addy Osmani sont conservées dans `~/.codex/skill-
 
 Manifeste d'installation sur cette machine : `/home/slid/.codex/skill-support/emulytix-install-2026-11-05.json`. Les skills sont disponibles dans cette session. La validation applique la revue adversariale et la décomposition d'Addy Osmani, le cadrage et les états de Designer Skills, ainsi que Humanizer pour la rédaction. `PLAN.MD` regroupe le plan et sa liste de tâches, conformément au nom demandé.
 
-Graphify a produit un instantané AST local du prototype : 13 fichiers, 273 nœuds et 541 arêtes, sans appel LLM externe. Les artefacts `graphify-out/` sont exclus de Git. Les limites et exclusions figurent dans leur rapport ; cet instantané précède les nouvelles routes. La revue du plan et du code a été effectuée par des agents distincts. L'utilisateur a choisi de conserver cette revue, sans ajouter de revue par un autre modèle.
+Graphify conserve l'instantané AST initial du prototype et un graphe actualisé du runtime sous `graphify-out/`, exclu de Git. Le rapport précise les sources, empreintes et limites : relations dynamiques non prouvées et migrations SQL non modélisées par le parser installé. Aucun appel LLM externe n'a été utilisé. La revue du plan et du code a été effectuée par des agents distincts ; l'utilisateur a choisi de conserver cette revue sans autre modèle.
 
 ## 4. Décisions et prérequis
 
@@ -184,7 +184,9 @@ stateDiagram-v2
 
 Ce diagramme fixe le parcours principal. La table de transitions devra couvrir chaque timeout, perte de bail, perte d'hôte, annulation et erreur. `cancel_requested` est une intention durable distincte de l'état final. Une action incertaine passe par `verifying_state` puis éventuellement `needs_review`, même si un arrêt a été demandé. Une relance après revue crée une nouvelle tentative.
 
-Pour S101a/S105a, seules les transitions `queued` → `cancelled` existent : le run et ses exécutions sont créés `queued`, puis l'annulation de toutes les exécutions en attente rend le run `cancelled` dans la même transaction. Répéter cette annulation conserve le résultat. Une exécution déjà sortie de `queued` doit empêcher cette opération initiale ; la neutralisation d'une exécution active sera ajoutée avec S106. Le statut `queued` signifie que la demande est enregistrée et en attente d'un moteur, sans annoncer de démarrage automatique.
+S101a/S105a a livré la transition `queued` → `cancelled`. La tranche locale ajoute `queued` → `running` → `succeeded`/`failed`/`cancelled`/`needs_review`. Un run actif reçoit une intention durable `cancel_requested` et une réponse `202` ; le worker confirme ensuite sa fin. Un propriétaire actif non confirmé interdit toute annonce de neutralisation. Un bail expiré ou une intention à effet incertaine conduit à la quarantaine, sans réallocation automatique.
+
+L'état agrégé reste `running` pendant les exécutions actives ou le traitement d'un lot partiellement terminé ; une fois les exécutions terminées, `needs_review` est prioritaire, puis `failed`, `cancelled` et `succeeded`. Le statut `queued` reste une demande enregistrée ; seul un worker du bon hôte la prend en charge.
 
 ## 7. Garanties de commande et de reprise
 
@@ -219,6 +221,26 @@ S101a stabilise l'enveloppe des contrats et les deux états initiaux ; S105a ré
 | S105a-06 | Documentation d'activation et exemple synthétique complet | Parcours déclaration → publication → création → lecture → annulation reproductible sans Android ni provider |
 
 Checkpoint atteint : 79 tests sur PostgreSQL réel, compatibilité des sessions et d'OpenAPI vérifiée, puis parcours HTTP exécuté dans l'image Docker avec persistance après deux redémarrages API. Les preuves et limites figurent dans le suivi ci-dessous. Cela ne valide pas l'exécution Android de WF01.
+
+### Deuxième tranche — S105b/S106a/S107a, worker local et WF01
+
+Objectif : transformer un run en attente en exécution Android observable sur un hôte. Le moteur scripté établit le contrat du contrôleur ; l'adaptateur ARTEMIS devra satisfaire les mêmes gardes et tests lors de S104. Le profil actuel utilise ADB et UIAutomator sans inférence.
+
+| Tâche | Livrable | Preuve |
+|---|---|---|
+| S105b-01 | Migration `002_execution_runtime.sql`, baux, epochs et journal d'actions | Tests PostgreSQL réels, rollback et refus des propriétaires obsolètes |
+| S106a-01 | Worker local, verrou partagé par device et renouvellement | Claims concurrents, limite par run et epochs croissants vérifiés |
+| S106a-02 | Watchdog monotone indépendant et mort du client ADB avec son parent | Tests de blocage de poll, interruption, timeout et mort réelle du parent |
+| S106a-03 | Annulation active durable, quarantaine des états incertains et journal consultable | Routes authentifiées, `202` avant confirmation, refus de reprise d'un bail occupé expiré |
+| S107a-01 | Driver validant toutes les étapes avant action, sélecteurs et assertions réels | Tests de prévalidation, ambiguïté, domaine autorisé et échec de transport |
+| S107a-02 | WF01 version 1, 11 étapes, captures et observations corrélées | Deux runs `succeeded`, epochs 1 puis 2, recherche saisie dans Wikipédia et résultat vérifié |
+| S107a-03 | Script de banc et profil Compose runtime | Démarrage d'un AVD neuf reproduit ; image worker et parcours API → émulateur testés |
+
+Le journal d'intention précède les commandes à effet. Les commandes d'observation sont contrôlées par le même bail ; leurs résultats utiles figurent dans les preuves des étapes. Une observation échouée n'est pas présentée comme un effet métier incertain. Une sortie ADB non nulle après une commande à effet reste incertaine.
+
+La vérification de bail est refaite en SQL au point de mutation et avant validation de la transaction. Les tests couvrent une expiration entre la prise de verrou et l'écriture, ainsi que des événements retardés ; un renouvellement tardif ne ressuscite pas le bail. Les runs saturés sont filtrés avant la sélection des candidats.
+
+Périmètre démontré : un émulateur Android 10/x86_64 avec Chrome 74 préinstallé, puis répétition sur le même device. L'installation d'un APK neuf, Android 14, un device physique, la récupération LLM, le coffre, la résolution opérateur des quarantaines et l'exploitation distribuée restent à valider. Les conditions de premier lancement ont été relevées lors de l'exploration ; les deux runs finaux du worker utilisaient Chrome déjà initialisé.
 
 ### Préparation — avant les essais J1
 
@@ -281,7 +303,7 @@ Les contrats S101a et la persistance S105a peuvent démarrer immédiatement avec
 
 Après les contrats, le frontend peut avancer avec des événements simulés pendant le travail runtime ; le banc Infra et le spike provider avancent en parallèle. Les migrations, modifications du contrôle hôte et changements de format de workflow sont coordonnés avant intégration. Les checkpoints sont les sorties S1/S2/S3 et le Go/No-Go J3.
 
-Zones probables de modification : `orchestrator-api/`, `agent-service/`, `web-ui/`, `docker-compose.yml`, `android-runtime/` et `all-in-one/`. Créer les modules runtime, host-agent, migrations et tests dans la structure retenue en S101 ; leurs chemins ne sont pas encore des composants existants.
+Le runtime local est implémenté dans `orchestrator-api/app/worker.py`, `execution_store.py`, `android_driver.py` et `adb_child.py`, avec migrations versionnées. Le profil `docker-compose.runtime.yml` active le worker et désactive le contrôle Android historique de l'API. Les composants multi-hôtes, le provider et l'interface opérateur restent à intégrer dans les répertoires existants.
 
 ## 9. Validation et indicateurs
 
@@ -338,6 +360,11 @@ Le multitenant avancé, l'éditeur généraliste de workflows, la génération a
 - [x] S105a-05 — Vérifier l'annulation transactionnelle des seuls lots en attente.
 - [x] S105a-06 — Rejouer l'exemple synthétique documenté et les contrôles de non-régression.
 - [x] Définir le premier parcours fonctionnel : [WF01 Chrome/Wikipédia/football](docs/workflows/WF01-chrome-wikipedia-football.md).
+- [x] S105b-01 — Ajouter les baux avec epoch et le journal d'actions durables.
+- [x] S106a-01/02 — Vérifier le worker local, les gardes, les deadlines et la neutralisation du client ADB.
+- [x] S106a-03 — Vérifier l'annulation active et la quarantaine sans reprise automatique.
+- [x] S107a-01/02 — Exécuter WF01 deux fois via l'API et le worker, avec preuve de saisie et de résultat.
+- [x] S107a-03 — Vérifier le script de banc et le packaging Docker du worker.
 - [ ] Décrire les trois workflows et leurs preuves métier (P02).
 - [ ] Valider les accès, appareils et le protocole de mesure (P03–P04).
 - [ ] Figer les contrats et la référence du fork (P01/S101).
@@ -359,3 +386,15 @@ Les cases de réalisation restent ouvertes jusqu'à production des preuves corre
 - Configurations Compose historique et profil `runs`, compilation Python et absence d'erreurs de diff vérifiées. Les avertissements de dépréciation FastAPI/TestClient existants restent visibles ; aucun changement du frontend n'a nécessité de build UI.
 
 Les contrats de cette tranche portent sur des métadonnées. Les arguments d'actions, sélecteurs et assertions devront être validés pour le moteur réel avant exécution. Les paramètres de banc sont persistés en PostgreSQL ; le coffre et l'injection de secrets ne sont pas encore implémentés. Les nouvelles routes sont protégées par un jeton partagé ; les anciens endpoints ne sont pas encore couverts par cette protection.
+
+### Preuves de la tranche locale — 5 novembre 2026
+
+- Suite finale : **153 tests réussis** avec `.venv/bin/python -m pytest orchestrator-api/tests -q`. Les tests utilisent PostgreSQL éphémère et de faux exécutables ADB pour les interruptions ; les fixtures UI proviennent du banc réel.
+- Parcours complet exécuté avec l'image `emulytix-worker:wf01`, empreinte `sha256:2cc1da858d888c1ff235d52371b031806a6f79f51a67ba98dc00fdd1304ba00f`.
+- Run `295d6d4d-8627-40bc-9c8e-c02e8d550b12`, epoch 1, puis `e4d9106b-be6e-4af3-991f-d18e6449732a`, epoch 2 : **11 étapes, 8 actions à effet confirmées et 19 événements contigus par run**, résultat `succeeded`.
+- Le terme `football` est observé dans le champ de recherche de Wikipédia avant soumission. Le résultat affiche `firstHeading=Football`, Chrome au premier plan et `https://fr.wikipedia.org/wiki/Football` dans la barre d'adresse. Le scénario n'ouvre pas directement l'article final.
+- Zéro intention en suspens, bail libéré, device non quarantiné. Replay des événements par pages de cinq, curseur final vide. Aucune réinstallation de Chrome présent et zéro appel LLM dans ce profil dépourvu de provider.
+- [Rapport local](storage/wf01-worker/validation.json), [capture de saisie](storage/wf01-worker/run-1-query-entered.png), [capture du résultat](storage/wf01-worker/run-1-result.png). Les artefacts sont conservés localement, hors Git.
+- Configuration Compose historique/runtime, compilation Python, syntaxe du script de banc et diff vérifiés. Le banc de validation est éphémère et les services déjà présents sur l'hôte n'ont pas été modifiés.
+
+Limites : les paramètres ne sont pas encore interpolés ; WF01 contient sa recherche explicitement. Le profil ADB actuel accepte les commandes de navigation prévues et du texte ASCII. Les APK doivent être approuvés hors du worker avec signature/ABI vérifiées ; le driver contrôle le répertoire autorisé et SHA256. L'interface opérateur, les SSE, le fork ARTEMIS et le provider de récupération restent des tâches ouvertes ; cette livraison ne valide pas la sortie S1 complète.
