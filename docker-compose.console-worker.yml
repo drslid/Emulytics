@@ -1,0 +1,33 @@
+services:
+  console-worker:
+    profiles: ["worker"]
+    build:
+      context: ./orchestrator-api
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      EMULYTIX_DATABASE_URL: ${EMULYTIX_DATABASE_URL:?Start the console first}
+      EMULYTIX_HOST_ID: ${EMULYTIX_HOST_ID:-bench-host}
+      EMULYTIX_LEASE_TTL: ${EMULYTIX_LEASE_TTL:-30}
+      EMULYTIX_LOCK_ROOT: /host-locks
+      EMULYTIX_ARTIFACT_ROOT: /storage/runs
+      EMULYTIX_APK_ROOT: /apks
+      ADB_SERVER_SOCKET: ${ADB_SERVER_SOCKET:-tcp:emulytix-wf01-android:5037}
+    volumes:
+      - console_worker_locks:/host-locks
+      - ./storage/runs:/storage/runs
+      - ./storage/runtime-apks:/apks:ro
+    depends_on:
+      console-postgres:
+        condition: service_healthy
+    networks:
+      - default
+      - android_bench
+
+networks:
+  android_bench:
+    external: true
+    name: ${EMULYTIX_BENCH_NETWORK:-emulytix-wf01-bench}
+
+volumes:
+  console_worker_locks:

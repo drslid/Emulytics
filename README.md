@@ -1,122 +1,98 @@
 # Emulytix
 
-Emulytix est un squelette de plateforme pour piloter un runtime Android via API et interface conversationnelle.
+Console de contrôle d’un parc Android : téléphones, automatisations versionnées, exécutions et preuves. Interface claire inspirée des outils Google, avec connexion par mot de passe et second facteur obligatoire.
 
-## Contenu
-
-- `web-ui`: interface de type ChatGPT avec panneau Android
-- `orchestrator-api`: API FastAPI exposée avec Swagger
-- `agent-service`: service de planification langage naturel -> actions
-- `android-runtime`: wrapper autour de `budtmo/docker-android`
-
-## Démarrage rapide
-
-### Consulter les résultats WF01 dans le site local
-
-La page de consultation affiche les deux exécutions enregistrées du parcours Chrome → Wikipédia → football, les captures et le rapport JSON. Ce sont les preuves du banc du 5 novembre 2026 ; l'émulateur est arrêté et le lancement d'un nouveau run depuis l'interface reste à intégrer.
+## Démarrer la console locale
 
 ```bash
-docker compose -p emulytix-preview -f docker-compose.preview.yml up -d --build
+scripts/start-console.sh
 ```
 
-Ouvrir **http://localhost:3100/validation**. Cette instance est indépendante de la stack principale et publie uniquement le port local 3100. Elle lit les quatre captures et le rapport dans `storage/wf01-worker` via un volume en lecture seule, sans démarrer l'API, PostgreSQL ou Android. Les autres fichiers de stockage ne sont pas exposés. Sans ces preuves locales, la page indique qu'elles sont indisponibles.
+Ouvrir **http://localhost:3100**. Le script crée `.env.console` avec des secrets aléatoires si ce fichier n’existe pas, démarre PostgreSQL privé, applique les migrations, construit l’API et le frontend, puis publie WF01 dans le catalogue. Les secrets ne sont pas affichés et ne sont jamais régénérés lors d’un redémarrage.
 
-Arrêter cette consultation :
+La stack utilise le projet Compose `emulytix-preview`, ses propres conteneurs et son volume PostgreSQL. Aucun service MobileAgent sur les ports 8080/8443 n’est modifié. Seul le frontend publie un port, limité à `127.0.0.1:3100` ; API et base restent privées. Aucun socket Docker ni accès direct ADB n’est donné à l’API de la console.
+
+### Créer son compte
+
+Aucun compte ni mot de passe par défaut. Depuis un terminal local, choisir son identifiant puis saisir son mot de passe de façon masquée :
 
 ```bash
-docker compose -p emulytix-preview -f docker-compose.preview.yml down
+scripts/account.sh create mon_identifiant
 ```
 
-Pour un lancement hors Docker : `cd web-ui`, puis `npm ci` et `EMULYTIX_VALIDATION_DIR=/home/slid/apps/Emulytix/storage/wf01-worker npm run dev -- -H 127.0.0.1 -p 3100`. La lecture des preuves reste désactivée si `EMULYTIX_VALIDATION_DIR` est absent.
+Le mot de passe doit contenir au moins 12 caractères. À la première connexion : scanner le QR avec Google Authenticator, 2FAS ou une autre application TOTP, confirmer un code à six chiffres, puis conserver les dix codes de secours affichés une seule fois. Chaque code de secours ne fonctionne qu’une fois. Le QR et le secret manuel n’ouvrent aucun accès au parc avant validation du code.
 
-### Démarrer les services
-
-Copier l'environnement :
+La session dure huit heures et la déconnexion la révoque côté serveur. En cas de perte du second facteur et de tous les codes de secours, l’administrateur de l’hôte peut réinitialiser le 2FA :
 
 ```bash
-cp .env.example .env
+scripts/account.sh reset-2fa mon_identifiant
 ```
 
-Démarrer la stack hors Android :
+Cette commande révoque les sessions et les codes précédents et impose un nouvel enrôlement. Sauvegarder `.env.console` avec la base : sa clé `EMULYTIX_AUTH_KEY` permet de déchiffrer les secrets TOTP. Sa perte ne se résout pas en générant une nouvelle clé.
+
+### Utiliser la console
+
+- **Vue d’ensemble** : synthèse de toute la base, activités récentes et situations à vérifier.
+- **Téléphones** : recherche, filtres, déclaration d’appareil et sélection multiple. Un appareil déclaré n’est pas annoncé connecté sans observation réelle.
+- **Automatisations** : versions publiées et étapes du parcours ; lancement sur un lot explicite, avec récapitulatif et concurrence bornée.
+- **Activité** : suivi réel des runs, résultat par appareil, journal, captures protégées et demande d’arrêt. Une réponse 202 signifie que l’arrêt attend encore confirmation du worker.
+- **Sécurité** : compte courant, second facteur et déconnexion.
+- **Banc de validation** : les deux réussites WF01 du 5 novembre restent une archive distincte de la base courante, sur `/validation`.
+
+La console n’invente aucune flotte de démonstration. Le catalogue WF01 est préchargé ; les téléphones et les runs sont ceux enregistrés dans cette base. Sans worker sur l’hôte ciblé, une nouvelle exécution reste en attente. Le worker Android et son banc sont documentés plus bas. Les anciens contrôles directs APK/chat/ADB sont désactivés dans cette stack.
+
+Pour raccorder le banc existant à cette base de console, le profil facultatif réutilise le même moteur et ses baux :
 
 ```bash
-docker compose up --build
+android-runtime/scripts/start-bench.sh
+docker compose --env-file .env.console -p emulytix-preview -f docker-compose.preview.yml -f docker-compose.console-worker.yml --profile worker up -d --build console-worker
 ```
 
-Services attendus :
+Déclarer alors dans Téléphones un émulateur avec l’hôte `bench-host` et le numéro Android `emulator-5554`, puis choisir WF01. Le démarrage normal de la console ne lance pas Android ni ce worker. Ce profil est fourni pour ce banc ; il ne prouve pas une découverte ou connexion automatique de téléphones physiques.
 
-- UI : `http://localhost:3000`
-- API : `http://localhost:8010`
-- Swagger : `http://localhost:8010/docs`
-- Agent : `http://localhost:8011`
+L’[étude de l’interface](docs/design/control-console.md) décrit les choix élément par élément ; l’[audit MobileAgent](docs/design/mobileagent-audit.md) détaille les idées reprises et leurs limites.
 
-## OpenAI
-
-Deux modes sont prévus :
-
-- clé serveur via `.env` avec `OPENAI_API_KEY`
-- clé temporaire saisie dans l'interface web et envoyée au backend pour la requête en cours
-
-Modèle par défaut :
-
-- `gpt-5.4`
-
-Modèles configurés par défaut :
-
-- `gpt-5.4`
-- `gpt-5.4-mini`
-- `gpt-5.4-nano`
-- `gpt-4o-mini`
-
-## Fonctionnalités API
-
-Le backend expose déjà :
-
-- statut runtime Android
-- upload APK
-- installation du dernier APK uploadé
-- uninstall de package
-- key events Android
-- screenshots
-- chat -> plan OpenAI -> exécution
-
-## Runtime Android
-
-Le runtime Android est derrière le profil `android` :
+### Arrêter ou relancer
 
 ```bash
-docker compose --profile android up --build
+docker compose --env-file .env.console -p emulytix-preview -f docker-compose.preview.yml down
+scripts/start-console.sh
 ```
 
-Prérequis :
+Ne pas ajouter `--volumes` pour conserver les comptes, appareils et runs. Les preuves locales sont montées en lecture seule : `storage/wf01-worker` pour le banc historique et `storage/runs` pour les exécutions courantes. Les captures arbitraires du stockage ne sont pas exposées.
 
-- hôte Linux compatible `KVM`
-- `/dev/kvm` présent
+### Configuration de sécurité
 
-Le serveur actuel ne remplit pas ce prérequis. La stack démarre donc sans Android par défaut.
+Les cookies sont HttpOnly / SameSite Strict. Le mode HTTP avec cookies non Secure est limité au localhost explicitement configuré. Pour un accès par réseau ou domaine, utiliser HTTPS, fixer `EMULYTIX_PUBLIC_ORIGIN` à l’origine exacte et `EMULYTIX_COOKIE_SECURE=true`, puis placer la console derrière un reverse proxy TLS. L’origine `http://localhost:3100` doit être utilisée telle quelle en local : `127.0.0.1` est une autre origine.
 
-## Mode All-in-One
+Les mots de passe sont hachés avec Argon2, les secrets TOTP chiffrés, les sessions et codes de secours stockés sous forme d’empreintes. Le contrôle anti-rejeu TOTP, les challenges de cinq minutes et les limites de tentatives sont persistés dans PostgreSQL. Derrière le BFF, le plafond IP de 50 tentatives par 15 minutes couvre actuellement tous les opérateurs de l’instance ; la limite par compte est distincte (10 tentatives). Les comptes partagent le même espace : les rôles fins et l’isolation entre clients restent à implémenter.
 
-Une image monolithique a été ajoutée pour répondre à la contrainte "tout dans une image".
+Le navigateur passe par `/api/control/*`, sans jeton Bearer de service. Les pages, l’API, les anciennes routes et les captures sont contrôlées côté serveur. Les appels de scripts existants peuvent conserver leur Bearer, injecté hors du navigateur. Les événements sont actualisés périodiquement ; SSE, télémétrie de connexion et contrôle Android en direct restent les lots du [plan](PLAN.MD).
 
-Démarrage :
+## Répertoires
+
+- `web-ui` : console Next.js, formulaires de connexion/2FA et BFF de même origine.
+- `orchestrator-api` : API FastAPI, authentification, catalogue, stockage PostgreSQL et worker Android.
+- `workflows` : versions exécutables des parcours déterministes.
+- `android-runtime` : banc émulateur et wrapper de runtime.
+- `agent-service` : ancien planificateur conversationnel, non requis par la console déterministe.
+
+## Développement et vérification
 
 ```bash
-docker compose --profile all-in-one up --build emulytix-all-in-one
+cd web-ui
+npm ci
+npm test
+npm run build
 ```
 
-Ce mode embarque dans une seule image :
+La suite backend utilise des bases PostgreSQL jetables isolées :
 
-- runtime Android `budtmo/docker-android`
-- `orchestrator-api`
-- `agent-service`
-- `web-ui`
+```bash
+.venv/bin/python -m pytest orchestrator-api/tests -q
+```
 
-Prérequis :
-
-- `/dev/kvm` exposé sur l'hôte pour avoir l'Android réel
-
-Sans `KVM`, le conteneur démarre quand même les services UI/API/agent mais l'Android reste hors ligne.
+Les fichiers `docker-compose.yml` et `docker-compose.runtime.yml` conservent les profils historiques et le banc worker. Le déploiement console ci-dessus utilise une base distincte : ne pas supposer que les données d’un autre projet Compose y sont importées.
 
 ## Première tranche : runs persistants
 
@@ -128,7 +104,7 @@ Le premier parcours métier demandé est décrit dans [WF01 : Chrome → Wikipé
 
 ### Activer PostgreSQL et appliquer les migrations
 
-Le mode historique démarre avec `EMULYTIX_DATABASE_URL` vide. Les nouvelles routes requièrent une URL PostgreSQL et un jeton `EMULYTIX_CONTROL_TOKEN`. Le profil Compose `runs` ajoute PostgreSQL 17 avec un volume persistant, sans publier son port sur l'hôte.
+Le mode historique démarre avec `EMULYTIX_DATABASE_URL` vide. Pour les appels de scripts, les routes de contrôle requièrent une URL PostgreSQL et un jeton `EMULYTIX_CONTROL_TOKEN` ; la console décrite plus haut utilise sa session après 2FA. Le profil Compose `runs` ajoute PostgreSQL 17 avec un volume persistant, sans publier son port sur l'hôte.
 
 Depuis la racine du projet, préparer les secrets pour une première installation locale :
 

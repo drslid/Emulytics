@@ -6,8 +6,68 @@ services:
     restart: unless-stopped
     environment:
       EMULYTIX_VALIDATION_DIR: /validation-evidence
+      EMULYTIX_API_INTERNAL_URL: http://console-api:8010
+      EMULYTIX_PUBLIC_ORIGIN: ${EMULYTIX_PUBLIC_ORIGIN:-http://localhost:3100}
       NEXT_TELEMETRY_DISABLED: "1"
     ports:
       - "127.0.0.1:3100:3000"
     volumes:
       - ./storage/wf01-worker:/validation-evidence:ro
+    depends_on:
+      console-api:
+        condition: service_healthy
+
+  console-postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: emulytix
+      POSTGRES_USER: emulytix_console
+      POSTGRES_PASSWORD: ${EMULYTIX_POSTGRES_PASSWORD:?Run scripts/start-console.sh first}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emulytix_console -d emulytix"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - console_postgres:/var/lib/postgresql/data
+
+  console-api:
+    build:
+      context: ./orchestrator-api
+    restart: unless-stopped
+    environment: &console_api_env
+      EMULYTIX_DATABASE_URL: ${EMULYTIX_DATABASE_URL:?Run scripts/start-console.sh first}
+      EMULYTIX_CONTROL_TOKEN: ${EMULYTIX_CONTROL_TOKEN:?Run scripts/start-console.sh first}
+      EMULYTIX_AUTH_ENABLED: "true"
+      EMULYTIX_AUTH_KEY: ${EMULYTIX_AUTH_KEY:?Run scripts/start-console.sh first}
+      EMULYTIX_PUBLIC_ORIGIN: ${EMULYTIX_PUBLIC_ORIGIN:-http://localhost:3100}
+      EMULYTIX_COOKIE_SECURE: ${EMULYTIX_COOKIE_SECURE:-true}
+      EMULYTIX_LEGACY_CONTROL_ENABLED: "false"
+      ALLOW_DOCKER_CONTROL: "false"
+      EMULYTIX_STORAGE_ROOT: /storage
+      EMULYTIX_ARTIFACT_ROOT: /storage/runs
+    volumes:
+      - ./storage/runs:/storage/runs:ro
+      - ./workflows:/workflows:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    depends_on:
+      console-postgres:
+        condition: service_healthy
+
+  console-migrate:
+    profiles: ["tools"]
+    build:
+      context: ./orchestrator-api
+    command: ["python", "-m", "app.migrate"]
+    environment: *console_api_env
+    depends_on:
+      console-postgres:
+        condition: service_healthy
+
+volumes:
+  console_postgres:
