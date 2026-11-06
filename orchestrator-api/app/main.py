@@ -26,6 +26,7 @@ from .console_routes import router as console_router
 from .user_routes import router as user_router
 from .automation_routes import router as automation_router
 from .monitor_routes import router as monitor_router
+from .screen_routes import router as screen_router
 
 
 APP_NAME = os.getenv("APP_NAME", "Emulytix Orchestrator API")
@@ -474,6 +475,7 @@ app.include_router(console_router)
 app.include_router(user_router)
 app.include_router(automation_router)
 app.include_router(monitor_router)
+app.include_router(screen_router)
 
 app.add_middleware(
     CORSMiddleware,

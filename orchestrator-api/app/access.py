@@ -38,6 +38,8 @@ def required_permission(method: str, path: str) -> str | None:
         return 'self'
     if path == '/devices' or path == '/console/fleet':
         return 'devices.read' if read else 'devices.write'
+    if re.fullmatch(r'/console/devices/[^/]+/screen', path):
+        return 'devices.read' if read else None
     if path == '/workflows' or re.fullmatch(r'/workflows/[^/]+/versions/[0-9]+', path):
         return 'workflows.read' if read else 'workflows.publish'
     if path.startswith('/console/recipes'):

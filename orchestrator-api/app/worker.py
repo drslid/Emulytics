@@ -244,7 +244,9 @@ def main():
     for signum in (signal.SIGTERM, signal.SIGINT):
         signal.signal(signum, lambda *_: worker.stopping.set())
     from .telemetry import service_heartbeat
-    with service_heartbeat(dsn, "worker", str(worker.owner_id), host_id, metrics_provider=adb_device_metrics):
+    from .live_screen import live_screens
+    with service_heartbeat(dsn, "worker", str(worker.owner_id), host_id, metrics_provider=adb_device_metrics), \
+            live_screens(dsn, host_id, worker.artifact_root, worker.lock_root):
         worker.run(once=args.once)
 
 
