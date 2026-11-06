@@ -69,7 +69,9 @@ Les quatre premières destinations restent visibles dans la navigation principal
 | Arrêt | Confirmation puis intention d'annulation envoyée au serveur | « Arrêt demandé » jusqu'à confirmation ; gérer la réponse 202 |
 | Captures | Preuves rattachées à une exécution et une étape | Accès authentifié, chemin confiné, empreinte vérifiée |
 | Banc WF01 | Capture de la recherche et article obtenu, avec date du banc | Archive distincte des runs de la base actuelle |
-| Formulaire de connexion | Identifiant et mot de passe avec autocomplétion adaptée | Erreur générique ; pas de compte public par défaut |
+| Formulaire de connexion | Identifiant `admin` initial, modifiable, et mot de passe avec autocomplétion adaptée | Accès initial propre à l’installation ; erreur générique |
+| Mot de passe temporaire | Créé automatiquement à l’installation et remis localement à l’utilisateur | Aucun accès au parc ou aux preuves ; jamais affiché sur la page publique |
+| Remplacement obligatoire | Nouveau mot de passe personnel et confirmation avant le QR 2FA | Minimum 12 caractères, différent de l’ancien, refus côté serveur si cette étape manque |
 | Mot de passe | Saisie masquée, transmission au seul backend interne | Jamais conservé dans le stockage navigateur ou les journaux |
 | Étape 2FA | Un champ à six chiffres, compatible collage et saisie mobile | Aucun accès au parc après le seul mot de passe |
 | Premier enrôlement | QR et secret manuel, puis vérification d'un vrai code | Challenge limité à l'enrôlement ; pas encore de session complète |
@@ -87,7 +89,10 @@ Les quatre premières destinations restent visibles dans la navigation principal
 stateDiagram-v2
     [*] --> Connexion
     Connexion --> Code2FA: mot de passe valide et 2FA déjà actif
-    Connexion --> Enrolement: premier accès
+    Connexion --> ChangementMotDePasse: mot de passe temporaire valide
+    ChangementMotDePasse --> Enrolement: nouveau mot de passe accepté
+    ChangementMotDePasse --> Connexion: challenge expiré
+    Connexion --> Enrolement: mot de passe personnel valide et 2FA à activer
     Enrolement --> CodesSecours: code TOTP valide
     CodesSecours --> Console: codes conservés
     Code2FA --> Console: code TOTP valide ou secours inutilisé
@@ -100,11 +105,15 @@ Le backend seul décide de l'accès. Le challenge dure cinq minutes et la sessio
 
 Les appels navigateur passent par le BFF de même origine, avec une liste fermée de routes. Il ne transmet pas de Bearer fourni par le navigateur. Les mutations exigent l'origine configurée et un en-tête CSRF de la console. Les cookies sont HttpOnly et SameSite Strict ; l'exception HTTP avec cookie non Secure est limitée au localhost de développement. Les données et captures sont protégées côté serveur, y compris par accès direct à leur URL.
 
-Le premier compte est créé localement par une commande interactive. Aucun identifiant, mot de passe ou secret TOTP de démonstration n'est ajouté à la livraison.
+La correction du 6 novembre 2026 remplace la création interactive du premier compte par un accès initial automatique. Sur une installation vierge, `scripts/start-console.sh` prépare `admin` avec un mot de passe temporaire unique, conservé dans `storage/install/initial-access.json` (dossier `700`, fichier `600`) et récupérable localement par `scripts/account.sh initial-access`. L’utilisateur doit remplacer ce mot de passe avant d’activer le TOTP. Le secret initial n’est pas affiché sur la page publique et ne crée aucune session complète.
+
+Un compte existant n’est pas remplacé. Le marqueur d’initialisation en base empêche la recréation automatique après suppression ou redémarrage. La commande interactive de création reste un outil d’administration des comptes supplémentaires. La première implémentation de la console imposait cette commande au premier accès ; ce choix est remplacé à la demande de l’utilisateur.
 
 ## Vérification attendue
 
-- Connexion complète : premier enrôlement, QR, refus d'un code incorrect, codes de secours, déconnexion et reconnexion.
+- Connexion complète : accès temporaire généré à l’installation, remplacement obligatoire, premier enrôlement, QR, refus d'un code incorrect, codes de secours, déconnexion et reconnexion.
+- Refus des mots de passe trop courts, identiques à l’ancien ou mal confirmés ; refus du QR et des API métier avant le changement puis avant validation du 2FA.
+- Redémarrage et installation sur une base existante sans remplacement de compte ni régénération d’accès ; impossibilité de réutiliser le mot de passe temporaire ou le challenge remplacé.
 - Refus des pages, API et captures sans session ; absence de secret dans les réponses et bundles client.
 - Sélection de plusieurs téléphones, récapitulatif exact, soumission unique après timeout, suivi et annulation confirmée.
 - Chargement, base vide, panne de backend, erreur d'API et session expirée visibles et compréhensibles.

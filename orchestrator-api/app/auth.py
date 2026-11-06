@@ -104,14 +104,50 @@ class AuthStore:
             raise HTTPException(429, "Trop de tentatives. Réessayez dans 15 minutes.", headers={"Retry-After": "900"})
 
     def create_user(self, username: str, password: str) -> dict:
-        if not 12 <= len(password) <= 1024:
-            raise ValueError("Le mot de passe doit contenir entre 12 et 1024 caractères.")
+        self.validate_password(password)
         with self.connect() as connection:
+            connection.execute("SELECT singleton FROM auth_installation WHERE singleton FOR UPDATE").fetchone()
             row = connection.execute(
                 "INSERT INTO auth_users(id, username, password_hash) VALUES(%s, %s, %s) RETURNING id, username",
                 (uuid4(), username.lower(), PASSWORD_HASHER.hash(password)),
             ).fetchone()
+            connection.execute("UPDATE auth_installation SET bootstrapped=true WHERE singleton")
         return self.public_user(row)
+
+    @staticmethod
+    def validate_password(password: str) -> None:
+        if not isinstance(password, str) or not 12 <= len(password) <= 1024:
+            raise ValueError("Le mot de passe doit contenir entre 12 et 1024 caractères.")
+        try:
+            password.encode("utf-8")
+        except UnicodeEncodeError:
+            raise ValueError("Le mot de passe contient un caractère invalide.") from None
+
+    def bootstrap_user(self, password: str) -> bool:
+        self.validate_password(password)
+        with self.connect() as connection:
+            state = connection.execute("SELECT bootstrapped FROM auth_installation WHERE singleton FOR UPDATE").fetchone()
+            if state["bootstrapped"]:
+                return False
+            if connection.execute("SELECT 1 FROM auth_users LIMIT 1").fetchone():
+                connection.execute("UPDATE auth_installation SET bootstrapped=true WHERE singleton")
+                return False
+            connection.execute(
+                "INSERT INTO auth_users(id,username,password_hash,password_change_required) VALUES(%s,'admin',%s,true)",
+                (uuid4(), PASSWORD_HASHER.hash(password)),
+            )
+            connection.execute("UPDATE auth_installation SET bootstrapped=true WHERE singleton")
+        return True
+
+    @staticmethod
+    def issue_challenge(connection, user_id, purpose: str) -> str:
+        token = secrets.token_urlsafe(32)
+        connection.execute("DELETE FROM auth_challenges WHERE user_id = %s OR expires_at <= clock_timestamp()", (user_id,))
+        connection.execute(
+            "INSERT INTO auth_challenges(token_hash,user_id,purpose,expires_at) VALUES(%s,%s,%s,clock_timestamp() + interval '5 minutes')",
+            (digest(token), user_id, purpose),
+        )
+        return token
 
     @staticmethod
     def public_user(row: dict) -> dict:
@@ -129,16 +165,11 @@ class AuthStore:
                 raise HTTPException(401, "Identifiant ou mot de passe incorrect")
             if PASSWORD_HASHER.check_needs_rehash(user["password_hash"]):
                 connection.execute("UPDATE auth_users SET password_hash = %s WHERE id = %s", (PASSWORD_HASHER.hash(password), user["id"]))
-            purpose = "verify" if user["totp_enabled"] else "enroll"
-            if not user["totp_secret"]:
+            purpose = "change_password" if user["password_change_required"] else "verify" if user["totp_enabled"] else "enroll"
+            if purpose != "change_password" and not user["totp_secret"]:
                 encrypted = self.config.cipher.encrypt(pyotp.random_base32().encode()).decode()
                 connection.execute("UPDATE auth_users SET totp_secret = %s WHERE id = %s", (encrypted, user["id"]))
-            token = secrets.token_urlsafe(32)
-            connection.execute("DELETE FROM auth_challenges WHERE user_id = %s OR expires_at <= clock_timestamp()", (user["id"],))
-            connection.execute(
-                "INSERT INTO auth_challenges(token_hash, user_id, purpose, expires_at) VALUES(%s,%s,%s,clock_timestamp() + interval '5 minutes')",
-                (digest(token), user["id"], purpose),
-            )
+            token = self.issue_challenge(connection, user["id"], purpose)
         return token, purpose
 
     def _challenge_user(self, connection, token: str | None):
@@ -155,10 +186,54 @@ class AuthStore:
             raise HTTPException(401, "Connexion à reprendre")
         return row
 
+    def change_password(self, challenge: str | None, password: str, confirm_password: str, ip: str) -> tuple[str, str]:
+        try:
+            self.validate_password(password)
+            self.validate_password(confirm_password)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        if password != confirm_password:
+            raise HTTPException(422, "Les mots de passe diffèrent")
+        with self.connect() as connection:
+            user = self._challenge_user(connection, challenge)
+            if user["purpose"] != "change_password" or not user["password_change_required"]:
+                raise HTTPException(403, "Changement de mot de passe indisponible")
+            identity = user["username"]
+        self.limit("change-password", identity, ip)
+        with self.connect() as connection:
+            user = self._challenge_user(connection, challenge)
+            if user["purpose"] != "change_password" or not user["password_change_required"]:
+                raise HTTPException(403, "Changement de mot de passe indisponible")
+            try:
+                same_password = PASSWORD_HASHER.verify(user["password_hash"], password)
+            except VerificationError:
+                same_password = False
+            if same_password:
+                raise HTTPException(422, "Choisissez un mot de passe différent du mot de passe temporaire")
+            password_hash = PASSWORD_HASHER.hash(password)
+            consumed = connection.execute(
+                "DELETE FROM auth_challenges WHERE token_hash=%s AND expires_at>clock_timestamp() RETURNING user_id",
+                (user["challenge_hash"],),
+            ).fetchone()
+            if not consumed:
+                raise HTTPException(401, "Connexion à reprendre")
+            connection.execute("DELETE FROM auth_sessions WHERE user_id=%s", (user["id"],))
+            connection.execute(
+                "UPDATE auth_users SET password_hash=%s,password_change_required=false WHERE id=%s",
+                (password_hash, user["id"]),
+            )
+            purpose = "verify" if user["totp_enabled"] else "enroll"
+            if purpose == "enroll":
+                connection.execute("DELETE FROM auth_recovery_codes WHERE user_id=%s", (user["id"],))
+                secret = self.config.cipher.encrypt(pyotp.random_base32().encode()).decode()
+                connection.execute("UPDATE auth_users SET totp_secret=%s WHERE id=%s", (secret, user["id"]))
+            token = self.issue_challenge(connection, user["id"], purpose)
+        return token, purpose
+
     def enrollment(self, token: str | None) -> dict:
         with self.connect() as connection:
             user = self._challenge_user(connection, token)
-            if user["purpose"] != "enroll" or user["totp_enabled"]:
+            if user["purpose"] != "enroll" or user["totp_enabled"] or user["password_change_required"]:
                 raise HTTPException(403, "Enrôlement indisponible")
             secret = self.config.cipher.decrypt(user["totp_secret"].encode()).decode()
             uri = pyotp.TOTP(secret).provisioning_uri(name=user["username"], issuer_name="Emulytix")
@@ -167,10 +242,14 @@ class AuthStore:
     def verify(self, challenge: str | None, code: str, ip: str, recovery: bool = False) -> tuple[str, dict]:
         with self.connect() as connection:
             user = self._challenge_user(connection, challenge)
+            if user["password_change_required"] or user["purpose"] not in {"enroll", "verify"}:
+                raise HTTPException(401, "Changement de mot de passe requis")
             identity = user["username"]
         self.limit("mfa", identity, ip)
         with self.connect() as connection:
             user = self._challenge_user(connection, challenge)
+            if user["password_change_required"] or user["purpose"] not in {"enroll", "verify"}:
+                raise HTTPException(401, "Changement de mot de passe requis")
             recovery_codes = None
             if recovery:
                 if user["purpose"] != "verify" or not user["totp_enabled"]:
@@ -219,7 +298,7 @@ class AuthStore:
         with self.connect() as connection:
             user = connection.execute(
                 "SELECT u.id,u.username FROM auth_sessions s JOIN auth_users u ON u.id = s.user_id "
-                "WHERE s.token_hash = %s AND s.expires_at > clock_timestamp() AND u.totp_enabled",
+                "WHERE s.token_hash = %s AND s.expires_at > clock_timestamp() AND u.totp_enabled AND NOT u.password_change_required",
                 (digest(token),),
             ).fetchone()
         return self.public_user(user) if user else None

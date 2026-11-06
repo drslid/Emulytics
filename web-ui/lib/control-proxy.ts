@@ -1,7 +1,7 @@
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const identifier = "[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}";
 const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events)?|console/(summary|fleet|executions/${UUID}/captures/${identifier}))$`);
-const writes = new RegExp(`^(auth/(login|verify|recovery|logout)|devices|runs|runs/${UUID}/cancel)$`);
+const writes = new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/cancel)$`);
 
 export function sessionCookies(raw: string | null): string {
   return (raw ?? "").split(";").map((part) => part.trim()).filter((part) =>

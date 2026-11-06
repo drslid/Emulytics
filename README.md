@@ -8,19 +8,34 @@ Console de contrôle d’un parc Android : téléphones, automatisations version
 scripts/start-console.sh
 ```
 
-Ouvrir **http://localhost:3100**. Le script crée `.env.console` avec des secrets aléatoires si ce fichier n’existe pas, démarre PostgreSQL privé, applique les migrations, construit l’API et le frontend, puis publie WF01 dans le catalogue. Les secrets ne sont pas affichés et ne sont jamais régénérés lors d’un redémarrage.
+Ouvrir **http://localhost:3100**. Le script crée `.env.console` avec des secrets aléatoires si ce fichier n’existe pas, démarre PostgreSQL privé, applique les migrations, construit l’API et le frontend, puis publie WF01 dans le catalogue. Sur une installation vierge, il prépare aussi le compte `admin` et un mot de passe temporaire unique. Les secrets de configuration et le mot de passe initial ne sont pas régénérés lors d’un redémarrage.
 
 La stack utilise le projet Compose `emulytix-preview`, ses propres conteneurs et son volume PostgreSQL. Aucun service MobileAgent sur les ports 8080/8443 n’est modifié. Seul le frontend publie un port, limité à `127.0.0.1:3100` ; API et base restent privées. Aucun socket Docker ni accès direct ADB n’est donné à l’API de la console.
 
-### Créer son compte
+### Première connexion après installation
 
-Aucun compte ni mot de passe par défaut. Depuis un terminal local, choisir son identifiant puis saisir son mot de passe de façon masquée :
+L’accès initial est créé automatiquement. Pour retrouver l’identifiant `admin` et le mot de passe temporaire fourni à cette installation :
+
+```bash
+scripts/account.sh initial-access
+```
+
+Ces informations sont conservées dans le fichier local `storage/install/initial-access.json`, avec un dossier accessible uniquement à son propriétaire (`700`) et un fichier privé (`600`). Ce fichier reste hors Git et n’est pas servi par le site.
+
+Le premier accès suit ce parcours obligatoire :
+
+1. Saisir le mot de passe temporaire du compte `admin` sur la page de connexion.
+2. Choisir et confirmer un nouveau mot de passe personnel, différent du mot de passe temporaire et contenant au moins 12 caractères.
+3. Scanner le QR avec Google Authenticator, 2FAS ou une autre application TOTP, puis confirmer un code à six chiffres.
+4. Conserver les dix codes de secours affichés une seule fois, puis ouvrir la console.
+
+Le mot de passe temporaire ne donne accès ni au parc ni aux captures. Le changement de mot de passe précède l’enrôlement 2FA, et l’accès métier reste fermé jusqu’à validation du code. Après le changement, le mot de passe temporaire et l’ancien challenge deviennent inutilisables. Les connexions suivantes utilisent le mot de passe personnel puis un code de l’application d’authentification, ou un code de secours inutilisé.
+
+Les comptes existants sont conservés. Un marqueur persistant empêche l’installateur de recréer automatiquement un compte après sa suppression ou un redémarrage. La création interactive reste disponible pour les comptes supplémentaires :
 
 ```bash
 scripts/account.sh create mon_identifiant
 ```
-
-Le mot de passe doit contenir au moins 12 caractères. À la première connexion : scanner le QR avec Google Authenticator, 2FAS ou une autre application TOTP, confirmer un code à six chiffres, puis conserver les dix codes de secours affichés une seule fois. Chaque code de secours ne fonctionne qu’une fois. Le QR et le secret manuel n’ouvrent aucun accès au parc avant validation du code.
 
 La session dure huit heures et la déconnexion la révoque côté serveur. En cas de perte du second facteur et de tous les codes de secours, l’administrateur de l’hôte peut réinitialiser le 2FA :
 

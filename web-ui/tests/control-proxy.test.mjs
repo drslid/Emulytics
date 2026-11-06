@@ -59,3 +59,14 @@ test("large and non-JSON bodies cannot reach the backend", async () => {
   options.headers["Content-Type"] = "text/plain";
   assert.equal((await proxyControl(request("runs", options), ["runs"])).status, 415);
 });
+
+test("password replacement uses the restricted challenge route and rotates its cookie", async () => {
+  const credentials = { password: "test-new-password-only", confirm_password: "test-new-password-only" };
+  const response = await proxyControl(request("auth/change-password", post(JSON.stringify(credentials))), ["auth", "change-password"], async (url, options) => {
+    assert.equal(url, "http://api.internal:8010/auth/change-password?");
+    assert.deepEqual(JSON.parse(new TextDecoder().decode(options.body)), credentials);
+    return Response.json({ step: "enroll" }, { headers: { "Set-Cookie": "emulytix_challenge=rotated; HttpOnly; SameSite=Strict; Path=/" } });
+  });
+  assert.deepEqual(await response.json(), { step: "enroll" });
+  assert.match(response.headers.get("set-cookie"), /emulytix_challenge=rotated/);
+});

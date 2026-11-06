@@ -30,6 +30,7 @@ console=(docker compose --env-file .env.console -p emulytix-preview -f docker-co
 "${console[@]}" up -d console-postgres
 "${console[@]}" run --build --rm console-migrate
 "${console[@]}" up -d --build console-api validation-ui
+python3 scripts/bootstrap-console.py
 "${console[@]}" exec -T console-api python -c '
 import json, os
 from pathlib import Path
@@ -39,4 +40,4 @@ workflow = WorkflowRegistration.model_validate_json(Path("/workflows/chrome-wiki
 RunStore(os.environ["EMULYTIX_DATABASE_URL"]).register_workflow(workflow)
 print("WF01 disponible dans le catalogue.")
 '
-printf '%s\n' 'Console : http://localhost:3100' 'Premier compte : scripts/account.sh create votre_identifiant'
+printf '%s\n' 'Console : http://localhost:3100' 'Accès initial : scripts/account.sh initial-access'

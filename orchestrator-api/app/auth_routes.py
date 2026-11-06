@@ -26,6 +26,7 @@ from .auth import (
 logger = logging.getLogger(__name__)
 PUBLIC_AUTH_PATHS = {
     "/auth/login", "/auth/verify", "/auth/recovery", "/auth/enrollment", "/auth/enrollment/qr", "/auth/logout",
+    "/auth/change-password",
 }
 
 
@@ -106,6 +107,21 @@ class CodePayload(BaseModel):
     code: str = Field(pattern=r"^[0-9]{6}$")
 
 
+class ChangePasswordPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    password: str = Field(min_length=12, max_length=1024)
+    confirm_password: str = Field(min_length=12, max_length=1024)
+
+    @field_validator("password", "confirm_password")
+    @classmethod
+    def valid_unicode(cls, value: str) -> str:
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError:
+            raise ValueError("Invalid text") from None
+        return value
+
+
 class RecoveryPayload(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     code: str = Field(pattern=r"^[A-Fa-f0-9]{16}$")
@@ -143,6 +159,16 @@ def login(payload: LoginPayload, request: Request, response: Response, store: St
 @router.get("/enrollment")
 def enrollment(request: Request, store: Store):
     return store.enrollment(request.cookies.get(CHALLENGE_COOKIE))
+
+
+@router.post("/change-password")
+def change_password(payload: ChangePasswordPayload, request: Request, response: Response, store: Store):
+    token, step = store.change_password(
+        request.cookies.get(CHALLENGE_COOKIE), payload.password, payload.confirm_password, client_ip(request),
+    )
+    set_cookie(response, store, CHALLENGE_COOKIE, token, CHALLENGE_SECONDS)
+    response.delete_cookie(SESSION_COOKIE, path="/", httponly=True, secure=store.config.secure, samesite="strict")
+    return {"step": step}
 
 
 @router.get("/enrollment/qr")
