@@ -1,6 +1,9 @@
 """Contracts for durable run submission; these models do not execute Android actions."""
 
 import math
+import hashlib
+import re
+import unicodedata
 from datetime import datetime
 from typing import Annotated, Generic, Literal, Self, TypeVar
 from uuid import UUID
@@ -39,7 +42,34 @@ class Contract(BaseModel):
 
 
 class DeviceRegistration(Contract):
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_names(cls, value):
+        if not isinstance(value, dict):
+            return value
+        value = dict(value)
+        original = value.get("device_id")
+        if isinstance(original, str):
+            label = original.strip()
+            slug = unicodedata.normalize("NFKD", label).encode("ascii", "ignore").decode()
+            # Preserve valid existing identities, including case, when reading DeviceView.
+            # Human labels accept punctuation as well as spaces and non-Latin scripts.
+            friendly = any(c.isspace() for c in label) or slug != label or "display_name" in value
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}", label) and friendly:
+                normalized = re.sub(r"[^a-z0-9_.:-]+", "-", slug.lower()).strip("_.:-")[:128]
+                value["device_id"] = normalized or "device-" + hashlib.sha256(label.encode()).hexdigest()[:12]
+            else:
+                value["device_id"] = label
+            value.setdefault("display_name", label)
+        if isinstance(value.get("display_name"), str):
+            value["display_name"] = value["display_name"].strip()
+        for key in ("host_id", "serial"):
+            if isinstance(value.get(key), str):
+                value[key] = value[key].strip()
+        return value
+
     device_id: Identifier
+    display_name: Annotated[str, Field(min_length=1, max_length=160)] = ""
     host_id: Identifier
     serial: Identifier
     kind: Literal["physical", "emulator"]
@@ -109,6 +139,8 @@ class DeviceView(DeviceRegistration):
 
 class WorkflowView(WorkflowRegistration):
     created_at: datetime
+    name: str | None = None
+    instructions: str | None = None
 
 
 class ExecutionView(BaseModel):

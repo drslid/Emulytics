@@ -7,6 +7,7 @@ services:
     restart: unless-stopped
     environment:
       EMULYTIX_DATABASE_URL: ${EMULYTIX_DATABASE_URL:?Start the console first}
+      EMULYTIX_TELEMETRY_ENABLED: "true"
       EMULYTIX_HOST_ID: ${EMULYTIX_HOST_ID:-bench-host}
       EMULYTIX_LEASE_TTL: ${EMULYTIX_LEASE_TTL:-30}
       EMULYTIX_LOCK_ROOT: /host-locks

@@ -18,6 +18,8 @@ from cryptography.fernet import Fernet
 from fastapi import HTTPException, Request
 from psycopg.rows import dict_row
 
+from .access import audit_event, normalize_username, permissions_for
+
 
 SESSION_COOKIE = "emulytix_session"
 CHALLENGE_COOKIE = "emulytix_challenge"
@@ -103,15 +105,16 @@ class AuthStore:
         if blocked:
             raise HTTPException(429, "Trop de tentatives. Réessayez dans 15 minutes.", headers={"Retry-After": "900"})
 
-    def create_user(self, username: str, password: str) -> dict:
+    def create_user(self, username: str, password: str, role: str = "admin") -> dict:
         self.validate_password(password)
         with self.connect() as connection:
             connection.execute("SELECT singleton FROM auth_installation WHERE singleton FOR UPDATE").fetchone()
             row = connection.execute(
-                "INSERT INTO auth_users(id, username, password_hash) VALUES(%s, %s, %s) RETURNING id, username",
-                (uuid4(), username.lower(), PASSWORD_HASHER.hash(password)),
+                "INSERT INTO auth_users(id, username, display_name, password_hash, role) VALUES(%s,%s,%s,%s,%s) RETURNING *",
+                (uuid4(), normalize_username(username), username.strip(), PASSWORD_HASHER.hash(password), role),
             ).fetchone()
             connection.execute("UPDATE auth_installation SET bootstrapped=true WHERE singleton")
+            audit_event(connection, None, "user.created", str(row["id"]), {"role": role})
         return self.public_user(row)
 
     @staticmethod
@@ -133,7 +136,7 @@ class AuthStore:
                 connection.execute("UPDATE auth_installation SET bootstrapped=true WHERE singleton")
                 return False
             connection.execute(
-                "INSERT INTO auth_users(id,username,password_hash,password_change_required) VALUES(%s,'admin',%s,true)",
+                "INSERT INTO auth_users(id,username,display_name,password_hash,password_change_required) VALUES(%s,'admin','admin',%s,true)",
                 (uuid4(), PASSWORD_HASHER.hash(password)),
             )
             connection.execute("UPDATE auth_installation SET bootstrapped=true WHERE singleton")
@@ -151,9 +154,12 @@ class AuthStore:
 
     @staticmethod
     def public_user(row: dict) -> dict:
-        return {"id": str(row["id"]), "username": row["username"]}
+        return {"id": str(row["id"]), "username": row["username"],
+                "display_name": row["display_name"], "role": row["role"],
+                "permissions": permissions_for(row["role"]), "active": row["active"]}
 
     def login(self, username: str, password: str, ip: str) -> tuple[str, str]:
+        username = normalize_username(username)
         self.limit("login", username, ip)
         with self.connect() as connection:
             user = connection.execute("SELECT * FROM auth_users WHERE username = %s FOR UPDATE", (username,)).fetchone()
@@ -161,7 +167,7 @@ class AuthStore:
                 PASSWORD_HASHER.verify(user["password_hash"] if user else _DUMMY_HASH, password)
             except (VerificationError, InvalidHashError):
                 raise HTTPException(401, "Identifiant ou mot de passe incorrect") from None
-            if not user:
+            if not user or not user["active"]:
                 raise HTTPException(401, "Identifiant ou mot de passe incorrect")
             if PASSWORD_HASHER.check_needs_rehash(user["password_hash"]):
                 connection.execute("UPDATE auth_users SET password_hash = %s WHERE id = %s", (PASSWORD_HASHER.hash(password), user["id"]))
@@ -170,6 +176,7 @@ class AuthStore:
                 encrypted = self.config.cipher.encrypt(pyotp.random_base32().encode()).decode()
                 connection.execute("UPDATE auth_users SET totp_secret = %s WHERE id = %s", (encrypted, user["id"]))
             token = self.issue_challenge(connection, user["id"], purpose)
+            audit_event(connection, user["id"], "auth.password.accepted", str(user["id"]))
         return token, purpose
 
     def _challenge_user(self, connection, token: str | None):
@@ -182,7 +189,7 @@ class AuthStore:
             "WHERE c.token_hash = %s AND c.expires_at > clock_timestamp() FOR UPDATE OF u, c",
             (digest(token),),
         ).fetchone()
-        if not row:
+        if not row or not row["active"]:
             raise HTTPException(401, "Connexion à reprendre")
         return row
 
@@ -228,6 +235,7 @@ class AuthStore:
                 secret = self.config.cipher.encrypt(pyotp.random_base32().encode()).decode()
                 connection.execute("UPDATE auth_users SET totp_secret=%s WHERE id=%s", (secret, user["id"]))
             token = self.issue_challenge(connection, user["id"], purpose)
+            audit_event(connection, user["id"], "auth.password.changed", str(user["id"]))
         return token, purpose
 
     def enrollment(self, token: str | None) -> dict:
@@ -287,6 +295,7 @@ class AuthStore:
                 "INSERT INTO auth_sessions(token_hash,user_id,expires_at) VALUES(%s,%s,clock_timestamp() + interval '8 hours')",
                 (digest(token), user["id"]),
             )
+            audit_event(connection, user["id"], "auth.session.created", str(user["id"]))
         payload = {"user": self.public_user(user)}
         if recovery_codes:
             payload["recovery_codes"] = recovery_codes
@@ -297,8 +306,8 @@ class AuthStore:
             return None
         with self.connect() as connection:
             user = connection.execute(
-                "SELECT u.id,u.username FROM auth_sessions s JOIN auth_users u ON u.id = s.user_id "
-                "WHERE s.token_hash = %s AND s.expires_at > clock_timestamp() AND u.totp_enabled AND NOT u.password_change_required",
+                "SELECT u.* FROM auth_sessions s JOIN auth_users u ON u.id = s.user_id "
+                "WHERE s.token_hash = %s AND s.expires_at > clock_timestamp() AND u.active AND u.totp_enabled AND NOT u.password_change_required",
                 (digest(token),),
             ).fetchone()
         return self.public_user(user) if user else None
@@ -306,7 +315,9 @@ class AuthStore:
     def logout(self, session: str | None, challenge: str | None) -> None:
         with self.connect() as connection:
             if session:
-                connection.execute("DELETE FROM auth_sessions WHERE token_hash = %s", (digest(session),))
+                user = connection.execute("DELETE FROM auth_sessions WHERE token_hash = %s RETURNING user_id", (digest(session),)).fetchone()
+                if user:
+                    audit_event(connection, user["user_id"], "auth.session.closed", str(user["user_id"]))
             if challenge:
                 connection.execute("DELETE FROM auth_challenges WHERE token_hash = %s", (digest(challenge),))
 
@@ -319,4 +330,5 @@ class AuthStore:
             connection.execute("DELETE FROM auth_challenges WHERE user_id = %s", (user["id"],))
             connection.execute("DELETE FROM auth_recovery_codes WHERE user_id = %s", (user["id"],))
             connection.execute("UPDATE auth_users SET totp_secret=NULL, totp_enabled=false, totp_last_counter=-1 WHERE id=%s", (user["id"],))
+            audit_event(connection, None, "user.two_factor.reset", str(user["id"]))
         return True

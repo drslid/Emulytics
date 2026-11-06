@@ -34,9 +34,9 @@ class RunStore:
         values = device.model_dump(mode="json")
         with self.connect() as connection:
             inserted = connection.execute(
-                "INSERT INTO devices (device_id, host_id, serial, kind) VALUES (%s, %s, %s, %s) "
+                "INSERT INTO devices (device_id, host_id, serial, kind, display_name) VALUES (%s, %s, %s, %s, %s) "
                 "ON CONFLICT DO NOTHING RETURNING *",
-                (device.device_id, device.host_id, device.serial, device.kind),
+                (device.device_id, device.host_id, device.serial, device.kind, device.display_name),
             ).fetchone()
             record = inserted or connection.execute(
                 "SELECT * FROM devices WHERE device_id = %s", (device.device_id,)
@@ -75,20 +75,24 @@ class RunStore:
     def get_workflow(self, workflow_id: str, version: int) -> dict:
         with self.connect() as connection:
             record = connection.execute(
-                "SELECT definition, created_at FROM workflows WHERE workflow_id = %s AND version = %s",
+                "SELECT w.definition,w.created_at,p.name,p.instructions FROM workflows w "
+                "LEFT JOIN automation_publications p ON p.workflow_id=w.workflow_id AND p.version=w.version "
+                "WHERE w.workflow_id = %s AND w.version = %s",
                 (workflow_id, version),
             ).fetchone()
             if record is None:
                 raise HTTPException(404, "Workflow version not found")
-            return {**record["definition"], "created_at": record["created_at"]}
+            return {**record["definition"], "created_at": record["created_at"], "name": record["name"], "instructions": record["instructions"]}
 
     def list_workflows(self, limit: int, offset: int) -> list[dict]:
         with self.connect() as connection:
             rows = connection.execute(
-                "SELECT definition, created_at FROM workflows ORDER BY workflow_id, version DESC LIMIT %s OFFSET %s",
+                "SELECT w.definition,w.created_at,p.name,p.instructions FROM workflows w "
+                "LEFT JOIN automation_publications p ON p.workflow_id=w.workflow_id AND p.version=w.version "
+                "ORDER BY w.workflow_id,w.version DESC LIMIT %s OFFSET %s",
                 (limit, offset),
             ).fetchall()
-            return [{**row["definition"], "created_at": row["created_at"]} for row in rows]
+            return [{**row["definition"], "created_at": row["created_at"], "name": row["name"], "instructions": row["instructions"]} for row in rows]
 
     @staticmethod
     def _read_run(connection, run_id: UUID) -> dict:

@@ -43,6 +43,8 @@ services:
       EMULYTIX_AUTH_KEY: ${EMULYTIX_AUTH_KEY:?Run scripts/start-console.sh first}
       EMULYTIX_PUBLIC_ORIGIN: ${EMULYTIX_PUBLIC_ORIGIN:-http://localhost:3100}
       EMULYTIX_COOKIE_SECURE: ${EMULYTIX_COOKIE_SECURE:-true}
+      EMULYTIX_UI_INTERNAL_URL: http://validation-ui:3000/connexion
+      EMULYTIX_TELEMETRY_ENABLED: "true"
       EMULYTIX_LEGACY_CONTROL_ENABLED: "false"
       ALLOW_DOCKER_CONTROL: "false"
       EMULYTIX_STORAGE_ROOT: /storage
@@ -55,6 +57,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    depends_on:
+      console-postgres:
+        condition: service_healthy
+
+  console-scheduler:
+    build:
+      context: ./orchestrator-api
+    restart: unless-stopped
+    command: ["python", "-m", "app.scheduler"]
+    environment:
+      EMULYTIX_DATABASE_URL: ${EMULYTIX_DATABASE_URL:?Run scripts/start-console.sh first}
+      EMULYTIX_TELEMETRY_ENABLED: "true"
     depends_on:
       console-postgres:
         condition: service_healthy

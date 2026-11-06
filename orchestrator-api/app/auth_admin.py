@@ -2,29 +2,28 @@
 
 import argparse
 import getpass
-import re
 
 import psycopg
 from fastapi import HTTPException
 
 from .auth import AuthConfig, AuthStore
+from .access import ROLE_PERMISSIONS, normalize_username
 
 
 def main():
     parser = argparse.ArgumentParser(description="Administration locale des comptes Emulytix")
     parser.add_argument("action", choices=["create", "reset-2fa"])
     parser.add_argument("username")
+    parser.add_argument("--role", choices=sorted(ROLE_PERMISSIONS), default="admin")
     args = parser.parse_args()
-    username = args.username.lower()
-    if not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{2,63}", username):
-        parser.error("Identifiant : 3 à 64 caractères, lettres, chiffres, point, tiret ou underscore.")
+    username = normalize_username(args.username)
     try:
         store = AuthStore(AuthConfig.load())
         if args.action == "create":
             password = getpass.getpass("Mot de passe (12 caractères minimum) : ")
             if password != getpass.getpass("Confirmer le mot de passe : "):
                 raise SystemExit("Les mots de passe diffèrent.")
-            store.create_user(username, password)
+            store.create_user(args.username, password, role=args.role)
             print("Compte créé. La première connexion impose l'activation du 2FA.")
         else:
             if not store.reset_two_factor(username):

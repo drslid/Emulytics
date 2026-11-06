@@ -23,6 +23,9 @@ from .run_routes import router as run_router
 from .auth import auth_enabled
 from .auth_routes import AuthMiddleware, router as auth_router
 from .console_routes import router as console_router
+from .user_routes import router as user_router
+from .automation_routes import router as automation_router
+from .monitor_routes import router as monitor_router
 
 
 APP_NAME = os.getenv("APP_NAME", "Emulytix Orchestrator API")
@@ -468,6 +471,9 @@ app = FastAPI(
 app.include_router(run_router)
 app.include_router(auth_router)
 app.include_router(console_router)
+app.include_router(user_router)
+app.include_router(automation_router)
+app.include_router(monitor_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -635,6 +641,15 @@ def session_status_payload(session_id: str) -> dict[str, Any]:
 @app.on_event("startup")
 def startup() -> None:
     ensure_storage_root()
+    from .telemetry import service_heartbeat
+    app.state.heartbeat = service_heartbeat(os.getenv("EMULYTIX_DATABASE_URL", ""), "api")
+    app.state.heartbeat.__enter__()
+
+
+@app.on_event("shutdown")
+def stop_heartbeat():
+    if getattr(app.state, "heartbeat", None):
+        app.state.heartbeat.__exit__(None, None, None)
 
 
 @app.get("/")

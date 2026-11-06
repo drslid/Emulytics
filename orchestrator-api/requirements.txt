@@ -8,3 +8,4 @@ argon2-cffi>=25.1,<26
 cryptography>=46,<51
 pyotp>=2.9,<3
 qrcode>=8.2,<9
+croniter>=6.2.4,<7

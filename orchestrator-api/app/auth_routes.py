@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from .access import audit_event, normalize_username, required_permission
 from .auth import (
     CHALLENGE_COOKIE, CHALLENGE_SECONDS, SESSION_COOKIE, SESSION_SECONDS,
     AuthConfig, AuthStore, auth_enabled, valid_control_token,
@@ -53,7 +54,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     if not user:
                         raise HTTPException(401, "Connexion requise")
                     request.state.auth_user = user
+                    permission = required_permission(request.method, request.url.path)
+                    if permission != "self" and (permission is None or permission not in user["permissions"]):
+                        await run_in_threadpool(record_http_audit, config, user["id"], "access.denied", 403, permission)
+                        raise HTTPException(403, "Droits insuffisants")
                 response = await call_next(request)
+                if request.method not in {"GET", "HEAD", "OPTIONS"}:
+                    actor = getattr(request.state, "auth_user", None)
+                    # Mutations keep a trace without ever capturing their input or secrets.
+                    action = "http.mutation" if response.status_code < 400 else "http.rejected"
+                    await run_in_threadpool(record_http_audit, config, actor["id"] if actor else None,
+                                            action, response.status_code, None, request.url.path)
         except HTTPException as exc:
             response = JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
         except (psycopg.Error, InvalidToken):
@@ -69,6 +80,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if request.url.scheme == "https" or os.getenv("EMULYTIX_PUBLIC_ORIGIN", "").startswith("https://"):
             response.headers["Strict-Transport-Security"] = "max-age=31536000"
         return response
+
+
+def record_http_audit(config: AuthConfig, actor_id, action: str, status_code: int,
+                      permission: str | None = None, path: str | None = None):
+    with AuthStore(config).connect() as connection:
+        audit_event(connection, actor_id, action, path,
+                    {"status_code": status_code, "permission": permission},
+                    severity="warning" if status_code >= 400 else "info", category="access")
 
 
 class AuthRoute(APIRoute):
@@ -92,6 +111,16 @@ class LoginPayload(BaseModel):
     username: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{2,63}$")
     password: str = Field(min_length=1, max_length=1024)
 
+    @field_validator("username", mode="before")
+    @classmethod
+    def human_username(cls, value):
+        if isinstance(value, str) and 1 <= len(value.strip()) <= 120 and any(char.isalnum() for char in value):
+            try:
+                return normalize_username(value)
+            except UnicodeEncodeError:
+                pass
+        raise ValueError("Invalid username")
+
     @field_validator("password")
     @classmethod
     def valid_unicode(cls, value: str) -> str:
@@ -103,6 +132,11 @@ class LoginPayload(BaseModel):
 
 
 class CodePayload(BaseModel):
+    @field_validator("code", mode="before")
+    @classmethod
+    def pasted_code(cls, value):
+        return "".join(value.split()) if isinstance(value, str) else value
+
     model_config = ConfigDict(extra="forbid", strict=True)
     code: str = Field(pattern=r"^[0-9]{6}$")
 
@@ -123,6 +157,11 @@ class ChangePasswordPayload(BaseModel):
 
 
 class RecoveryPayload(BaseModel):
+    @field_validator("code", mode="before")
+    @classmethod
+    def pasted_code(cls, value):
+        return "".join(value.split()).replace("-", "") if isinstance(value, str) else value
+
     model_config = ConfigDict(extra="forbid", strict=True)
     code: str = Field(pattern=r"^[A-Fa-f0-9]{16}$")
 

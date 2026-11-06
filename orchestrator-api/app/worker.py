@@ -219,7 +219,9 @@ def main():
                     apk_dir=os.getenv("EMULYTIX_APK_ROOT"), ttl_seconds=int(os.getenv("EMULYTIX_LEASE_TTL", "30")))
     for signum in (signal.SIGTERM, signal.SIGINT):
         signal.signal(signum, lambda *_: worker.stopping.set())
-    worker.run(once=args.once)
+    from .telemetry import service_heartbeat
+    with service_heartbeat(dsn, "worker", str(worker.owner_id), host_id):
+        worker.run(once=args.once)
 
 
 if __name__ == "__main__":
