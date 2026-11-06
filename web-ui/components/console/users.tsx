@@ -7,13 +7,13 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import Link from "next/link";
 import { api, ApiError } from "../../lib/client-api";
 import type { User } from "../../lib/console-types";
 import { useLocale, useT } from "../../lib/i18n";
 import { localeInfo } from "../../lib/i18n-core";
 import { LanguageSelector } from "../language-selector";
 import { Icon } from "./icons";
+import { Security } from "./security";
 import { Dialog, Empty, ErrorNotice } from "./shared";
 
 const roles = ["admin", "builder", "operator", "viewer", "auditor"] as const;
@@ -677,49 +677,56 @@ function TemporaryCredential({
   );
 }
 
-export function Profile({ user }: { user: User }) {
+export function Profile({
+  user,
+  onLogout,
+}: {
+  user: User;
+  onLogout: () => void;
+}) {
   const t = useT();
   const { locale } = useLocale();
   return (
-    <div className="security-layout">
-      <section className="surface security-card">
-        <span className="secure-symbol secure-symbol--large">
-          <Icon name="shield" size={32} />
-        </span>
-        <h2>{user.display_name}</h2>
-        <p className="muted" dir="ltr">
-          {user.username}
-        </p>
-        <div className="security-line">
-          <span>{t("Rôle")}</span>
-          <strong>{t(labels[user.role])}</strong>
-        </div>
-        <p>{t(descriptions[user.role])}</p>
-        <div className="security-line">
-          <span>{t("Validation en deux étapes")}</span>
-          <span className="status-badge status-badge--green">
-            <Icon name="check" size={14} />
-            {t("Activée")}
+    <div className="section-stack">
+      <div className="security-layout">
+        <section className="surface security-card">
+          <span className="secure-symbol secure-symbol--large">
+            <Icon name="shield" size={32} />
           </span>
+          <h2>{user.display_name}</h2>
+          <p className="muted" dir="ltr">
+            {user.username}
+          </p>
+          <div className="security-line">
+            <span>{t("Rôle")}</span>
+            <strong>{t(labels[user.role])}</strong>
+          </div>
+          <p>{t(descriptions[user.role])}</p>
+        </section>
+        <aside className="surface security-card">
+          <h2>{t("Préférences")}</h2>
+          <p>
+            {t(
+              "La langue est détectée à partir de votre navigateur. Vous pouvez choisir une autre langue à tout moment.",
+            )}
+          </p>
+          <div className="security-line">
+            <span>{t("Langue")}</span>
+            <LanguageSelector />
+          </div>
+          <p className="muted">{localeInfo[locale].name}</p>
+        </aside>
+      </div>
+      <section
+        id="securite"
+        aria-labelledby="profile-security-title"
+        style={{ scrollMarginTop: 24 }}
+      >
+        <div className="section-heading">
+          <h2 id="profile-security-title">{t("Sécurité du compte")}</h2>
         </div>
-        <Link className="button button--secondary" href="/securite">
-          <Icon name="shield" size={18} />
-          {t("Sécurité du compte")}
-        </Link>
+        <Security user={user} onLogout={onLogout} />
       </section>
-      <aside className="surface security-card">
-        <h2>{t("Préférences")}</h2>
-        <p>
-          {t(
-            "La langue est détectée à partir de votre navigateur. Vous pouvez choisir une autre langue à tout moment.",
-          )}
-        </p>
-        <div className="security-line">
-          <span>{t("Langue")}</span>
-          <LanguageSelector />
-        </div>
-        <p className="muted">{localeInfo[locale].name}</p>
-      </aside>
     </div>
   );
 }

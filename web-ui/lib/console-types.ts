@@ -11,7 +11,6 @@ export type View =
   | "devices"
   | "workflows"
   | "activity"
-  | "security"
   | "schedules"
   | "users"
   | "monitor"

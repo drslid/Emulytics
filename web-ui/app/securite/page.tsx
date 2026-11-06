@@ -1,6 +1,7 @@
-import { ControlConsole } from "../../components/console/control-console";
+import { redirect } from "next/navigation";
 import { requireUser } from "../../lib/server-auth";
 
 export default async function Page() {
-  return <ControlConsole user={await requireUser()} view="security" />;
+  await requireUser();
+  redirect("/profil#securite");
 }

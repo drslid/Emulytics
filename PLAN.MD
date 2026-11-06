@@ -513,3 +513,10 @@ Preuves de reprise : les remplacements 696a9861-4d78-481d-acfe-1daad045c40b, 86c
 La vue réelle /ecrans a été observée pendant l'exécution, avec six images affichées distinctes sur neuf relevés du dernier parcours. La comparaison porte sur les pixels affichés, et non sur un simple identifiant. Plein écran, largeur 320 px, absence d'erreur JavaScript, perte de connexion marquée Image figée puis reprise vérifiés. La capture s'arrête après expiration d'une consultation terminée et le serveur refuse l'ancienne image. Les entrées Appareils et détail d'exécution ont été ouvertes réellement. Le journal long est maintenant accessible au clavier.
 
 Validation : **268 tests API et 30 tests frontend réussis**, build de production réussi. Preuves locales dans storage/live-screen-review/, notamment replayed-runs.jsonl, browser-display-checks.json, entry-checks.json et idle-capture-check.json. La migration 009 ne stocke que les demandes temporaires ; les images courantes sont publiées atomiquement dans le volume privé, sans historique vidéo ni nouveau port ADB.
+
+
+### Sécurité regroupée dans le profil — 6 novembre 2026
+
+L'entrée Sécurité disparaît du menu principal. Mon profil regroupe l'identité, le rôle, les préférences, puis la sécurité du compte : mot de passe, 2FA, session, déconnexion et informations sur les codes de secours. Les anciens liens vers /securite redirigent vers /profil#securite après contrôle de la connexion. Les protections d'authentification ne changent pas.
+
+Validation : 30 tests frontend, TypeScript et build réussis ; navigateur vérifié sur ordinateur et à 320 px, sécurité intégrée, menu unique, redirection de l’ancienne URL et déconnexion depuis le profil. Compte temporaire retiré. Preuves locales : storage/profile-security-review/.

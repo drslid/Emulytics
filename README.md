@@ -56,7 +56,7 @@ Cette commande révoque les sessions et les codes précédents et impose un nouv
 - **Monitoring** : architecture en direct par SSE, signaux des services, latence PostgreSQL, files et hôtes. Un signal devient périmé après vingt secondes sans heartbeat.
 - **Journal** : événements d'exécution et d'administration, pagination, recherche, catégories et niveaux, sans secrets ni corps des requêtes.
 - **Utilisateurs** : comptes locaux, rôle, activation, réinitialisation et accès temporaire. Réservé à Admin ; les nouveaux comptes changent leur mot de passe et activent TOTP.
-- **Mon profil / Sécurité** : identité, rôle, langue, second facteur et déconnexion. Petits drapeaux, dix langues détectées depuis le navigateur et arabe RTL.
+- **Mon profil** : identité, rôle, langue et section Sécurité du compte intégrée, avec mot de passe, second facteur, session et déconnexion. Petits drapeaux, dix langues détectées depuis le navigateur et arabe RTL.
 - **Banc de validation** : les deux réussites WF01 archivées restent disponibles sur `/validation`.
 
 | Rôle de référence | Autorisations |
