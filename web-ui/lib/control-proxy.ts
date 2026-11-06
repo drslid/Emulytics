@@ -1,11 +1,11 @@
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const identifier = "[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}";
-const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events)?|console/(summary|fleet|dashboard|account/(profile|security|two-factor/enrollment(/qr)?)|devices/${identifier}/screen|monitor(/stream)?|logs|users(/${UUID})?|recipes|schedules|executions/${UUID}/(captures/${identifier}|screen)))$`);
+const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events)?|console/(summary|fleet|dashboard|emulators|account/(profile|security|two-factor/enrollment(/qr)?)|devices/${identifier}/screen|monitor(/stream)?|logs|users(/${UUID})?|recipes|schedules|executions/${UUID}/(captures/${identifier}|screen)))$`);
 const userPath = `console/users/${UUID}`;
 const recipePath = `console/recipes/${UUID}`;
 const schedulePath = `console/schedules/${UUID}`;
 const changes = {
-  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/cancel|console/(users|recipes|recipes/from-workflow|schedules|schedules/preview|account/(password|recovery-codes|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
+  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/cancel|console/(emulators|emulators/${identifier}/(configuration|start|prepare|stop)|applications|users|recipes|recipes/from-workflow|schedules|schedules/preview|account/(password|recovery-codes|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
   PATCH: new RegExp(`^(${userPath}|${recipePath}|${schedulePath}|console/account/profile)$`),
   DELETE: new RegExp(`^(${schedulePath}|console/account/two-factor/enrollment)$`)
 };
@@ -31,16 +31,18 @@ export async function proxyControl(request: Request, segments: string[], fetcher
   if (!base || !origin) return error(503, "La console n’est pas encore configurée.");
   const headers = new Headers({ Accept: "application/json", Cookie: sessionCookies(request.headers.get("cookie")) });
   let body: Uint8Array<ArrayBuffer> | undefined;
+  const apkUpload = request.method === "POST" && endpoint === "console/applications";
   if (request.method !== "GET") {
     if (request.headers.get("origin") !== origin || request.headers.get("X-Emulytix-Client") !== "console") {
       return error(403, "Cette demande doit venir de la console.");
     }
-    if (request.headers.get("content-type")?.split(";")[0].trim() !== "application/json") {
+    const contentType = request.headers.get("content-type") ?? "";
+    if (contentType.split(";")[0].trim() !== (apkUpload ? "multipart/form-data" : "application/json")) {
       return error(415, "Une requête JSON est requise.");
     }
     headers.set("Origin", origin);
     headers.set("X-Emulytix-Client", "console");
-    headers.set("Content-Type", "application/json");
+    headers.set("Content-Type", apkUpload ? contentType : "application/json");
     const reader = request.body?.getReader();
     const chunks: Uint8Array[] = [];
     let length = 0;
@@ -49,7 +51,7 @@ export async function proxyControl(request: Request, segments: string[], fetcher
         const { done, value } = await reader.read();
         if (done) break;
         length += value.byteLength;
-        if (length > 65_536) {
+        if (length > (apkUpload ? 128 * 1024 * 1024 + 65_536 : 65_536)) {
           await reader.cancel();
           return error(413, "La demande est trop volumineuse.");
         }
@@ -74,7 +76,7 @@ export async function proxyControl(request: Request, segments: string[], fetcher
     const timer = streaming ? setTimeout(() => controller.abort(), 15_000) : undefined;
     let upstream: Response;
     try { upstream = await fetcher(`${base.replace(/\/$/, "")}/${endpoint}?${query}`, {
-      method: request.method, headers, body, cache: "no-store", redirect: "error", signal: streaming ? AbortSignal.any([request.signal, controller.signal]) : AbortSignal.timeout(15_000)
+      method: request.method, headers, body, cache: "no-store", redirect: "error", signal: streaming ? AbortSignal.any([request.signal, controller.signal]) : AbortSignal.timeout(apkUpload ? 60_000 : 15_000)
     }); } finally { if (timer) clearTimeout(timer); }
     const responseHeaders = new Headers({
       "Content-Type": upstream.headers.get("content-type") ?? "application/json",

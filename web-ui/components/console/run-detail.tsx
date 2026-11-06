@@ -18,7 +18,7 @@ const eventLabels: Record<string, string> = {
   "action.cancelled": "Action annulée", "action.uncertain": "Résultat de l’action incertain",
   "execution.step_completed": "Étape terminée"
 };
-export function RunDetail({ runId, onClose, onChanged, canCancel = true }: { runId: string; onClose: () => void; onChanged: () => void; canCancel?: boolean }) {
+export function RunDetail({ runId, onClose, onChanged, canCancel = true, canManageDevices = false }: { runId: string; onClose: () => void; onChanged: () => void; canCancel?: boolean; canManageDevices?: boolean }) {
   const { t, locale } = useLocale();
   const [liveSelection, setLiveSelection] = useState<ExecutionLiveSelection>({ executionId: null, hidden: false });
   const [workflowSteps, setWorkflowSteps] = useState<Step[] | undefined>();
@@ -130,7 +130,7 @@ export function RunDetail({ runId, onClose, onChanged, canCancel = true }: { run
           </article>)}</div>
         </section>
         <section><div className="surface-heading surface-heading--compact"><h3>{t("Journal des événements")}</h3><button className="text-button" disabled={eventLoading} onClick={() => void moreEvents(events.at(-1)?.sequence ?? 0)}><Icon name="refresh" size={16} />{t("Actualiser")}</button></div>{events.length ? <ol className="event-timeline" tabIndex={0} aria-label={t("Journal des événements")}>{events.map((event) => <li key={event.sequence}><span className="event-marker" /><div><strong>{t(eventLabels[event.type] ?? event.type)}</strong><span>{date(event.created_at, locale)}{typeof event.payload.step_id === "string" ? ` · ${event.payload.step_id}` : ""}</span></div></li>)}</ol> : <p className="small-copy">{t("Aucun événement disponible.")}</p>}{events.length >= 100 && <button className="text-button" disabled={eventLoading} onClick={() => void moreEvents(events.at(-1)?.sequence ?? 0)}>{t("Charger la suite du journal")}</button>}</section>
-        {canCancel && (run.status === "queued" || run.status === "running") && !run.cancel_requested && <div className="cancel-zone">{confirmCancel ? <><p>{t("Arrêter cette exécution sur {count} appareil(s) ? Les actions déjà effectuées seront conservées.", { count: run.device_ids.length })}</p><div className="button-row"><button className="button button--secondary" disabled={busy} onClick={() => setConfirmCancel(false)}>{t("Revenir")}</button><button className="button button--danger" disabled={busy} onClick={() => void cancel()}>{busy ? t("Demande en cours…") : t("Confirmer l’arrêt")}</button></div></> : <button className="button button--danger-outline" onClick={() => setConfirmCancel(true)}>{t("Demander l’arrêt")}</button>}</div>}
+        {canCancel && (canManageDevices || !run.workflow_id.startsWith('emulator-system-')) && (run.status === "queued" || run.status === "running") && !run.cancel_requested && <div className="cancel-zone">{confirmCancel ? <><p>{t("Arrêter cette exécution sur {count} appareil(s) ? Les actions déjà effectuées seront conservées.", { count: run.device_ids.length })}</p><div className="button-row"><button className="button button--secondary" disabled={busy} onClick={() => setConfirmCancel(false)}>{t("Revenir")}</button><button className="button button--danger" disabled={busy} onClick={() => void cancel()}>{busy ? t("Demande en cours…") : t("Confirmer l’arrêt")}</button></div></> : <button className="button button--danger-outline" onClick={() => setConfirmCancel(true)}>{t("Demander l’arrêt")}</button>}</div>}
       </>}
     </div>
   </Dialog>;

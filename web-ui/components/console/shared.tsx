@@ -20,6 +20,9 @@ export function Badge({ status, cancelRequested = false }: { status: string; can
   return <span className={`status-badge status-badge--${item.tone}`}><span className="status-dot" />{t(item.label)}</span>;
 }
 export function workflowName(id: string) {
+  if (/^emulator-system-start-[a-f0-9]{12}-[a-f0-9]{12}$/.test(id)) return "Démarrage d’un émulateur";
+  if (/^emulator-system-prepare-[a-f0-9]{12}-[a-f0-9]{12}$/.test(id)) return "Préparation d’un émulateur";
+  if (/^emulator-system-stop-[a-f0-9]{12}-[a-f0-9]{12}$/.test(id)) return "Arrêt d’un émulateur";
   return id === "chrome-wikipedia-football" ? "Recherche Wikipédia" : id.replace(/[-_]/g, " ");
 }
 export function date(value: string, locale: Locale = "en", timeZone?: string) {

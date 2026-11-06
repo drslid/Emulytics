@@ -13,6 +13,45 @@ function post(body = "{}", origin = "http://localhost:3100") {
   return { method: "POST", body, headers: { Origin: origin, "Content-Type": "application/json", "X-Emulytix-Client": "console" } };
 }
 
+test("managed emulator routes preserve session and refuse arbitrary Docker endpoints", async () => {
+  for (const endpoint of ['console/emulators', 'console/emulators/emu-example/start', 'console/emulators/emu-example/prepare', 'console/emulators/emu-example/stop', 'console/emulators/emu-example/configuration']) {
+    const result = await proxyControl(request(endpoint, post()), endpoint.split('/'), async (url) => {
+      assert.equal(url, `http://api.internal:8010/${endpoint}?`);
+      return Response.json({ ok: true });
+    });
+    assert.equal(result.status, 200);
+  }
+  for (const endpoint of ['console/emulators/emu-example/exec', 'console/emulators/emu-example/delete', 'console/docker']) {
+    const result = await proxyControl(request(endpoint, post()), endpoint.split('/'), () => assert.fail('Unexpected backend call'));
+    assert.equal(result.status, 404);
+  }
+});
+
+test("APK multipart uploads retain their boundary and use only the exact protected upload route", async () => {
+  const body = new FormData();
+  body.set('file', new File(['apk-test-bytes'], 'linkedin.apk', { type: 'application/vnd.android.package-archive' }));
+  const incoming = request('console/applications', { method: 'POST', body, headers: {
+    Origin: 'http://localhost:3100', 'X-Emulytix-Client': 'console', Cookie: 'emulytix_session=valid; another=discard'
+  } });
+  const boundary = incoming.headers.get('content-type');
+  const result = await proxyControl(incoming, ['console', 'applications'], async (url, options) => {
+    assert.equal(url, 'http://api.internal:8010/console/applications?');
+    assert.equal(options.headers.get('content-type'), boundary);
+    assert.equal(options.headers.get('cookie'), 'emulytix_session=valid');
+    assert.match(new TextDecoder().decode(options.body), /apk-test-bytes/);
+    return Response.json({ ok: true }, { status: 201 });
+  });
+  assert.equal(result.status, 201);
+  const badOrigin = await proxyControl(request('console/applications', { method: 'POST', body: new FormData(), headers: {
+    Origin: 'https://other.test', 'X-Emulytix-Client': 'console'
+  } }), ['console', 'applications'], () => assert.fail('CSRF must fail'));
+  assert.equal(badOrigin.status, 403);
+  const wrongRoute = await proxyControl(request('devices', { method: 'POST', body: new FormData(), headers: {
+    Origin: 'http://localhost:3100', 'X-Emulytix-Client': 'console'
+  } }), ['devices'], () => assert.fail('Multipart must not bypass JSON on other routes'));
+  assert.equal(wrongRoute.status, 415);
+});
+
 async function withGoBackend(base, run) {
   const previous = process.env.EMULYTIX_GO_API_INTERNAL_URL;
   if (base === undefined) delete process.env.EMULYTIX_GO_API_INTERNAL_URL;
