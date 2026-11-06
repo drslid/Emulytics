@@ -52,6 +52,8 @@ def required_permission(method: str, path: str) -> str | None:
         return 'devices.read' if read else 'devices.write'
     if re.fullmatch(r'/console/devices/[^/]+/screen', path):
         return 'devices.read' if read else None
+    if re.fullmatch(r'/console/executions/[^/]+/screen', path):
+        return 'runs.read' if read else None
     if path == '/workflows' or re.fullmatch(r'/workflows/[^/]+/versions/[0-9]+', path):
         return 'workflows.read' if read else 'workflows.publish'
     if path == '/console/recipes/from-workflow':
