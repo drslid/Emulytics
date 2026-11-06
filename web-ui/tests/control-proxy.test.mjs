@@ -89,7 +89,8 @@ test("new administrative and automation routes remain explicitly bounded and CSR
 
 test("monitor stream preserves streaming and aborts with the browser request, without passing credentials", async () => {
   const abort = new AbortController(); let signal;
-  const result = await proxyControl(request("console/monitor/stream",{signal:abort.signal}),["console","monitor","stream"], async (_url,options) => {
+  const result = await proxyControl(request("console/monitor/stream?window=7d&secret=discard",{signal:abort.signal}),["console","monitor","stream"], async (url,options) => {
+    assert.match(url,/window=7d/);assert.doesNotMatch(url,/secret/);
     signal = options.signal;
     return new Response('data: {"ready":true}\n\n',{headers:{"Content-Type":"text/event-stream"}});
   });

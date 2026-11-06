@@ -60,7 +60,7 @@ export async function proxyControl(request: Request, segments: string[], fetcher
   }
   const search = new URL(request.url).searchParams;
   const query = new URLSearchParams();
-  for (const key of ["limit", "offset", "after", "q", "category", "severity", "role", "active", "two_factor", "onboarding"]) {
+  for (const key of ["limit", "offset", "after", "q", "category", "severity", "role", "active", "two_factor", "onboarding", "window"]) {
     const value = search.get(key);
     if (value !== null) query.set(key, value);
   }

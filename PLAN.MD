@@ -564,3 +564,20 @@ La revue indépendante a fait retirer les recherches par nom et e-mail des journ
 - [x] Regrouper la navigation sous Pilotage (Tableau de bord, Appareils, Écrans en direct), Automatisation (Parcours, Exécutions, Planifications), Supervision (Monitoring, Journal) et Administration (Utilisateurs).
 - [x] Traduire les rubriques dans les dix langues, masquer les groupes vides selon les droits et conserver Mon profil en bas du menu.
 - [x] Déployer et vérifier les rôles Admin et Viewer, la navigation au clavier, les petites hauteurs desktop, les largeurs 320/768/1024/1440 px et l'arabe RTL. Les 32 tests frontend, le build de production et le contrôle WCAG automatisé passent ; aucune erreur JavaScript observée. Les deux comptes de recette sont supprimés. Preuves : storage/navigation-review/.
+
+### Relevés utiles et fiables dans Monitoring — 6 novembre 2026
+
+L’[étude du monitoring](docs/monitoring-study.md) relie cinq questions d’exploitation aux observations disponibles et aux recommandations officielles Google SRE, Prometheus, OpenTelemetry et PostgreSQL. Les décisions retenues restent compatibles avec l’installation locale et ses permissions.
+
+- [x] Mesurer la file actuelle et son ancienneté, l’occupation des workers, les appareils réellement connectés/prêts et la capacité par hôte.
+- [x] Ajouter fenêtres 1 h/24 h/7 jours, résultats distincts, réussite avec dénominateur visible, médiane/p95 et effectifs. Analyser au plus 5 000 fins récentes en annonçant la troncature ; conserver `null` lorsqu’aucune mesure n’existe.
+- [x] Publier CPU en cœurs, RSS courante et temps d’activité des processus Python ; préserver les observations ADB existantes. Distinguer ces mesures des ressources de l’hôte, du conteneur et de l’émulateur.
+- [x] Ajouter connexions PostgreSQL du cluster, taille de base, retard des planifications et réservations non confirmées. Une visibilité SQL partielle laisse le compteur de connexions inconnu.
+- [x] Partager les snapshots SSE pendant deux secondes après collecte, recontrôler l’autorisation, masquer les anciennes instances, suspendre le flux en arrière-plan et faire expirer son statut en dix secondes sans message. Afficher les secondes et préserver le sens des rapports en arabe RTL.
+- [x] Déployer API, ordonnanceur, worker et interface après vérification d’absence d’exécution active. La migration 012 ajoute uniquement des index de lecture.
+
+Validation finale : **359 tests API, 35 tests frontend**, TypeScript et build de production réussis ; audit npm sans vulnérabilité connue. La revue indépendante a reproduit puis fait corriger un cache inefficace lors d’une collecte lente et un sous-comptage PostgreSQL sous rôle restreint, avec tests de régression.
+
+Dix groupes de recette navigateur vérifient les données réelles, les trois périodes, un flux continu au-delà de quinze secondes, l’absence de données, l’avertissement d’échantillonnage, le silence du flux, les messages invalides, le retour au premier plan et la révocation de session. Les simulations de transport et d’échantillon restent dans le navigateur de test. Six contrôles WCAG automatisés passent en français, allemand et arabe sur ordinateur et mobile, sans erreur JavaScript ni débordement de page aux largeurs 320/768/1024/1440 px. Le compte de recette est supprimé ; les neuf états d’exécution existants sont inchangés. Aucun parcours Android n’est lancé pour la recette. Preuves : storage/monitoring-review/.
+
+La collecte des ressources de l’hôte et de l’émulateur, les taux/latences HTTP et l’historique persistant des ressources constituent les prochains niveaux d’observation. Les mesures présentes gardent leur périmètre explicite.
