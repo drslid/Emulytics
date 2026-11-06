@@ -666,3 +666,14 @@ Validation : **19 tests Go principaux**, dont les sous-cas HTTP, `go test -race`
 Sept groupes navigateur et six contrôles WCAG passent, sans erreur JavaScript ni débordement. Le contrôle WebKit inclut également le tableau de bord. Les deux comptes de recette, cookies et sessions ont été retirés ; les dix états d’exécution préexistants restent inchangés. Aucun nouveau parcours Android lancé. Preuves : `storage/dashboard-review/`.
 
 Lors de cette recette, le banc Android a été trouvé arrêté avec le code 255 après un redémarrage des services, sans règle de redémarrage Docker. Le conteneur existant identifié `wf01` a été relancé après vérification qu’aucune exécution n’était en attente ou active. Android est démarré et connecté ; `unless-stopped` est appliqué au banc courant et aux créations futures pour conserver la reprise après redémarrage Docker. Aucun appareil déclaré n’est réaffecté.
+
+### Direct et captures réunis dans les exécutions — 6 novembre 2026
+
+- [x] Retirer « Écrans en direct » du menu et l’aperçu détaché des appareils ; rediriger les anciens liens `/ecrans` vers Exécutions après authentification.
+- [x] Ouvrir automatiquement le direct du premier appareil actif dans le détail du parcours, à côté des captures progressives. Empiler ces vues sur mobile, conserver la capture sélectionnée et proposer de masquer le direct ou de changer de téléphone, avec un seul flux affiché.
+- [x] Lier chaque flux à l’exécution et à son bail : vérifier état, propriétaire, époque, expiration et fraîcheur de l’image ; répondre 410 à la fin ou à la perte du bail. Arrêter le direct et conserver les captures historiques.
+- [x] Rafraîchir le détail et les événements toutes les deux secondes pendant le parcours, suspendre en arrière-plan et traduire les libellés dans les dix langues.
+
+API et interface déployées localement ; **414 tests API et 69 tests frontend**, TypeScript et build réussis. Deux parcours réels Chrome → Wikipédia → football ont réussi leurs onze étapes ; la recette navigateur du second a observé 38 images Android différentes et l’arrivée des captures avant la fin, puis l’arrêt du direct. Dix groupes navigateur et dix contrôles WCAG passent, avec français, allemand, arabe RTL, Admin/Viewer et largeurs 320/1440 px. Les variantes de deux téléphones et de perte du bail utilisent uniquement des fixtures navigateur ; le banc réel comporte un seul Android et le direct reste un rafraîchissement d’images, environ une par seconde.
+
+Les deux comptes temporaires et leurs sessions sont retirés. Les dix états historiques préexistants sont conservés ; les deux parcours réels de validation et leurs preuves restent dans l’historique. Preuves : `storage/execution-observation-review/`.

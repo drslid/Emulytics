@@ -18,8 +18,7 @@ export type View =
   | "users"
   | "monitor"
   | "logs"
-  | "profile"
-  | "screens";
+  | "profile";
 export type Device = {
   device_id: string;
   display_name: string;

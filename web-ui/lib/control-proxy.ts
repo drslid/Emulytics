@@ -1,6 +1,6 @@
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const identifier = "[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}";
-const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events)?|console/(summary|fleet|dashboard|account/(profile|security|two-factor/enrollment(/qr)?)|devices/${identifier}/screen|monitor(/stream)?|logs|users(/${UUID})?|recipes|schedules|executions/${UUID}/captures/${identifier}))$`);
+const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events)?|console/(summary|fleet|dashboard|account/(profile|security|two-factor/enrollment(/qr)?)|devices/${identifier}/screen|monitor(/stream)?|logs|users(/${UUID})?|recipes|schedules|executions/${UUID}/(captures/${identifier}|screen)))$`);
 const userPath = `console/users/${UUID}`;
 const recipePath = `console/recipes/${UUID}`;
 const schedulePath = `console/schedules/${UUID}`;
@@ -85,7 +85,7 @@ export async function proxyControl(request: Request, segments: string[], fetcher
       if (/^(emulytix_session|emulytix_challenge)=/.test(cookie)) responseHeaders.append("Set-Cookie", cookie);
     }
     if (streaming) responseHeaders.set("X-Accel-Buffering", "no");
-    if (/^console\/devices\/[^/]+\/screen$/.test(endpoint)) {
+    if (/^console\/(?:devices\/[^/]+|executions\/[0-9a-fA-F-]{36})\/screen$/.test(endpoint)) {
       for (const name of ["X-Screen-Captured-At", "X-Screen-Age", "X-Screen-Frame-Id"]) {
         const value = upstream.headers.get(name);
         if (value) responseHeaders.set(name, value);

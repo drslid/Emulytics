@@ -26,28 +26,7 @@
 .live-screen:fullscreen .live-screen-stage { flex:1; min-height:0; padding:12px; background:#111317; }
 .live-screen:fullscreen .live-screen-phone { width:auto; max-width:100%; border-radius:10px; border-width:3px; }
 .live-screen:fullscreen .live-screen-image { width:auto; max-width:100%; height:auto; max-height:calc(100vh - 150px); }
-.screens-layout { display:grid; grid-template-columns:minmax(230px,300px) minmax(0,1fr); gap:24px; align-items:start; }
-.screens-device-panel .surface-heading { padding:22px 20px 16px; }
-.screens-device-panel h2 { font-size:15px; }
-.screens-device-list { display:grid; gap:6px; padding:0 10px 12px; }
-.screens-device { display:flex; align-items:flex-start; gap:11px; text-align:start; width:100%; border:1px solid transparent; border-radius:12px; background:#fff; padding:14px 12px; color:var(--text); }
-.screens-device > svg { margin-top:1px; color:var(--muted); flex-shrink:0; }
-.screens-device > span { display:grid; gap:8px; min-width:0; }
-.screens-device strong { font-size:13px; font-weight:500; overflow-wrap:anywhere; }
-.screens-device small { font-size:10px; color:var(--muted); overflow-wrap:anywhere; }
-.screens-device .status-badge { justify-self:start; white-space:normal; text-align:start; }
-.screens-device:hover:not(:disabled) { background:#f4f8ff; }
-.screens-device--selected { border-color:#b3cdf5; background:#eaf2ff!important; }
-.screens-device--selected > svg { color:var(--accent); }
-.screens-device:disabled { opacity:.68; cursor:default; }
-.screens-help { display:flex; gap:9px; margin:0 20px 20px; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); }
-.screens-help svg { flex-shrink:0; margin-top:2px; }
-.screens-help p,.screens-cadence { font-size:11px; line-height:1.7; margin:0; }
-.screens-cadence { text-align:center; color:var(--muted); margin:12px 0 0; }
-.screen-dialog-body { padding:0 24px 24px; }
 .execution-live-toggle { margin:8px 0 12px; }
 .execution-item .live-screen { margin-block:12px 20px; }
 .execution-item .live-screen-image { max-height:440px; }
-@media(max-width:1100px) { .screens-layout { grid-template-columns:minmax(210px,260px) minmax(0,1fr); gap:18px; } }
-@media(max-width:760px) { .screens-layout { grid-template-columns:1fr; gap:18px; } .screens-device-list { grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); } .screens-help { margin-bottom:16px; } }
-@media(max-width:620px) { .live-screen-header { padding:12px 14px; gap:9px; } .live-screen-header strong { font-size:13px; } .live-screen-controls { gap:5px; } .live-screen-controls .text-button { padding-inline:5px; font-size:10px; } .live-screen-stage { padding:14px; min-height:260px; } .live-screen-phone { border-width:4px; border-radius:16px; } .live-screen-image { max-height:65vh; } .live-screen-footer { padding:11px 14px; font-size:9px; } .screen-dialog-body { padding:0 12px 12px; } .screens-device-panel .surface-heading { padding:18px 16px 13px; } .screens-device-list { padding-inline:6px; } .screens-device { padding:12px 10px; } .execution-item .live-screen-header { padding:10px; } .execution-item .live-screen-stage { padding:10px; } }
+@media(max-width:620px) { .live-screen-header { padding:12px 14px; gap:9px; } .live-screen-header strong { font-size:13px; } .live-screen-controls { gap:5px; } .live-screen-controls .text-button { padding-inline:5px; font-size:10px; } .live-screen-stage { padding:14px; min-height:260px; } .live-screen-phone { border-width:4px; border-radius:16px; } .live-screen-image { max-height:65vh; } .live-screen-footer { padding:11px 14px; font-size:9px; } .execution-item .live-screen-header { padding:10px; } .execution-item .live-screen-stage { padding:10px; } }

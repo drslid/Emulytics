@@ -72,7 +72,7 @@ function Thumbnail({ step, blocked, retry }: { step: GalleryStep; blocked: boole
   </span>;
 }
 
-export function ExecutionGallery({ execution, steps }: { execution: Execution; steps?: Step[] }) {
+export function ExecutionGallery({ execution, steps, compact = false }: { execution: Execution; steps?: Step[]; compact?: boolean }) {
   const { t, locale } = useLocale();
   const titleId = useId();
   const previewId = useId();
@@ -117,7 +117,7 @@ export function ExecutionGallery({ execution, steps }: { execution: Execution; s
     : capture?.status === "forbidden" ? "L’accès à cette capture a été révoqué."
     : capture?.status === "missing" ? "Cette capture n’est plus disponible."
     : "Impossible de charger la capture.";
-  return <section className="execution-gallery" aria-labelledby={titleId} onKeyDown={navigate}>
+  return <section className={`execution-gallery ${compact ? "execution-gallery--compact" : ""}`} aria-labelledby={titleId} onKeyDown={navigate}>
     <div className="execution-gallery-heading"><h4 id={titleId}>{t("Captures des étapes")}</h4>{rows.length > 0 && <span>{t("Captures enregistrées : {count}", { count: number(rows.filter(step => step.captureUrl).length) })}</span>}</div>
     {!selected ? <p className="small-copy">{t("Les preuves apparaîtront lorsque le worker aura exécuté les étapes.")}</p> : <div className="execution-gallery-layout">
       <ol className="execution-step-list" role="list" aria-label={t("Captures des étapes")}>

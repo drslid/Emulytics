@@ -826,5 +826,8 @@
   "Tendances de votre flotte": "आपके डिवाइस समूह के रुझान",
   "Terminées": "पूरे हुए",
   "Voir les données": "डेटा देखें",
-  "Workers libres": "खाली वर्कर"
+  "Workers libres": "खाली वर्कर",
+  "Écran en direct": "लाइव स्क्रीन",
+  "Le direct est terminé. Les captures du parcours restent disponibles.": "लाइव दृश्य समाप्त हो गया है। कार्यप्रवाह के स्क्रीनशॉट उपलब्ध रहेंगे।",
+  "Un seul écran est affiché à la fois. Choisissez un autre téléphone pour changer le direct.": "एक समय में एक ही स्क्रीन दिखाई जाती है। लाइव दृश्य बदलने के लिए दूसरा फ़ोन चुनें।"
 }

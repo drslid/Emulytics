@@ -231,6 +231,24 @@ test("live device frames stay within the private proxy and preserve observation 
   assert.equal((await proxyControl(request("console/devices/local-emulator/screen",post()),["console","devices","local-emulator","screen"])).status,404);
 });
 
+test("execution-bound live frames stay on the existing authenticated backend and preserve observation metadata", async () => {
+  const path = "console/executions/12345678-1234-4234-9234-123456789abc/screen";
+  process.env.EMULYTIX_GO_API_INTERNAL_URL = "http://go.internal:8020";
+  try {
+    const response = await proxyControl(request(path, {headers:{Cookie:"emulytix_session=ready",Authorization:"Bearer ignored"}}), path.split("/"), async (url, options) => {
+      assert.equal(url,`http://api.internal:8010/${path}?`);
+      assert.equal(options.headers.get("cookie"),"emulytix_session=ready");
+      assert.equal(options.headers.get("authorization"),null);
+      return new Response("png", {headers:{"Content-Type":"image/png","X-Screen-Captured-At":"2026-11-06T19:00:00Z","X-Screen-Age":"0.2","X-Screen-Frame-Id":"bound-frame"}});
+    });
+    assert.equal(response.headers.get("x-screen-frame-id"),"bound-frame");
+    assert.equal(response.headers.get("x-screen-age"),"0.2");
+    assert.equal(response.headers.get("x-emulytix-backend"),null);
+    assert.equal((await proxyControl(request(path,post()),path.split("/"))).status,404);
+    assert.equal((await proxyControl(request(path.replace("screen","adb")),path.replace("screen","adb").split("/"))).status,404);
+  } finally {delete process.env.EMULYTIX_GO_API_INTERNAL_URL;}
+});
+
 test("personal security routes are explicit, CSRF protected and forward rotated cookies", async () => {
   for (const path of ["console/account/security","console/account/two-factor/enrollment","console/account/two-factor/enrollment/qr"]) {
     const response=await proxyControl(request(path),path.split("/"),async()=>Response.json({ok:true}));

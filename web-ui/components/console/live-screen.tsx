@@ -10,13 +10,15 @@ import {
 import { Icon } from "./icons";
 
 type Frame = ScreenFrameMeta & { url: string };
-type Connection = "connecting" | "ready" | "retrying" | "forbidden" | "missing";
+type Connection = "connecting" | "ready" | "retrying" | "forbidden" | "missing" | "ended";
 
 export function LiveScreen({
   deviceId,
+  executionId,
   name,
 }: {
   deviceId: string;
+  executionId?: string;
   name?: string;
 }) {
   const { t, locale } = useLocale();
@@ -56,7 +58,9 @@ export function LiveScreen({
       const timeout = setTimeout(() => request.abort(), 5000);
       try {
         const response = await fetch(
-          `/api/control/console/devices/${encodeURIComponent(deviceId)}/screen`,
+          executionId
+            ? `/api/control/console/executions/${encodeURIComponent(executionId)}/screen`
+            : `/api/control/console/devices/${encodeURIComponent(deviceId)}/screen`,
           {
             credentials: "same-origin",
             cache: "no-store",
@@ -76,6 +80,12 @@ export function LiveScreen({
           terminal = true;
           clearFrame();
           setConnection("missing");
+          return;
+        }
+        if (response.status === 410) {
+          terminal = true;
+          clearFrame();
+          setConnection("ended");
           return;
         }
         if (!response.ok) {
@@ -168,7 +178,7 @@ export function LiveScreen({
       if (currentUrl) URL.revokeObjectURL(currentUrl);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [deviceId]);
+  }, [deviceId, executionId]);
 
   useEffect(() => {
     setFullscreenAvailable(Boolean(viewer.current?.requestFullscreen));
@@ -188,7 +198,9 @@ export function LiveScreen({
   }
   const fresh =
     visible && connection === "ready" && isScreenFrameFresh(frame, clock);
-  const label = !visible
+  const label = connection === "ended"
+    ? t("Exécution terminée")
+    : !visible
     ? t("En pause")
     : fresh
       ? t("En direct")
@@ -261,11 +273,13 @@ export function LiveScreen({
               <Icon name="phone" size={38} />
             </span>
             <strong>
-              {t(waiting ? "Chargement de l’écran…" : "Écran indisponible")}
+              {t(connection === "ended" ? "Exécution terminée" : waiting ? "Chargement de l’écran…" : "Écran indisponible")}
             </strong>
             <p>
               {t(
-                connection === "forbidden"
+                connection === "ended"
+                  ? "Le direct est terminé. Les captures du parcours restent disponibles."
+                  : connection === "forbidden"
                   ? "L’accès à cet écran a été révoqué."
                   : connection === "missing"
                     ? "Cet élément n’est plus disponible. Actualisez la page."
@@ -280,7 +294,9 @@ export function LiveScreen({
       </div>
       <div className="live-screen-footer">
         <span>
-          {frame
+          {connection === "ended"
+            ? t("Exécution terminée")
+            : frame
             ? t("Dernière image : {time}", {
                 time: new Intl.DateTimeFormat(locale, {
                   timeStyle: "medium",

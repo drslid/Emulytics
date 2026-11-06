@@ -826,5 +826,8 @@
   "Tendances de votre flotte": "Tendencias de tu flota",
   "Terminées": "Finalizadas",
   "Voir les données": "Ver datos",
-  "Workers libres": "Workers libres"
+  "Workers libres": "Workers libres",
+  "Écran en direct": "Pantalla en directo",
+  "Le direct est terminé. Les captures du parcours restent disponibles.": "La vista en directo ha terminado. Las capturas del flujo de trabajo siguen disponibles.",
+  "Un seul écran est affiché à la fois. Choisissez un autre téléphone pour changer le direct.": "Solo se muestra una pantalla a la vez. Elige otro teléfono para cambiar la vista en directo."
 }

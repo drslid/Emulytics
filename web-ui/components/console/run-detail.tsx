@@ -9,6 +9,7 @@ import { Badge, Dialog, ErrorNotice, date, workflowName } from "./shared";
 import { Icon } from "./icons";
 import { LiveScreen } from "./live-screen";
 import { ExecutionGallery } from "./execution-gallery";
+import { isExecutionLive, reconcileExecutionLive, toggleExecutionLive, type ExecutionLiveSelection } from "../../lib/execution-live";
 
 const eventLabels: Record<string, string> = {
   "run.created": "Demande enregistrée", "run.cancel_requested": "Arrêt demandé", "run.cancelled": "Exécution annulée",
@@ -19,7 +20,7 @@ const eventLabels: Record<string, string> = {
 };
 export function RunDetail({ runId, onClose, onChanged, canCancel = true }: { runId: string; onClose: () => void; onChanged: () => void; canCancel?: boolean }) {
   const { t, locale } = useLocale();
-  const [screenExecutionId, setScreenExecutionId] = useState<string | null>(null);
+  const [liveSelection, setLiveSelection] = useState<ExecutionLiveSelection>({ executionId: null, hidden: false });
   const [workflowSteps, setWorkflowSteps] = useState<Step[] | undefined>();
   const [workflowUnavailable, setWorkflowUnavailable] = useState(false);
   const [run, setRun] = useState<Detail | null>(null);
@@ -29,38 +30,71 @@ export function RunDetail({ runId, onClose, onChanged, canCancel = true }: { run
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [eventLoading, setEventLoading] = useState(false);
   const requestSequence = useRef(0);
+  const eventSequence = useRef(0);
+  const eventCursor = useRef(0);
+  const pendingDetail = useRef<number | null>(null);
+  const pendingEvents = useRef<number | null>(null);
+  const mounted = useRef(false);
   const mutating = useRef(false);
   const load = useCallback(async () => {
-    if (mutating.current) return;
+    if (!mounted.current || mutating.current || pendingDetail.current !== null) return;
     const request = ++requestSequence.current;
+    pendingDetail.current = request;
     try {
       const detail = await api<Detail>(`runs/${runId}`);
       if (request === requestSequence.current && !mutating.current) { setRun(detail); setError(""); }
     } catch (failure) { if (request === requestSequence.current && !mutating.current) setError((failure as Error).message); }
+    finally { if (pendingDetail.current === request) pendingDetail.current = null; }
   }, [runId]);
   const moreEvents = useCallback(async (after: number) => {
+    if (!mounted.current || mutating.current || pendingEvents.current !== null) return;
+    const request = ++eventSequence.current;
+    pendingEvents.current = request;
     setEventLoading(true);
     try {
       const page = await api<Page<RunEvent>>(`runs/${runId}/events?after=${after}&limit=100`);
-      setEvents((current) => [...current, ...page.items].filter((item, index, list) => list.findIndex((other) => other.sequence === item.sequence) === index));
-    } catch (failure) { setError((failure as Error).message); }
-    finally { setEventLoading(false); }
+      if (request !== eventSequence.current || mutating.current) return;
+      eventCursor.current = Math.max(eventCursor.current, ...page.items.map(event => event.sequence));
+      setEvents(current => [...new Map([...current, ...page.items].map(event => [event.sequence, event])).values()].sort((left, right) => left.sequence - right.sequence));
+    } catch (failure) { if (request === eventSequence.current && !mutating.current) setError((failure as Error).message); }
+    finally { if (pendingEvents.current === request) { pendingEvents.current = null; setEventLoading(false); } }
   }, [runId]);
   useEffect(() => {
+    mounted.current = true;
+    setRun(null); setEvents([]); setError(""); setWorkflowSteps(undefined);
+    setLiveSelection({ executionId: null, hidden: false });
+    eventCursor.current = 0;
     void load(); void moreEvents(0);
-    const timer = setInterval(() => { if (document.visibilityState === "visible") void load(); }, 5000);
-    return () => { clearInterval(timer); requestSequence.current += 1; };
+    return () => { mounted.current = false; requestSequence.current++; eventSequence.current++; pendingDetail.current = null; pendingEvents.current = null; };
   }, [load, moreEvents]);
+  const pollingInterval = !run || run.status === "queued" || run.status === "running" || run.executions.some(isExecutionLive) ? 2000 : 5000;
   useEffect(() => {
-    const timer = setInterval(() => { if (document.visibilityState === "visible") void moreEvents(events.at(-1)?.sequence ?? 0); }, 5000);
-    return () => clearInterval(timer);
-  }, [events, moreEvents]);
+    const refresh = () => {
+      if (document.visibilityState === "visible") { void load(); void moreEvents(eventCursor.current); }
+      else { requestSequence.current++; eventSequence.current++; pendingDetail.current = null; pendingEvents.current = null; setEventLoading(false); }
+    };
+    const timer = setInterval(() => { if (document.visibilityState === "visible") refresh(); }, pollingInterval);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [load, moreEvents, pollingInterval]);
+  useEffect(() => {
+    setLiveSelection(current => {
+      const next = reconcileExecutionLive(run?.executions ?? [], current);
+      return next.executionId === current.executionId && next.hidden === current.hidden ? current : next;
+    });
+  }, [run?.executions]);
+  const live = reconcileExecutionLive(run?.executions ?? [], liveSelection);
+  const screenExecutionId = live.hidden ? null : live.executionId;
   async function cancel() {
-    mutating.current = true; requestSequence.current += 1;
+    if (mutating.current) return;
+    mutating.current = true;
+    const request = ++requestSequence.current;
+    eventSequence.current++; pendingDetail.current = null; pendingEvents.current = null;
+    setEventLoading(false);
     setBusy(true); setError("");
-    try { const result = await api<Detail>(`runs/${runId}/cancel`, {}); requestSequence.current += 1; setRun(result); setConfirmCancel(false); onChanged(); }
-    catch (failure) { setError((failure as Error).message); }
-    finally { mutating.current = false; setBusy(false); }
+    try { const result = await api<Detail>(`runs/${runId}/cancel`, {}); if (mounted.current && request === requestSequence.current) { requestSequence.current++; setRun(result); setConfirmCancel(false); } onChanged(); }
+    catch (failure) { if (mounted.current && request === requestSequence.current) setError((failure as Error).message); }
+    finally { mutating.current = false; if (mounted.current) { setBusy(false); void moreEvents(eventCursor.current); } }
   }
   const workflowId = run?.workflow_id, workflowVersion = run?.workflow_version;
   useEffect(() => {
@@ -82,14 +116,17 @@ export function RunDetail({ runId, onClose, onChanged, canCancel = true }: { run
         {run.status === "needs_review" && <div className="notice notice--warning"><Icon name="warning" /><span>{t("Une vérification est nécessaire avant de réutiliser l’appareil. Consultez les preuves ; aucune action incertaine ne sera relancée automatiquement.")}</span></div>}
         <section>
           <h3 className="detail-section-title">{t("Résultat par téléphone")}</h3>
+          {run.executions.filter(isExecutionLive).length > 1 && <p className="small-copy execution-live-help">{t("Un seul écran est affiché à la fois. Choisissez un autre téléphone pour changer le direct.")}</p>}
           {workflowUnavailable && <p className="small-copy">{t("Le détail des étapes prévues est indisponible. Les captures collectées restent accessibles.")}</p>}
           <div className="execution-list">{run.executions.map((execution) => <article className="execution-item" key={execution.id}>
             <div className="execution-heading"><strong><Icon name="phone" size={18} /><bdi>{execution.device_id}</bdi></strong><Badge status={execution.status} /></div>
             {execution.attempt > 1 && <p className="small-copy">{t("Tentative {n}", { n: execution.attempt })}</p>}
             {execution.error && <p className="execution-error">{execution.error}</p>}
-            <ExecutionGallery execution={execution} steps={workflowSteps} />
-            <button className="text-button execution-live-toggle" aria-expanded={screenExecutionId === execution.id} aria-controls={`live-screen-${execution.id}`} onClick={() => setScreenExecutionId(current => current === execution.id ? null : execution.id)}><Icon name="phone" size={16} />{t(screenExecutionId === execution.id ? "Masquer l’écran" : "Voir en direct")}</button>
-            {screenExecutionId === execution.id && <div id={`live-screen-${execution.id}`}><p className="small-copy">{t("Le direct montre l’appareil maintenant. Les captures ci-dessus conservent les étapes du parcours.")}</p><LiveScreen deviceId={execution.device_id} name={execution.device_id} /></div>}
+            {isExecutionLive(execution) && <button type="button" className="text-button execution-live-toggle" aria-expanded={screenExecutionId === execution.id} aria-controls={`live-screen-${execution.id}`} onClick={() => setLiveSelection(current => toggleExecutionLive(run.executions, current, execution.id))}><Icon name="phone" size={16} />{t(screenExecutionId === execution.id ? "Masquer l’écran" : "Voir en direct")}</button>}
+            <div className={`execution-watch-layout ${screenExecutionId === execution.id ? "execution-watch-layout--live" : ""}`}>
+              {screenExecutionId === execution.id && <aside className="execution-live-panel" id={`live-screen-${execution.id}`} aria-label={t("Écran en direct")} key="live"><h4>{t("Écran en direct")}</h4><LiveScreen key={execution.id} deviceId={execution.device_id} executionId={execution.id} name={execution.device_id} /></aside>}
+              <ExecutionGallery key="gallery" execution={execution} steps={workflowSteps} compact={screenExecutionId === execution.id} />
+            </div>
           </article>)}</div>
         </section>
         <section><div className="surface-heading surface-heading--compact"><h3>{t("Journal des événements")}</h3><button className="text-button" disabled={eventLoading} onClick={() => void moreEvents(events.at(-1)?.sequence ?? 0)}><Icon name="refresh" size={16} />{t("Actualiser")}</button></div>{events.length ? <ol className="event-timeline" tabIndex={0} aria-label={t("Journal des événements")}>{events.map((event) => <li key={event.sequence}><span className="event-marker" /><div><strong>{t(eventLabels[event.type] ?? event.type)}</strong><span>{date(event.created_at, locale)}{typeof event.payload.step_id === "string" ? ` · ${event.payload.step_id}` : ""}</span></div></li>)}</ol> : <p className="small-copy">{t("Aucun événement disponible.")}</p>}{events.length >= 100 && <button className="text-button" disabled={eventLoading} onClick={() => void moreEvents(events.at(-1)?.sequence ?? 0)}>{t("Charger la suite du journal")}</button>}</section>

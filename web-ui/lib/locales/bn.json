@@ -826,5 +826,8 @@
   "Tendances de votre flotte": "আপনার ডিভাইস বহরের প্রবণতা",
   "Terminées": "সম্পন্ন",
   "Voir les données": "ডেটা দেখুন",
-  "Workers libres": "খালি ওয়ার্কার"
+  "Workers libres": "খালি ওয়ার্কার",
+  "Écran en direct": "লাইভ স্ক্রিন",
+  "Le direct est terminé. Les captures du parcours restent disponibles.": "লাইভ দৃশ্য শেষ হয়েছে। ওয়ার্কফ্লোর স্ক্রিনশটগুলো এখনও দেখা যাবে।",
+  "Un seul écran est affiché à la fois. Choisissez un autre téléphone pour changer le direct.": "একবারে একটি স্ক্রিন দেখানো হয়। লাইভ দৃশ্য বদলাতে অন্য ফোন বেছে নিন।"
 }

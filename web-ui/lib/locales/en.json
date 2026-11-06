@@ -826,5 +826,8 @@
   "Tendances de votre flotte": "Fleet trends",
   "Terminées": "Finished",
   "Voir les données": "View data",
-  "Workers libres": "Idle workers"
+  "Workers libres": "Idle workers",
+  "Écran en direct": "Live screen",
+  "Le direct est terminé. Les captures du parcours restent disponibles.": "The live view has ended. Workflow screenshots remain available.",
+  "Un seul écran est affiché à la fois. Choisissez un autre téléphone pour changer le direct.": "One screen is shown at a time. Choose another phone to switch the live view."
 }

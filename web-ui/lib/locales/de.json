@@ -826,5 +826,8 @@
   "Tendances de votre flotte": "Entwicklung Ihrer Geräteflotte",
   "Terminées": "Abgeschlossen",
   "Voir les données": "Daten anzeigen",
-  "Workers libres": "Freie Worker"
+  "Workers libres": "Freie Worker",
+  "Écran en direct": "Live-Bildschirm",
+  "Le direct est terminé. Les captures du parcours restent disponibles.": "Die Live-Ansicht ist beendet. Die Screenshots des Workflows bleiben verfügbar.",
+  "Un seul écran est affiché à la fois. Choisissez un autre téléphone pour changer le direct.": "Es wird jeweils ein Bildschirm angezeigt. Wählen Sie ein anderes Telefon, um die Live-Ansicht zu wechseln."
 }

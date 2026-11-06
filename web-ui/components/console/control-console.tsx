@@ -5,7 +5,7 @@ import { api } from "../../lib/client-api";
 import type { Data, Device, Page, Run, RunDetail as Detail, Summary, User, View, Workflow } from "../../lib/console-types";
 import { Icon } from "./icons";
 import { BrandMark } from "./brand-mark";
-import { Dialog, ErrorNotice } from "./shared";
+import { ErrorNotice } from "./shared";
 import { Overview } from "./overview";
 import { Devices } from "./devices";
 import { Workflows } from "./workflows";
@@ -19,15 +19,12 @@ import { Schedules, ScheduleEditor } from "./schedules";
 import { Monitor } from "./monitor";
 import { Logs } from "./logs";
 import { Users, Profile } from "./users";
-import { Screens } from "./screens";
-import { LiveScreen } from "./live-screen";
 import { connectionWorkerHosts } from "../../lib/device-readiness";
 import { ConsoleNavigation } from "./navigation";
 
 const titles: Record<View, { title: string; subtitle: string }> = {
   overview: { title: "Tableau de bord", subtitle: "Votre flotte et vos automatisations, au même endroit." },
   devices: { title: "Appareils", subtitle: "Sélectionnez les appareils que vous souhaitez piloter." },
-  screens: { title: "Écrans en direct", subtitle: "Suivez les écrans Android pendant les parcours." },
   workflows: { title: "Parcours", subtitle: "Des parcours reproductibles, pour un ou plusieurs téléphones." },
   activity: { title: "Exécutions", subtitle: "Suivez les exécutions et retrouvez leurs résultats." },
   schedules: { title: "Planifications", subtitle: "Choisissez quand lancer un parcours et sur quels appareils." },
@@ -40,7 +37,7 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
   const t = useT(); const { locale } = useLocale();
   const can = (permission: string) => user.permissions?.includes(permission) ?? false;
   const allowed = view !== "users" && view !== "logs" || can(view === "users" ? "users.manage" : "logs.read");
-  const dataView = ["overview", "devices", "workflows", "activity", "schedules", "screens"].includes(view);
+  const dataView = ["overview", "devices", "workflows", "activity", "schedules"].includes(view);
   const [scheduling, setScheduling] = useState<Workflow | null>(null);
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
@@ -53,7 +50,6 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [adding, setAdding] = useState(false);
   const [launching, setLaunching] = useState<{ workflow?: Workflow; ids: string[] } | null>(null);
-  const [screen, setScreen] = useState<Device | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const pending = useRef(false);
   const sequence = useRef(0);
@@ -99,14 +95,13 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
     </aside>
     <div className="app-main tw:min-w-0"><header className="topbar"><div><span className="workspace-indicator" />{t("Espace de travail")}<span className="topbar-separator">/</span><strong>{t(title.title)}</strong></div><LanguageSelector /></header>
       <main id="main-content" className="console-content" tabIndex={-1}>
-        <div className="page-heading"><div><h1>{t(title.title)}</h1><p>{t(title.subtitle)}</p></div>{dataView && view !== "devices" && view !== "workflows" && view !== "schedules" && view !== "screens" && can("runs.execute") && <button className="button button--primary" disabled={!data} onClick={() => setLaunching({ ids: [] })}><Icon name="plus" size={19} />{t("Lancer une automatisation")}</button>}</div>
+        <div className="page-heading"><div><h1>{t(title.title)}</h1><p>{t(title.subtitle)}</p></div>{dataView && view !== "devices" && view !== "workflows" && view !== "schedules" && can("runs.execute") && <button className="button button--primary" disabled={!data} onClick={() => setLaunching({ ids: [] })}><Icon name="plus" size={19} />{t("Lancer une automatisation")}</button>}</div>
         {dataView && <div className="refresh-line"><span className={`connection-dot ${error ? "connection-dot--offline" : ""}`} /><span>{error ? t("Actualisation interrompue · dernières données conservées") : updatedAt ? t("Mis à jour à {time}", { time: new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(updatedAt) }) : t("Connexion au service…")}</span><button className="text-button" disabled={refreshing} onClick={() => void load()}><Icon name="refresh" size={15} />{refreshing ? t("Actualisation…") : t("Actualiser")}</button></div>}
         {error && <ErrorNotice message={error} />}
         {notice && <div className="notice notice--success" role="status"><Icon name="check" /><span>{notice}</span><button className="icon-button" onClick={() => setNotice("")} aria-label={t("Masquer la confirmation")}><Icon name="close" size={17} /></button></div>}
         {!allowed ? <section className="surface empty-state"><Icon name="shield" size={32} /><h2>{t("Accès réservé")}</h2><p>{t("Votre rôle ne permet pas d’accéder à cette section.")}</p></section> : view === "profile" ? <Profile user={user} onLogout={() => void logout()} /> : view === "users" ? <Users user={user} /> : view === "monitor" ? <Monitor /> : view === "logs" ? <Logs /> : !data ? <section className="surface loading-state" aria-busy={!error} role="status">{error ? <><h2>{t("La console ne peut pas charger vos données")}</h2><p>{t("Vos données restent conservées. Réessayez lorsque le service est disponible.")}</p><button className="button button--secondary" onClick={() => void load()} disabled={refreshing}>{t("Réessayer")}</button></> : <><div className="skeleton-line" /><div className="skeleton-line skeleton-line--short" /><p>{t("Chargement de votre espace…")}</p></>}</section> : <>
           {view === "overview" && <Overview data={data} onOpen={setRunId} onLaunch={() => setLaunching({ ids: [] })} onAdd={() => setAdding(true)} canAdd={can("devices.write")} canLaunch={can("runs.execute")} />}
-          {view === "devices" && <Devices devices={data.devices} total={data.devicesTotal} offset={loadedOffsets.devices} onPage={(value) => { setOffset(value); setSelected([]); }} selected={selected} onSelect={setSelected} onViewScreen={setScreen} onAdd={() => setAdding(true)} onLaunch={() => setLaunching({ ids: [...selected] })} canAdd={can("devices.write")} canLaunch={can("runs.execute")} />}
-          {view === "screens" && <Screens devices={data.devices} />}
+          {view === "devices" && <Devices devices={data.devices} total={data.devicesTotal} offset={loadedOffsets.devices} onPage={(value) => { setOffset(value); setSelected([]); }} selected={selected} onSelect={setSelected} onAdd={() => setAdding(true)} onLaunch={() => setLaunching({ ids: [...selected] })} canAdd={can("devices.write")} canLaunch={can("runs.execute")} />}
           {view === "workflows" && <Workflows workflows={data.workflows} onLaunch={(workflow) => setLaunching({ workflow, ids: [] })} onSchedule={setScheduling} canBuild={can("workflows.write")} canLaunch={can("runs.execute")} onChanged={() => void load()} />}
           {view === "schedules" && <Schedules devices={data.devices} workflows={data.workflows} canWrite={can("schedules.write")} onInitialUsed={() => {}} onOpenRun={setRunId} />}
           {view === "activity" && <Activity runs={data.runs} total={data.summary.runs_total} offset={loadedOffsets.runs} onPage={setRunOffset} onOpen={setRunId} onLaunch={() => setLaunching({ ids: [] })} canLaunch={can("runs.execute")} />}
@@ -116,7 +111,6 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
     {adding && can("devices.write") && <DeviceForm hosts={data?.workerHosts ?? []} onClose={() => setAdding(false)} onAdded={() => { setAdding(false); setNotice(t("Téléphone ajouté. Sa connexion reste à vérifier sur le worker.")); void load(); }} />}
     {launching && data && can("runs.execute") && <RunDialog userId={user.id} devices={data.devices} workflows={data.workflows} initialWorkflow={launching.workflow} initialDeviceIds={launching.ids} onClose={() => setLaunching(null)} onLaunched={launched} />}
     {scheduling && data && can("schedules.write") && <ScheduleEditor devices={data.devices} workflows={data.workflows} initial={scheduling} onClose={() => setScheduling(null)} onSaved={() => {setScheduling(null); setNotice(t("Planification créée."));}} />}
-    {screen && <Dialog title={t("Écran de {name}", {name: screen.display_name || screen.device_id})} description={t("L’écran est affiché en direct, indépendamment des captures du parcours.")} wide onClose={() => setScreen(null)}><div className="screen-dialog-body"><LiveScreen deviceId={screen.device_id} name={screen.display_name || screen.device_id} /></div></Dialog>}
     {runId && <RunDetail canCancel={can("runs.cancel")} key={runId} runId={runId} onClose={() => setRunId(null)} onChanged={() => void load()} />}
   </div>;
 }

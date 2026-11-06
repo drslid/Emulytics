@@ -10,8 +10,7 @@ const navigation = [
   {
     id: "control", label: "Pilotage", items: [
       { id: "overview", href: "/", label: "Tableau de bord", icon: "overview" as const },
-      { id: "devices", href: "/telephones", label: "Appareils", icon: "phone" as const },
-      { id: "screens", href: "/ecrans", label: "Écrans en direct", icon: "phone" as const }
+      { id: "devices", href: "/telephones", label: "Appareils", icon: "phone" as const }
     ]
   },
   {

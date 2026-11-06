@@ -826,5 +826,8 @@
   "Tendances de votre flotte": "设备群趋势",
   "Terminées": "已完成",
   "Voir les données": "查看数据",
-  "Workers libres": "空闲工作进程"
+  "Workers libres": "空闲工作进程",
+  "Écran en direct": "实时屏幕",
+  "Le direct est terminé. Les captures du parcours restent disponibles.": "实时查看已结束。工作流截图仍然可用。",
+  "Un seul écran est affiché à la fois. Choisissez un autre téléphone pour changer le direct.": "同一时间只显示一个屏幕。选择其他手机即可切换实时画面。"
 }

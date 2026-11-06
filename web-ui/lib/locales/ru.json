@@ -826,5 +826,8 @@
   "Tendances de votre flotte": "Динамика парка устройств",
   "Terminées": "Завершено",
   "Voir les données": "Показать данные",
-  "Workers libres": "Свободные обработчики"
+  "Workers libres": "Свободные обработчики",
+  "Écran en direct": "Экран в реальном времени",
+  "Le direct est terminé. Les captures du parcours restent disponibles.": "Просмотр в реальном времени завершён. Снимки шагов сценария остаются доступны.",
+  "Un seul écran est affiché à la fois. Choisissez un autre téléphone pour changer le direct.": "Одновременно отображается один экран. Выберите другой телефон для просмотра в реальном времени."
 }

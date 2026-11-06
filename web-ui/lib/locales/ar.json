@@ -826,5 +826,8 @@
   "Tendances de votre flotte": "اتجاهات أسطول أجهزتك",
   "Terminées": "مكتملة",
   "Voir les données": "عرض البيانات",
-  "Workers libres": "عمليات تنفيذ متاحة"
+  "Workers libres": "عمليات تنفيذ متاحة",
+  "Écran en direct": "الشاشة المباشرة",
+  "Le direct est terminé. Les captures du parcours restent disponibles.": "انتهى العرض المباشر. تظل لقطات شاشة مسار العمل متاحة.",
+  "Un seul écran est affiché à la fois. Choisissez un autre téléphone pour changer le direct.": "تُعرض شاشة واحدة في كل مرة. اختر هاتفًا آخر لتبديل العرض المباشر."
 }
