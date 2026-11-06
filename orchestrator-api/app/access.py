@@ -34,6 +34,17 @@ def normalize_username(value: str) -> str:
 def required_permission(method: str, path: str) -> str | None:
     """Unknown routes are denied; new control routes must declare a capability here."""
     read = method in {'GET', 'HEAD'}
+    account_methods = {
+        '/console/account/security': {'GET', 'HEAD'},
+        '/console/account/password': {'POST'},
+        '/console/account/two-factor/start': {'POST'},
+        '/console/account/two-factor/enrollment': {'GET', 'HEAD', 'DELETE'},
+        '/console/account/two-factor/enrollment/qr': {'GET', 'HEAD'},
+        '/console/account/two-factor/confirm': {'POST'},
+        '/console/account/recovery-codes': {'POST'},
+    }
+    if path in account_methods:
+        return 'self' if method in account_methods[path] else None
     if path == '/auth/me':
         return 'self'
     if path == '/devices' or path == '/console/fleet':
