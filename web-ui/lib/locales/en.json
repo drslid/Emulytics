@@ -561,5 +561,17 @@
   "Événements": "Events",
   "étapes": "steps",
   "← Revenir à la connexion": "← Back to sign in",
-  "← Tableau de bord": "← Dashboard"
+  "← Tableau de bord": "← Dashboard",
+  "Connexion": "Connection",
+  "Connecté": "Connected",
+  "Worker indisponible": "Worker unavailable",
+  "Appareil introuvable": "Device not found",
+  "Autorisation Android requise": "Android authorization required",
+  "Android hors ligne": "Android offline",
+  "Connexion non vérifiée": "Connection unverified",
+  "Un lancement immédiat nécessite un worker actif et une connexion Android vérifiée. Les appareils indisponibles restent visibles pour être corrigés.": "An immediate run requires an active worker and a verified Android connection. Unavailable devices remain visible so their configuration can be corrected.",
+  "Un appareil sélectionné n’est plus prêt. Vérifiez sa connexion avant de lancer.": "A selected device is no longer ready. Check its connection before starting.",
+  "Connexion Android requise pour lancer un parcours.": "An Android connection is required to run a workflow.",
+  "Appareils indisponibles : {names}.": "Unavailable devices: {names}.",
+  "Vérifier le monitoring": "Check monitoring"
 }

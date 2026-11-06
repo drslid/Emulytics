@@ -23,13 +23,21 @@ def heartbeat(dsn, component, instance_id, host_id=None, status="ready", metrics
 
 
 @contextmanager
-def service_heartbeat(dsn, component, instance_id=None, host_id=None):
+def service_heartbeat(dsn, component, instance_id=None, host_id=None, *, metrics_provider=None):
     stopped = threading.Event()
     identity = instance_id or socket.gethostname()
     def report():
         while not stopped.is_set():
+            metrics = None
+            if metrics_provider:
+                try:
+                    metrics = metrics_provider()
+                except Exception:
+                    # Probe failures cannot make stale connection evidence look current.
+                    metrics = {}
+                    logger.warning('service.probe_unavailable component=%s', component)
             try:
-                heartbeat(dsn, component, identity, host_id)
+                heartbeat(dsn, component, identity, host_id, metrics=metrics)
             except psycopg.Error:
                 logger.warning('service.heartbeat_unavailable component=%s', component)
             stopped.wait(5)

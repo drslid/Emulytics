@@ -561,5 +561,17 @@
   "Événements": "ঘটনা",
   "étapes": "ধাপ",
   "← Revenir à la connexion": "← সংযোগে ফিরে যান",
-  "← Tableau de bord": "← ড্যাশবোর্ড"
+  "← Tableau de bord": "← ড্যাশবোর্ড",
+  "Connexion": "সংযোগ",
+  "Connecté": "সংযুক্ত",
+  "Worker indisponible": "ওয়ার্কার অনুপলব্ধ",
+  "Appareil introuvable": "ডিভাইস পাওয়া যায়নি",
+  "Autorisation Android requise": "Android-এর অনুমতি প্রয়োজন",
+  "Android hors ligne": "Android অফলাইন",
+  "Connexion non vérifiée": "সংযোগ যাচাই করা হয়নি",
+  "Un lancement immédiat nécessite un worker actif et une connexion Android vérifiée. Les appareils indisponibles restent visibles pour être corrigés.": "তাৎক্ষণিকভাবে চালাতে সক্রিয় ওয়ার্কার এবং যাচাইকৃত Android সংযোগ প্রয়োজন। সেটিংস ঠিক করার জন্য অনুপলব্ধ ডিভাইসগুলো দৃশ্যমান থাকে।",
+  "Un appareil sélectionné n’est plus prêt. Vérifiez sa connexion avant de lancer.": "নির্বাচিত ডিভাইস আর প্রস্তুত নেই। শুরু করার আগে সংযোগ পরীক্ষা করুন।",
+  "Connexion Android requise pour lancer un parcours.": "ওয়ার্কফ্লো চালাতে Android সংযোগ প্রয়োজন।",
+  "Appareils indisponibles : {names}.": "অনুপলব্ধ ডিভাইস: {names}।",
+  "Vérifier le monitoring": "মনিটরিং দেখুন"
 }

@@ -561,5 +561,17 @@
   "Événements": "事件",
   "étapes": "步骤",
   "← Revenir à la connexion": "← 返回连接",
-  "← Tableau de bord": "← 仪表板"
+  "← Tableau de bord": "← 仪表板",
+  "Connexion": "连接",
+  "Connecté": "已连接",
+  "Worker indisponible": "工作进程不可用",
+  "Appareil introuvable": "未找到设备",
+  "Autorisation Android requise": "需要 Android 授权",
+  "Android hors ligne": "Android 离线",
+  "Connexion non vérifiée": "连接尚未验证",
+  "Un lancement immédiat nécessite un worker actif et une connexion Android vérifiée. Les appareils indisponibles restent visibles pour être corrigés.": "立即运行需要活动的工作进程和已验证的 Android 连接。不可用的设备仍会显示，以便修正配置。",
+  "Un appareil sélectionné n’est plus prêt. Vérifiez sa connexion avant de lancer.": "所选设备已不再就绪。请在开始前检查连接。",
+  "Connexion Android requise pour lancer un parcours.": "运行流程需要 Android 连接。",
+  "Appareils indisponibles : {names}.": "不可用的设备：{names}。",
+  "Vérifier le monitoring": "查看监控"
 }

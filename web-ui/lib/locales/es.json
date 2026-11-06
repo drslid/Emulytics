@@ -561,5 +561,17 @@
   "Événements": "Eventos",
   "étapes": "pasos",
   "← Revenir à la connexion": "← Volver a conexión",
-  "← Tableau de bord": "← Panel de control"
+  "← Tableau de bord": "← Panel de control",
+  "Connexion": "Conexión",
+  "Connecté": "Conectado",
+  "Worker indisponible": "Worker no disponible",
+  "Appareil introuvable": "Dispositivo no encontrado",
+  "Autorisation Android requise": "Se requiere autorización de Android",
+  "Android hors ligne": "Android sin conexión",
+  "Connexion non vérifiée": "Conexión sin verificar",
+  "Un lancement immédiat nécessite un worker actif et une connexion Android vérifiée. Les appareils indisponibles restent visibles pour être corrigés.": "Una ejecución inmediata requiere un worker activo y una conexión Android verificada. Los dispositivos no disponibles siguen visibles para corregir su configuración.",
+  "Un appareil sélectionné n’est plus prêt. Vérifiez sa connexion avant de lancer.": "Un dispositivo seleccionado ya no está listo. Comprueba su conexión antes de iniciar.",
+  "Connexion Android requise pour lancer un parcours.": "Se requiere una conexión Android para ejecutar un flujo.",
+  "Appareils indisponibles : {names}.": "Dispositivos no disponibles: {names}.",
+  "Vérifier le monitoring": "Consultar el monitoreo"
 }

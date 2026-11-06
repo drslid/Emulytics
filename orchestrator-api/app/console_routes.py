@@ -28,6 +28,30 @@ def summary(store: Store) -> dict:
         ).fetchone()
 
 
+def device_connection(device: dict, workers: list[dict]) -> dict:
+    matching = [worker for worker in workers if worker["host_id"] == device["host_id"]]
+    live = [worker for worker in matching if worker["live"] and worker["status"] == "ready"]
+    last_seen = matching[0]["last_seen_at"] if matching else None
+    state = "worker_offline" if not live else "unknown"
+    observed = []
+    for worker in live:
+        metrics = worker["metrics"]
+        if not isinstance(metrics, dict) or metrics.get("adb_status") != "ready":
+            continue
+        if not isinstance(metrics.get("devices"), list):
+            continue
+        state = "not_connected"
+        observed.extend(entry.get("state") for entry in metrics["devices"]
+                        if isinstance(entry, dict) and entry.get("serial") == device["serial"])
+    if "device" in observed:
+        state = "connected"
+    elif "unauthorized" in observed:
+        state = "unauthorized"
+    elif any(value in {"offline", "recovery", "sideload", "bootloader"} for value in observed if isinstance(value, str)):
+        state = "offline"
+    return {"connection_status": state, "worker_last_seen_at": last_seen}
+
+
 @router.get("/fleet")
 def fleet(store: Store, limit: Limit = 100, offset: Offset = 0) -> dict:
     with store.connect() as connection:
@@ -40,7 +64,14 @@ def fleet(store: Store, limit: Limit = 100, offset: Offset = 0) -> dict:
             "LEFT JOIN executions e ON e.id = l.execution_id "
             "ORDER BY d.device_id LIMIT %s OFFSET %s", (limit, offset),
         ).fetchall()
-        return {"items": items, "total": total, "limit": limit, "offset": offset}
+        workers = connection.execute(
+            "SELECT host_id,status,metrics,last_seen_at, "
+            "last_seen_at > clock_timestamp() - interval '20 seconds' AS live "
+            "FROM service_heartbeats WHERE component='worker' AND host_id=ANY(%s) "
+            "ORDER BY last_seen_at DESC", (list({item["host_id"] for item in items}),),
+        ).fetchall()
+        return {"items": [{**item, **device_connection(item, workers)} for item in items],
+                "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/executions/{execution_id}/captures/{step_id}")

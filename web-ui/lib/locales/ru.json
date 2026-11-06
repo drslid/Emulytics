@@ -561,5 +561,17 @@
   "Événements": "События",
   "étapes": "шаги",
   "← Revenir à la connexion": "← Возврат к подключению",
-  "← Tableau de bord": "← Панель мониторинга"
+  "← Tableau de bord": "← Панель мониторинга",
+  "Connexion": "Подключение",
+  "Connecté": "Подключено",
+  "Worker indisponible": "Рабочий процесс недоступен",
+  "Appareil introuvable": "Устройство не найдено",
+  "Autorisation Android requise": "Требуется разрешение Android",
+  "Android hors ligne": "Android не в сети",
+  "Connexion non vérifiée": "Подключение не подтверждено",
+  "Un lancement immédiat nécessite un worker actif et une connexion Android vérifiée. Les appareils indisponibles restent visibles pour être corrigés.": "Для немедленного запуска нужны активный рабочий процесс и подтверждённое подключение Android. Недоступные устройства остаются видимыми для исправления настроек.",
+  "Un appareil sélectionné n’est plus prêt. Vérifiez sa connexion avant de lancer.": "Выбранное устройство больше не готово. Проверьте подключение перед запуском.",
+  "Connexion Android requise pour lancer un parcours.": "Для запуска сценария требуется подключение Android.",
+  "Appareils indisponibles : {names}.": "Недоступные устройства: {names}.",
+  "Vérifier le monitoring": "Проверить мониторинг"
 }

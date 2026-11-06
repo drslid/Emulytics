@@ -7,6 +7,8 @@ import hashlib
 import json
 import logging
 import os
+import re
+import subprocess
 from pathlib import Path
 import signal
 import threading
@@ -19,6 +21,28 @@ from .execution_store import ExecutionStore
 
 
 logger = logging.getLogger(__name__)
+
+
+def adb_device_metrics():
+    """Observe the configured ADB server without issuing any command to a device."""
+    unavailable = {"adb_status": "unavailable", "devices": []}
+    try:
+        result = subprocess.run(["adb", "devices"], stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL, text=True, encoding="utf-8", errors="replace",
+                                timeout=3, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return unavailable
+    if result.returncode != 0 or len(result.stdout) > 65_536:
+        return unavailable
+    lines = result.stdout.splitlines()
+    if "List of devices attached" not in lines:
+        return unavailable
+    devices = []
+    for line in lines[lines.index("List of devices attached") + 1:][:256]:
+        match = re.fullmatch(r"([A-Za-z0-9][A-Za-z0-9_.:-]{0,127})\s+(device|offline|unauthorized|recovery|sideload|bootloader)", line.strip())
+        if match:
+            devices.append({"serial": match[1], "state": match[2]})
+    return {"adb_status": "ready", "devices": devices}
 
 
 class LeaseLost(RuntimeError):
@@ -220,7 +244,7 @@ def main():
     for signum in (signal.SIGTERM, signal.SIGINT):
         signal.signal(signum, lambda *_: worker.stopping.set())
     from .telemetry import service_heartbeat
-    with service_heartbeat(dsn, "worker", str(worker.owner_id), host_id):
+    with service_heartbeat(dsn, "worker", str(worker.owner_id), host_id, metrics_provider=adb_device_metrics):
         worker.run(once=args.once)
 
 

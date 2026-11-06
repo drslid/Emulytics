@@ -275,3 +275,10 @@ Une planification suit un CRON à cinq champs et un fuseau explicite, avec aper�
 Dix langues locales, détection navigateur, choix persistant par petits drapeaux, polices locales et arabe RTL. Les noms métier restent ceux saisis par les utilisateurs. Les catalogues ont reçu une première traduction automatique et une revue de terminologie technique ; une validation linguistique native reste à faire avant diffusion internationale.
 
 Le moteur reste le profil Chrome/Wikipédia et la saisie ASCII validés sur le banc. L'ajout d'appareil est une déclaration, sans démarrage automatique d'Android. iOS, l'API publique, le MCP et les clés personnelles restent prévus au PLAN.MD. L'édition d'un planning complet passe actuellement par sa recréation ; la console propose pause/reprise.
+
+
+### Vérification réelle du lancement local — 6 novembre 2026
+
+Le banc Android et `console-worker` sont désormais actifs. L'appareil réel à sélectionner est **Émulateur local** (`bench-host` / `emulator-5554`). Le premier run lancé depuis le site a terminé `succeeded` avec 11 étapes : Chrome, recherche de football dans Wikipédia, titre final vérifié et capture disponible dans Activité. Le run et les preuves restent dans la base courante, distincts de l'archive `/validation`.
+
+La déclaration `banc-de-test` sous `bench` / `moultiplate` et ses quatre soumissions en attente sont conservées ; elles ne correspondent pas à cette connexion Android. L'interface affiche désormais ce défaut de connexion et interdit une nouvelle confirmation immédiate sur un appareil non observé connecté. Les cinq états d'échec de connexion sont distincts de l'occupation et de la quarantaine. Le helper `scripts/start-console-android.sh` prépare un banc connecté sans réaffecter les anciennes demandes.

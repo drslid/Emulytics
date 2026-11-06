@@ -26,6 +26,8 @@ export type Device = {
   status: "registered";
   created_at: string;
   availability: "declared" | "busy" | "needs_review";
+  connection_status?: "connected" | "worker_offline" | "not_connected" | "unauthorized" | "offline" | "unknown";
+  worker_last_seen_at?: string | null;
   active_run_id: string | null;
   lease_expires_at: string | null;
 };

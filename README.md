@@ -70,14 +70,17 @@ Les noms de rôles sont traduits ; les identifiants serveur restent stables. Les
 
 La console n’invente aucune flotte de démonstration. Le catalogue WF01 est préchargé ; les téléphones et les runs sont ceux enregistrés dans cette base. Sans worker sur l’hôte ciblé, une nouvelle exécution reste en attente. Le worker Android et son banc sont documentés plus bas. Les anciens contrôles directs APK/chat/ADB sont désactivés dans cette stack.
 
-Pour raccorder le banc existant à cette base de console, le profil facultatif réutilise le même moteur et ses baux :
+Pour préparer un Android local réellement exécutable après le démarrage de la console :
 
 ```bash
-android-runtime/scripts/start-bench.sh
-docker compose --env-file .env.console -p emulytix-preview -f docker-compose.preview.yml -f docker-compose.console-worker.yml --profile worker up -d --build console-worker
+scripts/start-console-android.sh
 ```
 
-Déclarer alors dans Appareils un émulateur avec l’hôte `bench-host` et le numéro Android `emulator-5554`, puis choisir WF01. Le démarrage normal de la console ne lance pas Android ni ce worker. Ce profil est fourni pour ce banc ; il ne prouve pas une découverte ou connexion automatique de téléphones physiques.
+Le script crée le banc privé s'il est absent, ou vérifie le banc existant sans le remplacer. Il attend un Android démarré, enregistre **Émulateur local** sous `bench-host` / `emulator-5554` (ou réutilise l'appareil déjà enregistré pour cette connexion), puis démarre le worker et vérifie son accès ADB. Les déclarations d'autres hôtes et leurs demandes ne sont pas modifiées. La commande peut être relancée tant que le banc est actif ; elle refuse de remplacer un conteneur étranger ou arrêté.
+
+Dans **Appareils**, choisir cet émulateur, puis lancer **Recherche Wikipédia**. Le helper ne crée aucun run ; le worker peut toutefois reprendre les demandes déjà en attente pour `bench-host`. Un téléphone déclaré avec un autre hôte ou un autre numéro Android nécessite sa propre connexion réelle : son nom ne suffit pas à le rattacher au banc.
+
+Ce banc requiert `/dev/kvm` et l'image Android déjà présente localement `emulytix/android-runtime-check:0.8.1`. Il utilise Android 10 / Chrome 74, et ne représente pas la cible Android 14 du plan. Aucun port Android/ADB n'est publié. Après un arrêt de la console, réactivez ce profil avec le helper. Le démarrage normal de la console ne lance pas Android ; le helper active le profil facultatif `docker-compose.console-worker.yml`.
 
 L’[étude de l’interface](docs/design/control-console.md) décrit les choix élément par élément ; l’[audit MobileAgent](docs/design/mobileagent-audit.md) détaille les idées reprises et leurs limites.
 

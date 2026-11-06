@@ -478,3 +478,18 @@ Les données QA identifiées, leurs comptes, sessions et secrets de test sont re
 Les dernières vérifications couvrent aussi la création concurrente d'un planning avec le même `request_id` (une seule ligne et un seul audit), le replay après réponse perdue, les noms de parcours correspondant à une propriété JavaScript, et les heures d'hiver/d'été dans des fuseaux différents. La création depuis la même fenêtre réutilise sa clé lors d'une nouvelle tentative. La diffusion SSE revalide les droits pendant la connexion.
 
 Contrôles de localisation en production : dix langues sur la connexion et le sélecteur ; dix vues privées et cinq formulaires contrôlés en allemand, arabe et mandarin à 1440 et 320 px. Les **45 écrans et formulaires examinés avec axe** ne signalent aucune violation automatisée, sans constituer une certification. Aucune erreur JavaScript ni débordement de page relevé dans ces scénarios. Les catalogues sont locaux, avec terminologie technique revue ; la relecture linguistique native reste à prévoir. Preuves : `storage/i18n-review/` et [documentation des langues](docs/design/localization.md).
+
+
+### Correction du lancement réel depuis la console — 6 novembre 2026
+
+Le signalement d'une exécution qui reste en attente a été reproduit : la console avait reçu quatre soumissions sur `banc-de-test`, déclaré avec l'hôte `bench` et le numéro `moultiplate`. Aucun émulateur ni worker de cette console n'était démarré. Une réponse `202` prouvait uniquement l'enregistrement de ces demandes, sans exécution Android.
+
+Le banc privé et le worker sont maintenant démarrés ; `Émulateur local` est enregistré avec les identités observées `bench-host` / `emulator-5554`. Le helper `scripts/start-console-android.sh` rend cette préparation reproductible, vérifie les labels du banc et le démarrage Android, réutilise une déclaration correcte et vérifie ADB depuis le worker. Les quatre demandes et la déclaration préexistantes n'ont pas été modifiées ou réaffectées.
+
+Le worker publie séparément ses observations ADB bornées dans son heartbeat. La flotte distingue maintenant connexion confirmée, worker absent, appareil introuvable, autorisation requise, Android hors ligne et observation inconnue. Un nouveau lancement immédiat depuis l'interface exige des appareils réellement observés connectés ; une réponse inconnue reste rejouable avec sa clé d'idempotence même si la connexion disparaît ensuite. Une demande explicitement soumise par l'API ou un planning peut toujours attendre son worker.
+
+Preuve sur le site local : run `8773fd46-9dbf-4c45-bff9-c697d11dec24`, exécution `1e6b5d7a-7859-4482-b8ce-00033c62375a`, état **succeeded**, **11 étapes** et **25 événements**. Chrome ouvre Wikipédia, saisit football dans sa recherche, soumet la requête et vérifie le titre Football. La capture finale est téléchargée depuis la route authentifiée des preuves. Les observations réelles remplacent la seule preuve de mise en file donnée par les tests d'interface précédents.
+
+Vérifications : **244 tests API et 26 tests frontend réussis**, build de production et TypeScript réussis. Contrôles navigateur supplémentaires : ancien appareil non sélectionnable, appareil connecté sélectionnable, perte de connexion après récapitulatif bloquant la confirmation, aucun débordement à 320 px et aucune erreur JavaScript. Les deux comptes temporaires et leurs sessions ont été supprimés ; le run réussi, ses preuves et l'émulateur connecté sont conservés pour l'utilisateur. Dossier local : `storage/execution-fix/`.
+
+Limite du banc inchangée : Android 10 / Chrome 74 préinstallé, sans ports ADB publiés ; ce banc ne valide pas encore la cible Android 14 ni l'installation de Chrome sur un téléphone vierge.

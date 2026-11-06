@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+umask 077
+
+bench_container="${EMULYTIX_BENCH_CONTAINER:-emulytix-wf01-android}"
+bench_network="${EMULYTIX_BENCH_NETWORK:-emulytix-wf01-bench}"
+[[ "$bench_container" == emulytix-wf01-* && "$bench_network" == emulytix-wf01-* ]] || {
+  echo "Les noms du banc doivent commencer par emulytix-wf01-." >&2
+  exit 1
+}
+[[ -f .env.console ]] || { echo "Démarrez d'abord scripts/start-console.sh." >&2; exit 1; }
+console=(docker compose --env-file .env.console -p emulytix-preview -f docker-compose.preview.yml)
+for service in console-postgres console-api; do
+  [[ -n "$("${console[@]}" ps --status running -q "$service")" ]] || {
+    echo "$service doit être démarré avec scripts/start-console.sh." >&2
+    exit 1
+  }
+done
+
+if docker container inspect "$bench_container" >/dev/null 2>&1; then
+  label="$(docker inspect --format '{{ index .Config.Labels "emulytix.bench" }}' "$bench_container")"
+  running="$(docker inspect --format '{{.State.Running}}' "$bench_container")"
+  [[ "$label" == wf01 && "$running" == true ]] || {
+    echo "Le conteneur existant n'est pas un banc Emulytix actif ; aucun remplacement effectué." >&2
+    exit 1
+  }
+else
+  android-runtime/scripts/start-bench.sh
+fi
+
+# Verify the declared private network and Android before registering or starting a worker.
+network_label="$(docker network inspect --format '{{ index .Labels "emulytix.bench" }}' "$bench_network")"
+[[ "$network_label" == wf01 ]] || { echo "Réseau privé du banc non reconnu." >&2; exit 1; }
+networks="$(docker inspect --format '{{range $name, $network := .NetworkSettings.Networks}}{{$name}}{{"\n"}}{{end}}' "$bench_container")"
+[[ $'\n'"$networks"$'\n' == *$'\n'"$bench_network"$'\n'* ]] || {
+  echo "Le banc n'est pas connecté au réseau attendu." >&2
+  exit 1
+}
+booted="$(docker exec "$bench_container" timeout 5 adb -H 127.0.0.1 -P 5037 -s emulator-5554 shell getprop sys.boot_completed | tr -d '\r\n')"
+[[ "$booted" == 1 ]] || { echo "Android n'a pas terminé son démarrage." >&2; exit 1; }
+
+"${console[@]}" exec -T console-api python - <<'PY'
+import os
+import urllib.request
+
+from app.run_models import DeviceRegistration
+from app.run_store import RunStore
+
+with urllib.request.urlopen('http://127.0.0.1:8010/health', timeout=3) as health:
+    if health.status != 200:
+        raise SystemExit('API indisponible')
+store = RunStore(os.environ['EMULYTIX_DATABASE_URL'])
+with store.connect() as connection:
+    existing = connection.execute(
+        'SELECT device_id FROM devices WHERE host_id=%s AND serial=%s',
+        ('bench-host', 'emulator-5554'),
+    ).fetchone()
+if existing:
+    device_id = existing['device_id']
+else:
+    record, _ = store.register_device(DeviceRegistration(
+        device_id='local-emulator', display_name='Émulateur local',
+        host_id='bench-host', serial='emulator-5554', kind='emulator',
+    ))
+    device_id = record['device_id']
+print('Appareil disponible dans la console : ' + device_id)
+PY
+
+mkdir -p storage/runtime-apks
+# Keep this bench bound to its own host; never retarget existing user devices.
+export EMULYTIX_HOST_ID=bench-host
+export ADB_SERVER_SOCKET="tcp:${bench_container}:5037"
+export EMULYTIX_BENCH_NETWORK="$bench_network"
+worker=("${console[@]}" -f docker-compose.console-worker.yml --profile worker)
+"${worker[@]}" up -d --build console-worker
+"${worker[@]}" exec -T console-worker python - <<'PY'
+import subprocess
+
+result = subprocess.run(
+    ['adb', '-s', 'emulator-5554', 'shell', 'getprop', 'sys.boot_completed'],
+    check=True, capture_output=True, text=True, timeout=10,
+)
+if result.stdout.strip() != '1':
+    raise SystemExit('Le worker ne peut pas joindre Android.')
+PY
+printf '%s\n' 'Android local prêt : http://localhost:3100/telephones' \
+  'Choisissez Émulateur local (ou le nom existant), puis le parcours Recherche Wikipédia.' \
+  'Aucun nouveau parcours n’a été lancé. Le worker peut reprendre les demandes déjà en attente sur bench-host.'

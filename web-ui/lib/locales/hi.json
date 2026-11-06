@@ -561,5 +561,17 @@
   "Événements": "घटनाएँ",
   "étapes": "चरण",
   "← Revenir à la connexion": "← कनेक्शन पर लौटें",
-  "← Tableau de bord": "← डैशबोर्ड"
+  "← Tableau de bord": "← डैशबोर्ड",
+  "Connexion": "कनेक्शन",
+  "Connecté": "कनेक्ट है",
+  "Worker indisponible": "वर्कर उपलब्ध नहीं",
+  "Appareil introuvable": "डिवाइस नहीं मिला",
+  "Autorisation Android requise": "Android की अनुमति आवश्यक है",
+  "Android hors ligne": "Android ऑफ़लाइन है",
+  "Connexion non vérifiée": "कनेक्शन की पुष्टि नहीं हुई",
+  "Un lancement immédiat nécessite un worker actif et une connexion Android vérifiée. Les appareils indisponibles restent visibles pour être corrigés.": "तुरंत चलाने के लिए सक्रिय वर्कर और सत्यापित Android कनेक्शन आवश्यक हैं। अनुपलब्ध डिवाइस दिखाई देते रहेंगे ताकि उनका कॉन्फ़िगरेशन ठीक किया जा सके।",
+  "Un appareil sélectionné n’est plus prêt. Vérifiez sa connexion avant de lancer.": "चुना गया डिवाइस अब तैयार नहीं है। शुरू करने से पहले उसका कनेक्शन जाँचें।",
+  "Connexion Android requise pour lancer un parcours.": "वर्कफ़्लो चलाने के लिए Android कनेक्शन आवश्यक है।",
+  "Appareils indisponibles : {names}.": "अनुपलब्ध डिवाइस: {names}।",
+  "Vérifier le monitoring": "मॉनिटरिंग देखें"
 }

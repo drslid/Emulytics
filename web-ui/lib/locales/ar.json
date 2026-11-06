@@ -561,5 +561,17 @@
   "Événements": "الأحداث",
   "étapes": "الخطوات",
   "← Revenir à la connexion": "العودة إلى تسجيل الدخول →",
-  "← Tableau de bord": "لوحة التحكم →"
+  "← Tableau de bord": "لوحة التحكم →",
+  "Connexion": "الاتصال",
+  "Connecté": "متصل",
+  "Worker indisponible": "خدمة التنفيذ غير متاحة",
+  "Appareil introuvable": "الجهاز غير موجود",
+  "Autorisation Android requise": "يلزم تفويض Android",
+  "Android hors ligne": "Android غير متصل",
+  "Connexion non vérifiée": "الاتصال غير مؤكد",
+  "Un lancement immédiat nécessite un worker actif et une connexion Android vérifiée. Les appareils indisponibles restent visibles pour être corrigés.": "يتطلب التشغيل الفوري خدمة تنفيذ نشطة واتصال Android مؤكدًا. تظل الأجهزة غير المتاحة ظاهرة لتصحيح إعداداتها.",
+  "Un appareil sélectionné n’est plus prêt. Vérifiez sa connexion avant de lancer.": "أحد الأجهزة المحددة لم يعد جاهزًا. تحقق من اتصاله قبل التشغيل.",
+  "Connexion Android requise pour lancer un parcours.": "يلزم اتصال Android لتشغيل مسار عمل.",
+  "Appareils indisponibles : {names}.": "الأجهزة غير المتاحة: {names}.",
+  "Vérifier le monitoring": "التحقق من المراقبة"
 }

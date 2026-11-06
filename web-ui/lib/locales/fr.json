@@ -561,5 +561,17 @@
   "Événements": "Événements",
   "étapes": "étapes",
   "← Revenir à la connexion": "← Revenir à la connexion",
-  "← Tableau de bord": "← Tableau de bord"
+  "← Tableau de bord": "← Tableau de bord",
+  "Connexion": "Connexion",
+  "Connecté": "Connecté",
+  "Worker indisponible": "Worker indisponible",
+  "Appareil introuvable": "Appareil introuvable",
+  "Autorisation Android requise": "Autorisation Android requise",
+  "Android hors ligne": "Android hors ligne",
+  "Connexion non vérifiée": "Connexion non vérifiée",
+  "Un lancement immédiat nécessite un worker actif et une connexion Android vérifiée. Les appareils indisponibles restent visibles pour être corrigés.": "Un lancement immédiat nécessite un worker actif et une connexion Android vérifiée. Les appareils indisponibles restent visibles pour être corrigés.",
+  "Un appareil sélectionné n’est plus prêt. Vérifiez sa connexion avant de lancer.": "Un appareil sélectionné n’est plus prêt. Vérifiez sa connexion avant de lancer.",
+  "Connexion Android requise pour lancer un parcours.": "Connexion Android requise pour lancer un parcours.",
+  "Appareils indisponibles : {names}.": "Appareils indisponibles : {names}.",
+  "Vérifier le monitoring": "Vérifier le monitoring"
 }

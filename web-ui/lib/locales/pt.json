@@ -561,5 +561,17 @@
   "Événements": "Eventos",
   "étapes": "etapas",
   "← Revenir à la connexion": "← Retornar à conexão",
-  "← Tableau de bord": "← Painel"
+  "← Tableau de bord": "← Painel",
+  "Connexion": "Ligação",
+  "Connecté": "Ligado",
+  "Worker indisponible": "Worker indisponível",
+  "Appareil introuvable": "Dispositivo não encontrado",
+  "Autorisation Android requise": "É necessária autorização Android",
+  "Android hors ligne": "Android desligado",
+  "Connexion non vérifiée": "Ligação não verificada",
+  "Un lancement immédiat nécessite un worker actif et une connexion Android vérifiée. Les appareils indisponibles restent visibles pour être corrigés.": "Uma execução imediata requer um worker ativo e uma ligação Android verificada. Os dispositivos indisponíveis continuam visíveis para corrigir a configuração.",
+  "Un appareil sélectionné n’est plus prêt. Vérifiez sa connexion avant de lancer.": "Um dispositivo selecionado já não está pronto. Verifique a ligação antes de iniciar.",
+  "Connexion Android requise pour lancer un parcours.": "É necessária uma ligação Android para executar um fluxo.",
+  "Appareils indisponibles : {names}.": "Dispositivos indisponíveis: {names}.",
+  "Vérifier le monitoring": "Consultar a monitorização"
 }
