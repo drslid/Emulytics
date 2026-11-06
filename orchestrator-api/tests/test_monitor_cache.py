@@ -12,6 +12,34 @@ from app import monitor_routes
 from app.monitor_metrics import database_metrics
 
 
+def test_cached_topology_keeps_aging_without_mutating_shared_evidence(monkeypatch):
+    clock = [100.0]
+    original = {'topology':{'sample_age_seconds':2.0,'confirmed_device_executions_valid_for_seconds':1.0}}
+    monkeypatch.setattr(monitor_routes.time,'monotonic',lambda:clock[0])
+    monkeypatch.setattr(monitor_routes,'snapshot',lambda *_:original)
+    cache = monitor_routes.SnapshotCache()
+    store = SimpleNamespace(dsn='age-test')
+    first = cache.get(store,'24h')
+    assert first['topology']['sample_age_seconds']==2.0
+    clock[0] += 1.5
+    second = cache.get(store,'24h')
+    assert second['topology']['sample_age_seconds']==3.5
+    assert original['topology']['sample_age_seconds']==first['topology']['sample_age_seconds']==2.0
+
+
+def test_snapshot_reports_collection_delay_after_its_web_probe(control_client,monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr(monitor_routes.time,'monotonic',lambda:clock[0])
+    monkeypatch.setenv('EMULYTIX_UI_INTERNAL_URL','http://configured-ui/connexion')
+    def slow_probe(*args,**kwargs):
+        clock[0] += 2.0
+        return SimpleNamespace(status_code=200)
+    monkeypatch.setattr(monitor_routes.httpx,'get',slow_probe)
+    result = control_client.get('/console/monitor')
+    assert result.status_code==200
+    assert result.json()['topology']['sample_age_seconds']==2.0
+
+
 def test_slow_collection_is_shared_for_two_seconds_after_completion(monkeypatch):
     clock = [100.0]
     entered, release = Event(), Event()

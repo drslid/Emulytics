@@ -14,6 +14,7 @@ from starlette.concurrency import run_in_threadpool
 from .auth import AuthConfig, AuthStore, SESSION_COOKIE, auth_enabled, valid_control_token
 from .monitor_metrics import (HEARTBEAT_INTERVAL_SECONDS, STALE_AFTER_SECONDS, Window,
                               database_metrics, readings)
+from .monitor_topology import topology_snapshot
 from .run_routes import Store, Limit, Offset
 
 router = APIRouter(prefix="/console", tags=["Monitoring"])
@@ -31,6 +32,7 @@ def snapshot(store, window: Window = "24h"):
         ).fetchall()
         metrics = readings(connection, observed_at, services, window)
         database = {"status": "ready", "latency_ms": latency, **database_metrics(connection)}
+        topology = topology_snapshot(connection,observed_at,services)
     # This address is deployment-owned, never accepted from query parameters.
     ui_url = os.getenv("EMULYTIX_UI_INTERNAL_URL", "")
     ui_status = "unconfigured"
@@ -45,7 +47,9 @@ def snapshot(store, window: Window = "24h"):
             services.append({"component": component, "instance_id": component, "host_id": None,
                              "status": "missing", "live": False, "metrics": {}, "last_seen_at": None,
                              "age_seconds": None, "active_executions": 0})
-    return {"observed_at": observed_at, "database": database,
+    # Includes connection/probe time conservatively, without trusting the browser clock.
+    topology['sample_age_seconds'] = max(0.0,time.monotonic()-started)
+    return {"observed_at": observed_at, "database": database, "topology": topology,
             "web": {"status": ui_status}, "services": services,
             "freshness": {"heartbeat_interval_seconds": HEARTBEAT_INTERVAL_SECONDS,
                           "stale_after_seconds": STALE_AFTER_SECONDS}, **metrics}
@@ -67,10 +71,18 @@ class SnapshotCache:
             now = time.monotonic()
             entry = self.entries.get(window)
             if entry and now - entry[0] < 2:
-                return entry[1]
+                return self._aged(entry,now)
             data = snapshot(store, window)
             self.entries[window] = (time.monotonic(), data)
+            return self._aged(self.entries[window],time.monotonic())
+
+    @staticmethod
+    def _aged(entry, now):
+        collected_at,data = entry
+        if 'topology' not in data:
             return data
+        return {**data,'topology':{**data['topology'],
+            'sample_age_seconds':data['topology']['sample_age_seconds']+max(0.0,now-collected_at)}}
 
 
 @router.get("/monitor")
