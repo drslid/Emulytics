@@ -11,6 +11,26 @@ Emulytix est un squelette de plateforme pour piloter un runtime Android via API 
 
 ## Démarrage rapide
 
+### Consulter les résultats WF01 dans le site local
+
+La page de consultation affiche les deux exécutions enregistrées du parcours Chrome → Wikipédia → football, les captures et le rapport JSON. Ce sont les preuves du banc du 5 novembre 2026 ; l'émulateur est arrêté et le lancement d'un nouveau run depuis l'interface reste à intégrer.
+
+```bash
+docker compose -p emulytix-preview -f docker-compose.preview.yml up -d --build
+```
+
+Ouvrir **http://localhost:3100/validation**. Cette instance est indépendante de la stack principale et publie uniquement le port local 3100. Elle lit les quatre captures et le rapport dans `storage/wf01-worker` via un volume en lecture seule, sans démarrer l'API, PostgreSQL ou Android. Les autres fichiers de stockage ne sont pas exposés. Sans ces preuves locales, la page indique qu'elles sont indisponibles.
+
+Arrêter cette consultation :
+
+```bash
+docker compose -p emulytix-preview -f docker-compose.preview.yml down
+```
+
+Pour un lancement hors Docker : `cd web-ui`, puis `npm ci` et `EMULYTIX_VALIDATION_DIR=/home/slid/apps/Emulytix/storage/wf01-worker npm run dev -- -H 127.0.0.1 -p 3100`. La lecture des preuves reste désactivée si `EMULYTIX_VALIDATION_DIR` est absent.
+
+### Démarrer les services
+
 Copier l'environnement :
 
 ```bash

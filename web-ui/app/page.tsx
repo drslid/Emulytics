@@ -398,6 +398,7 @@ export default function Page() {
           <span className="brand__eyebrow">Emulytix</span>
           <h1>Android operator workspace</h1>
           <p>{status}</p>
+          <a href="/validation" style={{ color: "var(--accent-soft)" }}>Résultats WF01 →</a>
         </div>
 
         <div className="card">

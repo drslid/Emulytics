@@ -1,0 +1,259 @@
+.page {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px;
+  line-height: 1.6;
+}
+
+.page a {
+  color: var(--accent-soft);
+  text-underline-offset: 4px;
+}
+
+.page a:hover {
+  color: var(--text);
+}
+
+.page :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.navigation a,
+.reportLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.header {
+  padding: 24px 0;
+}
+
+.eyebrow {
+  color: var(--accent-soft);
+  font-size: 0.85rem;
+}
+
+.header h1 {
+  margin: 8px 0;
+  font-size: clamp(1.6rem, 4vw, 2.25rem);
+  line-height: 1.25;
+}
+
+.page p {
+  margin: 8px 0 16px;
+  color: var(--muted);
+}
+
+.notice {
+  display: grid;
+  gap: 4px;
+  border-left: 3px solid var(--accent);
+  padding: 12px 16px;
+  background: var(--bg-panel-strong);
+}
+
+.notice span {
+  color: var(--muted);
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  padding: 24px 0;
+  margin: 0;
+}
+
+.metrics dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.metrics dd {
+  margin: 4px 0 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.content {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.panel {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-panel);
+}
+
+.panel h2 {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
+
+.sidebar {
+  display: grid;
+  gap: 24px;
+}
+
+.sidebar ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.sidebar li + li {
+  margin-top: 12px;
+}
+
+.captures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.captures figure {
+  min-width: 0;
+  margin: 0;
+}
+
+.captures figcaption {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.captures figcaption span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.captures a {
+  display: block;
+  width: fit-content;
+  border-radius: 8px;
+}
+
+.captures img {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.details {
+  margin-top: 24px;
+}
+
+.details summary {
+  padding: 12px 0;
+  color: var(--accent-soft);
+  cursor: pointer;
+}
+
+.details[open] summary {
+  margin-bottom: 12px;
+}
+
+.tableWrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.table caption {
+  text-align: left;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.table th,
+.table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.table thead th {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.table code {
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+@media (max-width: 960px) {
+  .content {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 580px) {
+  .page,
+  .panel {
+    padding: 16px;
+  }
+
+  .navigation {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .metrics {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .metrics > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .metrics dd {
+    white-space: nowrap;
+  }
+
+  .captures,
+  .sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .captures figure {
+    margin-inline: auto;
+  }
+}

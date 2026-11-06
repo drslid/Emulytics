@@ -6,6 +6,7 @@ __pycache__
 *.pyc
 dist
 build
+*.tsbuildinfo
 .venv/
 graphify-out/
 .env.*

@@ -1,0 +1,13 @@
+services:
+  validation-ui:
+    build:
+      context: ./web-ui
+      dockerfile: Dockerfile.preview
+    restart: unless-stopped
+    environment:
+      EMULYTIX_VALIDATION_DIR: /validation-evidence
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "127.0.0.1:3100:3000"
+    volumes:
+      - ./storage/wf01-worker:/validation-evidence:ro
