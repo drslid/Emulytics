@@ -125,7 +125,7 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
           const items = group.items.filter(item => item.id !== "users" && item.id !== "logs" || can(item.id === "users" ? "users.manage" : "logs.read"));
           if (!items.length) return null;
           const labelId = `nav-${group.id}`;
-          return <div key={group.id} className="nav-section" role="group" aria-labelledby={labelId}>
+          return <div key={group.id} className="nav-section" data-theme={group.id} role="group" aria-labelledby={labelId}>
             <p className="nav-section-title" id={labelId}>{t(group.label)}</p>
             <div className="nav-section-items">{items.map((item) => <a key={item.id} href={item.href} aria-current={view === item.id ? "page" : undefined} className={view === item.id ? "nav-item nav-item--active" : "nav-item"}><Icon name={item.icon} /><span>{t(item.label)}</span>{item.id === "activity" && !!data?.summary.runs_needs_review && <span className="nav-count">{data.summary.runs_needs_review}</span>}</a>)}</div>
           </div>;

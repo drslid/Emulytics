@@ -347,3 +347,9 @@ Le diagnostic distingue l’ancien appareil `banc-de-test` (`bench` / `moultipla
 Validation : **381 tests API, 52 tests frontend**, build et TypeScript réussis ; aucune nouvelle migration. La revue indépendante ne relève aucun défaut bloquant.
 
 API et interface déployées ; quatre groupes navigateur et huit contrôles WCAG passent en français, allemand et arabe sur ordinateur et à 320 px. Aucun nouveau parcours Android lancé par la recette, aucune erreur JavaScript. Le compte temporaire est supprimé et les dix états d’exécution préexistants sont conservés. Preuves : `storage/worker-status-review/`.
+
+### Accents de navigation par rubrique — 6 novembre 2026
+
+Le menu utilise désormais quatre palettes : Pilotage bleu, Automatisation violet, Supervision turquoise, Administration ambre. Les variables CSS du groupe pilotent titres, icônes, survol, sélection et focus ; les libellés ordinaires restent neutres. Les contrastes calculés des couleurs de texte dépassent 4,5:1 sur les trois surfaces utilisées. Le rôle courant, les permissions et les traductions restent gérés par les composants existants.
+
+Interface déployée ; 52 tests frontend, build, six groupes navigateur et trois contrôles WCAG passent, avec clavier, Admin/Viewer, mobile et arabe RTL. Les deux comptes de recette sont supprimés. Preuves : `storage/navigation-color-review/`.

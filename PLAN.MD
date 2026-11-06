@@ -621,3 +621,10 @@ Le worker local est opérationnel : heartbeat frais sur `bench-host`, Android `e
 Validation : **381 tests API et 52 tests frontend réussis**, build de production réussi. Les régressions couvrent la découverte sans appareil, les hôtes périmés/non prêts/absents, les doublons et la séparation entre présence du worker et connexion Android. La correction ne demande ni migration ni redémarrage du worker ou du banc Android.
 
 Après déploiement API/interface, quatre groupes de recette navigateur et huit contrôles WCAG automatisés passent : données réelles, ajout prérempli, sélection de lancement et vues françaises/allemandes/arabes sur ordinateur et mobile. Aucun chevauchement entre nom et diagnostic à 320 px, aucune erreur JavaScript ni nouveau parcours Android lancé par la recette. Les comptes temporaires sont retirés et les dix états d’exécution préexistants restent identiques. Preuves : `storage/worker-status-review/`.
+
+### Couleurs du menu par rubrique — 6 novembre 2026
+
+- [x] Associer un accent bleu à Pilotage, violet à Automatisation, turquoise à Supervision et ambre à Administration. Les titres et icônes reprennent cet accent ; survol, sélection et focus clavier utilisent les tons de la même rubrique. La sélection conserve un fond distinct, un libellé renforcé et `aria-current`.
+- [x] Vérifier les contrastes calculés, tous supérieurs à 4,5:1, les quatre états sélectionnés, la navigation au clavier, le filtrage Admin/Viewer et les dispositions mobile/RTL.
+
+Interface déployée localement. Validation : 52 tests frontend et build réussis ; six groupes navigateur et trois contrôles WCAG passent en français et arabe, sans erreur JavaScript ni débordement aux largeurs 320/768/1024/1440 px. Les deux comptes temporaires sont supprimés. Preuves : `storage/navigation-color-review/`.
