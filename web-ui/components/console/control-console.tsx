@@ -23,15 +23,31 @@ import { Screens } from "./screens";
 import { LiveScreen } from "./live-screen";
 
 const navigation = [
-  { id: "overview", href: "/", label: "Tableau de bord", icon: "overview" as const },
-  { id: "devices", href: "/telephones", label: "Appareils", icon: "phone" as const },
-  { id: "screens", href: "/ecrans", label: "Écrans en direct", icon: "phone" as const },
-  { id: "workflows", href: "/automatisations", label: "Parcours", icon: "workflow" as const },
-  { id: "activity", href: "/activite", label: "Exécutions", icon: "activity" as const },
-  { id: "schedules", href: "/planifications", label: "Planifications", icon: "clock" as const },
-  { id: "monitor", href: "/monitoring", label: "Monitoring", icon: "activity" as const },
-  { id: "logs", href: "/journal", label: "Journal", icon: "archive" as const },
-  { id: "users", href: "/utilisateurs", label: "Utilisateurs", icon: "users" as const }
+  {
+    id: "control", label: "Pilotage", items: [
+      { id: "overview", href: "/", label: "Tableau de bord", icon: "overview" as const },
+      { id: "devices", href: "/telephones", label: "Appareils", icon: "phone" as const },
+      { id: "screens", href: "/ecrans", label: "Écrans en direct", icon: "phone" as const }
+    ]
+  },
+  {
+    id: "automation", label: "Automatisation", items: [
+      { id: "workflows", href: "/automatisations", label: "Parcours", icon: "workflow" as const },
+      { id: "activity", href: "/activite", label: "Exécutions", icon: "activity" as const },
+      { id: "schedules", href: "/planifications", label: "Planifications", icon: "clock" as const }
+    ]
+  },
+  {
+    id: "supervision", label: "Supervision", items: [
+      { id: "monitor", href: "/monitoring", label: "Monitoring", icon: "activity" as const },
+      { id: "logs", href: "/journal", label: "Journal", icon: "archive" as const }
+    ]
+  },
+  {
+    id: "administration", label: "Administration", items: [
+      { id: "users", href: "/utilisateurs", label: "Utilisateurs", icon: "users" as const }
+    ]
+  }
 ];
 const titles: Record<View, { title: string; subtitle: string }> = {
   overview: { title: "Tableau de bord", subtitle: "Votre flotte et vos automatisations, au même endroit." },
@@ -103,7 +119,17 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
     <a className="skip-link" href="#main-content">{t("Aller au contenu")}</a>
     <aside className="app-sidebar">
       <a className="app-brand" href="/" aria-label={t("Emulytix, tableau de bord")}><BrandMark /><span>Emulytix<span className="brand-caption">{t("Console opérateur")}</span></span></a>
-      <nav className="main-navigation" aria-label={t("Navigation principale")}>{navigation.filter(item => item.id !== "users" && item.id !== "logs" || can(item.id === "users" ? "users.manage" : "logs.read")).map((item) => <a key={item.id} href={item.href} aria-current={view === item.id ? "page" : undefined} className={view === item.id ? "nav-item nav-item--active" : "nav-item"}><Icon name={item.icon} /><span>{t(item.label)}</span>{item.id === "activity" && !!data?.summary.runs_needs_review && <span className="nav-count">{data.summary.runs_needs_review}</span>}</a>)}</nav>
+      <nav className="main-navigation" aria-label={t("Navigation principale")}>
+        {navigation.map((group) => {
+          const items = group.items.filter(item => item.id !== "users" && item.id !== "logs" || can(item.id === "users" ? "users.manage" : "logs.read"));
+          if (!items.length) return null;
+          const labelId = `nav-${group.id}`;
+          return <div key={group.id} className="nav-section" role="group" aria-labelledby={labelId}>
+            <p className="nav-section-title" id={labelId}>{t(group.label)}</p>
+            <div className="nav-section-items">{items.map((item) => <a key={item.id} href={item.href} aria-current={view === item.id ? "page" : undefined} className={view === item.id ? "nav-item nav-item--active" : "nav-item"}><Icon name={item.icon} /><span>{t(item.label)}</span>{item.id === "activity" && !!data?.summary.runs_needs_review && <span className="nav-count">{data.summary.runs_needs_review}</span>}</a>)}</div>
+          </div>;
+        })}
+      </nav>
       <div className="sidebar-bottom"><a href="/profil" className={view === "profile" ? "nav-item nav-item--active" : "nav-item"} aria-current={view === "profile" ? "page" : undefined}><Icon name="users" /><span>{t("Mon profil")}</span></a><div className="sidebar-account"><span className="avatar">{Array.from(user.display_name || user.username)[0]?.toLocaleUpperCase(locale)}</span><div><strong title={user.display_name || user.username}>{user.display_name || user.username}</strong><span>{t({admin:"Admin",builder:"Builder",operator:"Operator",viewer:"Viewer",auditor:"Auditor"}[user.role])}</span></div><button className="icon-button" onClick={() => void logout()} aria-label={t("Se déconnecter")}><Icon name="logout" size={18} /></button></div></div>
     </aside>
     <div className="app-main"><header className="topbar"><div><span className="workspace-indicator" />{t("Espace de travail")}<span className="topbar-separator">/</span><strong>{t(title.title)}</strong></div><LanguageSelector /></header>

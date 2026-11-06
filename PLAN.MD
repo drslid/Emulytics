@@ -558,3 +558,9 @@ L'administrateur peut réinitialiser le mot de passe temporaire, imposer un chan
 Validation : **315 tests API et 32 tests frontend réussis**, TypeScript, build de production et audit npm réussis. Onze groupes de recette navigateur passent sur la version déployée : identité, création, collision de noms, doublons d'e-mail avec erreur au champ, première connexion, droits, changement imposé, révocation, réinitialisations, désactivation et gestion de son propre compte. Dix contrôles WCAG automatisés passent sur l'annuaire, la fiche et le profil, en français, allemand et arabe, sur ordinateur et à 320 px. Aucune erreur JavaScript ni débordement horizontal observé. Preuves locales : storage/advanced-users-review/.
 
 La revue indépendante a fait retirer les recherches par nom et e-mail des journaux HTTP techniques ; les événements applicatifs restent tracés. Les comptes temporaires et leurs sessions sont supprimés après recette. Les empreintes de l'identité, des droits, du mot de passe et du facteur du compte préexistant sont identiques avant et après le déploiement. Les traductions des dix langues restent à relire par des locuteurs natifs avant diffusion internationale.
+
+### Rubriques du menu — 6 novembre 2026
+
+- [x] Regrouper la navigation sous Pilotage (Tableau de bord, Appareils, Écrans en direct), Automatisation (Parcours, Exécutions, Planifications), Supervision (Monitoring, Journal) et Administration (Utilisateurs).
+- [x] Traduire les rubriques dans les dix langues, masquer les groupes vides selon les droits et conserver Mon profil en bas du menu.
+- [x] Déployer et vérifier les rôles Admin et Viewer, la navigation au clavier, les petites hauteurs desktop, les largeurs 320/768/1024/1440 px et l'arabe RTL. Les 32 tests frontend, le build de production et le contrôle WCAG automatisé passent ; aucune erreur JavaScript observée. Les deux comptes de recette sont supprimés. Preuves : storage/navigation-review/.
