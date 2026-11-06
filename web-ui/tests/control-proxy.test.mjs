@@ -144,3 +144,15 @@ test("user administration detail, filters and security actions use only bounded 
   assert.equal((await proxyControl(request("console/account/profile",{...post(),method:"PATCH"}),["console","account","profile"],async()=>Response.json({user:{id}}))).status,200);
   assert.equal((await proxyControl(request("console/users/invalid/user"),["console","users","invalid","user"])).status,404);
 });
+
+test("published workflow editing creates only a protected draft through the exact console route", async () => {
+  const path="console/recipes/from-workflow";
+  let sent=false;
+  const result=await proxyControl(request(path,post()),path.split("/"),async(url,options)=>{
+    sent=true;assert.match(url,/\/console\/recipes\/from-workflow\?/);assert.equal(options.method,"POST");assert.equal(options.headers.get("authorization"),null);return Response.json({id:"draft"});
+  });
+  assert.equal(result.status,200);assert.equal(sent,true);
+  assert.equal((await proxyControl(request(path,post("{}","https://invalid.test")),path.split("/"))).status,403);
+  assert.equal((await proxyControl(request(path),path.split("/"))).status,404);
+  assert.equal((await proxyControl(request(path+"/publish",post()),["console","recipes","from-workflow","publish"])).status,404);
+});

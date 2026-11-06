@@ -5,7 +5,7 @@ const userPath = `console/users/${UUID}`;
 const recipePath = `console/recipes/${UUID}`;
 const schedulePath = `console/schedules/${UUID}`;
 const changes = {
-  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/cancel|console/(users|recipes|schedules|schedules/preview|account/(password|recovery-codes|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
+  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/cancel|console/(users|recipes|recipes/from-workflow|schedules|schedules/preview|account/(password|recovery-codes|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
   PATCH: new RegExp(`^(${userPath}|${recipePath}|${schedulePath}|console/account/profile)$`),
   DELETE: new RegExp(`^(${schedulePath}|console/account/two-factor/enrollment)$`)
 };

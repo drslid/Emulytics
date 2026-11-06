@@ -595,3 +595,16 @@ Validation : **372 tests API et 44 tests frontend réussis**, TypeScript, build 
 Huit groupes de recette navigateur vérifient les onze captures réelles d’une exécution existante, navigation et sélection, erreurs/réessai d’image, progression simulée, interruption, clavier/Échap, images privées et retour à la connexion après déconnexion réelle. Six contrôles WCAG passent en français, allemand et arabe, sur ordinateur et à 320 px ; les largeurs 768/1024/1440 px sont aussi vérifiées, sans débordement ni erreur JavaScript. Les fixtures de progression et d’erreur restent dans le navigateur ; aucun parcours Android n’est relancé. Le compte QA et ses sessions sont supprimés, les historiques sont inchangés. Preuves : storage/execution-gallery-review/.
 
 Les anciennes captures conservent leurs données originales : aucun horaire ou temps d’étape historique n’est inventé. Les nouveaux champs apparaissent pour les prochaines exécutions. Une étape dont l’assertion échoue avant la capture reste explicitement sans image.
+
+### Modification des étapes dans Parcours — 6 novembre 2026
+
+- [x] Ajouter « Modifier les étapes » aux brouillons et versions publiées pour les rôles Admin et Builder, y compris au parcours Wikipédia fourni sans brouillon initial.
+- [x] Ouvrir le brouillon courant s’il existe ; sinon le préparer à partir de la version choisie sans écraser le travail d’un autre éditeur. L’ouverture simultanée crée un seul brouillon.
+- [x] Proposer des cartes d’étapes repliables, paramètres d’action, critères de ciblage, vérifications après action et délai. Ajouter, dupliquer, déplacer et supprimer une étape en conservant les identifiants des étapes existantes. Le JSON avancé reste disponible ; les conditions et paramètres avancés sont préservés.
+- [x] Enregistrer les modifications dans le brouillon puis publier une nouvelle version sous la même identité de parcours. Choisir le prochain numéro disponible ; conserver les définitions et empreintes des anciennes versions ainsi que les références des exécutions et planifications.
+- [x] Conserver les modifications locales si une révision concurrente empêche l’enregistrement ; expliquer comment copier le JSON avant de rouvrir le brouillon à jour. Protéger la route et le proxy avec les droits d’écriture existants.
+- [x] Traduire les nouveaux libellés dans les dix langues et déployer l’API et l’interface locales.
+
+Validation : **378 tests API et 51 tests frontend réussis**, TypeScript, build de production et audit npm réussis. La revue indépendante ne relève aucun défaut bloquant. Sept groupes de recette navigateur passent sur un parcours temporaire : ouverture depuis une publication, édition et conservation des champs, actions sur les étapes, critères et assertions, publication v2 avec v1 inchangée, conflit de révision et contrôle des droits Viewer.
+
+Les largeurs 320/768/1024/1440 px et six contrôles WCAG automatisés passent en français, allemand et arabe, sans débordement horizontal ni erreur JavaScript. La recette ne lance aucun parcours Android. Les deux comptes temporaires, le brouillon et les deux versions de test sont supprimés ; l’empreinte du parcours préexistant et les neuf états d’exécution sont conservés. Preuves locales : `storage/workflow-edit-review/`.

@@ -1,46 +1,12 @@
 "use client";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/client-api";
 import { useT } from "../../lib/i18n";
-import type { Page, Recipe, Step, Workflow } from "../../lib/console-types";
-import { Dialog, Empty, ErrorNotice, workflowName } from "./shared";
+import type { Page, Recipe, Workflow } from "../../lib/console-types";
+import { Empty, ErrorNotice, workflowName } from "./shared";
 import { Icon } from "./icons";
-import {
-  editorActions as actions,
-  parseEditorSteps,
-} from "../../lib/workflow-editor";
+import { RecipeEditor } from "./recipe-editor";
 
-function freshStep(action = "open_app"): Step {
-  const args: Record<string, unknown> =
-    action === "open_app"
-      ? { package_name: "com.android.chrome" }
-      : action === "open_url"
-        ? { url: "https://fr.wikipedia.org/" }
-        : action === "press_key"
-          ? { keycode: "KEYCODE_ENTER" }
-          : action === "type_text"
-            ? { text: "", clear: true }
-            : action === "ensure_package"
-              ? { package: "com.android.chrome" }
-              : action === "swipe"
-                ? { x1: 500, y1: 1000, x2: 500, y2: 300, duration_ms: 400 }
-                : {};
-  return {
-    id: `step-${crypto.randomUUID().slice(0, 8)}`,
-    action,
-    args,
-    selectors: ["tap", "type_text"].includes(action)
-      ? [{ resource_id: "" }]
-      : [],
-    assert:
-      action === "ensure_package"
-        ? { type: "package_installed", value: "com.android.chrome" }
-        : { type: "package", value: "com.android.chrome" },
-    timeout_ms: 30000,
-    non_idempotent: false,
-    recovery_budget: 0,
-  };
-}
 export function Workflows({
   workflows,
   onLaunch,
@@ -73,6 +39,27 @@ export function Workflows({
   useEffect(() => {
     void load();
   }, [load]);
+  function publishedName(workflow: Workflow) {
+    return workflow.name || recipes.find(recipe => recipe.workflow_id === workflow.workflow_id)?.name || t(workflowName(workflow.workflow_id));
+  }
+  function publishedInstructions(workflow: Workflow) {
+    return workflow.instructions || recipes.find(recipe => recipe.workflow_id === workflow.workflow_id)?.instructions ||
+      (workflow.workflow_id === "chrome-wikipedia-football"
+        ? t("Ouvrir Chrome, rechercher football sur Wikipédia et vérifier le résultat.")
+        : t("Étapes du parcours {name}.", { name: publishedName(workflow) }));
+  }
+  async function editPublished(workflow: Workflow) {
+    setBusy(true); setError("");
+    try {
+      const recipe = await api<Recipe>("console/recipes/from-workflow", {
+        workflow_id: workflow.workflow_id, version: workflow.version,
+        name: Array.from(publishedName(workflow)).slice(0, 120).join(""), instructions: publishedInstructions(workflow),
+      });
+      setEditing(recipe);
+      await load();
+    } catch (failure) { setError((failure as Error).message); }
+    finally { setBusy(false); }
+  }
   async function publish(recipe: Recipe) {
     setBusy(true);
     setError("");
@@ -139,9 +126,10 @@ export function Workflows({
               <div className="row-actions">
                 <button
                   className="button button--secondary"
+                  disabled={busy}
                   onClick={() => setEditing(recipe)}
                 >
-                  {t("Modifier")}
+                  {t("Modifier les étapes")}
                 </button>
                 <button
                   className="button button--primary"
@@ -163,6 +151,7 @@ export function Workflows({
               "Une version publiée conserve ses étapes à l’identique pour chaque exécution.",
             )}
           </p>
+          {canBuild && <p>{t("Modifiez le brouillon courant, puis publiez une nouvelle version pour appliquer vos changements.")}</p>}
         </div>
       </div>
       {!workflows.length ? (
@@ -219,8 +208,10 @@ export function Workflows({
                   </ol>
                 </details>
               </div>
-              {canLaunch && (
+              {(canBuild || canLaunch) && (
                 <div className="row-actions">
+                  {canBuild && <button className="button button--secondary" disabled={busy} onClick={() => void editPublished(workflow)}>{t("Modifier les étapes")}</button>}
+                  {canLaunch && <>
                   <button
                     className="button button--primary"
                     onClick={() => onLaunch(workflow)}
@@ -235,6 +226,7 @@ export function Workflows({
                     <Icon name="clock" size={18} />
                     {t("Planifier")}
                   </button>
+                  </>}
                 </div>
               )}
             </article>
@@ -243,6 +235,7 @@ export function Workflows({
       )}
       {editing && (
         <RecipeEditor
+          key={editing === "new" ? "new" : editing.id}
           recipe={editing === "new" ? null : editing}
           templates={workflows}
           onClose={() => setEditing(null)}
@@ -254,412 +247,5 @@ export function Workflows({
         />
       )}
     </>
-  );
-}
-function RecipeEditor({
-  recipe,
-  templates,
-  onClose,
-  onSaved,
-}: {
-  recipe: Recipe | null;
-  templates: Workflow[];
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const t = useT();
-  const [name, setName] = useState(recipe?.name ?? ""),
-    [instructions, setInstructions] = useState(recipe?.instructions ?? ""),
-    [steps, setSteps] = useState<Step[]>(
-      recipe?.definition.steps ?? [freshStep()],
-    ),
-    [advanced, setAdvanced] = useState(false),
-    [json, setJson] = useState(""),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  function update(index: number, patch: Partial<Step>) {
-    setSteps((items) =>
-      items.map((s, i) => (i === index ? { ...s, ...patch } : s)),
-    );
-  }
-  async function save(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      let parsed: Step[];
-      try {
-        parsed = parseEditorSteps(advanced ? json : JSON.stringify(steps));
-      } catch {
-        setError(t("Le JSON des étapes est invalide."));
-        return;
-      }
-      await api(
-        recipe ? `console/recipes/${recipe.id}` : "console/recipes",
-        {
-          name: name.trim(),
-          instructions: instructions.trim(),
-          steps: parsed,
-          recovery_budget: recipe?.definition.recovery_budget ?? 0,
-          ...(recipe ? { revision: recipe.revision } : {}),
-        },
-        recipe ? "PATCH" : "POST",
-      );
-      onSaved();
-    } catch (e) {
-      setError(
-        e instanceof SyntaxError
-          ? t("Le JSON des étapes est invalide.")
-          : (e as Error).message,
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Dialog
-      wide
-      title={t(recipe ? "Modifier le parcours" : "Créer un parcours")}
-      description={t(
-        "Décrivez le résultat attendu, puis préparez les étapes exécutables.",
-      )}
-      onClose={onClose}
-    >
-      <form className="dialog-form" onSubmit={save}>
-        {error && <ErrorNotice message={error} />}
-        <div className="notice notice--info">
-          {t(
-            "Le moteur actif prend en charge Chrome et les pages HTTPS de Wikipédia.",
-          )}
-        </div>
-        <label>
-          {t("Nom du parcours")}
-          <input
-            required
-            maxLength={120}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("Ex. Recherche Wikipédia")}
-          />
-        </label>
-        <label>
-          {t("Instructions et résultat attendu")}
-          <textarea
-            required
-            maxLength={8000}
-            rows={3}
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-            placeholder={t(
-              "Ex. Ouvrir Wikipédia, rechercher football et vérifier le titre de l’article.",
-            )}
-          />
-          <span>
-            {t(
-              "Les instructions expliquent l’objectif. Les étapes ci-dessous définissent les actions exécutées.",
-            )}
-          </span>
-        </label>
-        {!recipe && (
-          <label>
-            {t("Partir d’un modèle")}
-            <select
-              defaultValue=""
-              onChange={(e) => {
-                const template = templates.find(
-                  (w) => `${w.workflow_id}:${w.version}` === e.target.value,
-                );
-                if (template) {
-                  setSteps(structuredClone(template.steps));
-                  setJson(JSON.stringify(template.steps, null, 2));
-                }
-              }}
-            >
-              <option value="">{t("Parcours personnalisé")}</option>
-              {templates.map((w) => (
-                <option
-                  key={`${w.workflow_id}:${w.version}`}
-                  value={`${w.workflow_id}:${w.version}`}
-                >
-                  {w.name || t(workflowName(w.workflow_id))} · v{w.version}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <div className="section-heading">
-          <h3>{t("Étapes du parcours")}</h3>
-          <button
-            type="button"
-            className="text-button"
-            onClick={() => {
-              if (advanced) {
-                try {
-                  const parsed = parseEditorSteps(json);
-                  setSteps(parsed);
-                  setAdvanced(false);
-                  setError("");
-                } catch {
-                  setError(t("Le JSON des étapes est invalide."));
-                }
-              } else {
-                setJson(JSON.stringify(steps, null, 2));
-                setAdvanced(true);
-              }
-            }}
-          >
-            {t(advanced ? "Éditeur visuel" : "JSON avancé")}
-          </button>
-        </div>
-        {advanced ? (
-          <label>
-            {t("Définition des étapes")}
-            <textarea
-              className="code-editor"
-              dir="ltr"
-              rows={20}
-              value={json}
-              onChange={(e) => setJson(e.target.value)}
-            />
-          </label>
-        ) : (
-          <div className="step-editor-list">
-            {steps.map((step, index) => (
-              <section className="step-editor" key={step.id}>
-                <div className="step-toolbar">
-                  <strong>{t("Étape {n}", { n: index + 1 })}</strong>
-                  <div className="row-actions">
-                    <button
-                      type="button"
-                      className="text-button"
-                      disabled={index === 0}
-                      aria-label={t("Monter l’étape")}
-                      onClick={() =>
-                        setSteps((items) => {
-                          const result = [...items];
-                          [result[index - 1], result[index]] = [
-                            result[index],
-                            result[index - 1],
-                          ];
-                          return result;
-                        })
-                      }
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      className="text-button"
-                      disabled={index === steps.length - 1}
-                      aria-label={t("Descendre l’étape")}
-                      onClick={() =>
-                        setSteps((items) => {
-                          const result = [...items];
-                          [result[index + 1], result[index]] = [
-                            result[index],
-                            result[index + 1],
-                          ];
-                          return result;
-                        })
-                      }
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      className="text-button"
-                      disabled={steps.length === 1}
-                      onClick={() =>
-                        setSteps((items) => items.filter((_, i) => i !== index))
-                      }
-                    >
-                      {t("Supprimer")}
-                    </button>
-                  </div>
-                </div>
-                <label>
-                  {t("Action")}
-                  <select
-                    value={step.action}
-                    onChange={(e) =>
-                      update(index, {
-                        ...freshStep(e.target.value),
-                        id: step.id,
-                      })
-                    }
-                  >
-                    {Object.entries(actions).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {t(label)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {[
-                  "open_app",
-                  "ensure_package",
-                  "open_url",
-                  "type_text",
-                  "press_key",
-                ].includes(step.action) &&
-                  (() => {
-                    const key =
-                      step.action === "open_app"
-                        ? "package_name"
-                        : step.action === "ensure_package"
-                          ? "package"
-                          : step.action === "open_url"
-                            ? "url"
-                            : step.action === "type_text"
-                              ? "text"
-                              : "keycode";
-                    return (
-                      <label>
-                        {t(
-                          step.action === "open_url"
-                            ? "Adresse web"
-                            : step.action === "type_text"
-                              ? "Texte à saisir"
-                              : step.action === "press_key"
-                                ? "Touche Android"
-                                : "Identifiant de l’application",
-                        )}
-                        <input
-                          required
-                          dir="ltr"
-                          value={String(step.args?.[key] ?? "")}
-                          onChange={(e) =>
-                            update(index, {
-                              args: {
-                                ...step.args,
-                                [key]:
-                                  key === "text"
-                                    ? e.target.value
-                                    : e.target.value.trimStart(),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    );
-                  })()}
-                {["tap", "type_text"].includes(step.action) && (
-                  <label>
-                    {t("Élément ciblé (resource-id)")}
-                    <input
-                      dir="ltr"
-                      value={String(step.selectors?.[0]?.resource_id ?? "")}
-                      onChange={(e) =>
-                        update(index, {
-                          selectors: [{ resource_id: e.target.value.trim() }],
-                        })
-                      }
-                    />
-                    <span>
-                      {t(
-                        "Les sélecteurs par texte ou description sont disponibles dans JSON avancé.",
-                      )}
-                    </span>
-                  </label>
-                )}
-                {step.action === "swipe" && (
-                  <p>
-                    {t("Réglez les coordonnées et la durée dans JSON avancé.")}
-                  </p>
-                )}
-                <label>
-                  {t("Vérification après l’action")}
-                  <select
-                    value={String(step.assert?.type ?? "package")}
-                    onChange={(e) =>
-                      update(index, {
-                        assert:
-                          e.target.value === "ui"
-                            ? { type: "ui", selector: { text: "" } }
-                            : e.target.value === "url"
-                              ? { type: "url", host: "fr.wikipedia.org" }
-                              : {
-                                  type: e.target.value,
-                                  value: "com.android.chrome",
-                                },
-                      })
-                    }
-                  >
-                    <option value="package">
-                      {t("Application au premier plan")}
-                    </option>
-                    <option value="package_installed">
-                      {t("Application installée")}
-                    </option>
-                    <option value="ui">{t("Texte visible")}</option>
-                    <option value="url">{t("Domaine de la page")}</option>
-                    {step.assert?.type === "all" && (
-                      <option value="all">
-                        {t("Plusieurs vérifications (modèle)")}
-                      </option>
-                    )}
-                  </select>
-                </label>
-                {step.assert?.type !== "all" && (
-                  <label>
-                    {t("Valeur attendue")}
-                    <input
-                      required
-                      dir="ltr"
-                      value={String(
-                        step.assert?.type === "ui"
-                          ? ((step.assert.selector as Record<string, unknown>)
-                              ?.text ?? "")
-                          : step.assert?.type === "url"
-                            ? (step.assert.host ?? "")
-                            : (step.assert?.value ?? ""),
-                      )}
-                      onChange={(e) =>
-                        update(index, {
-                          assert:
-                            step.assert?.type === "ui"
-                              ? {
-                                  type: "ui",
-                                  selector: { text: e.target.value },
-                                }
-                              : step.assert?.type === "url"
-                                ? { type: "url", host: e.target.value.trim() }
-                                : {
-                                    ...step.assert,
-                                    value: e.target.value.trim(),
-                                  },
-                        })
-                      }
-                    />
-                  </label>
-                )}
-              </section>
-            ))}
-            <button
-              type="button"
-              className="button button--secondary"
-              disabled={steps.length >= 14}
-              onClick={() => setSteps((items) => [...items, freshStep()])}
-            >
-              <Icon name="plus" />
-              {t("Ajouter une étape")}
-            </button>
-          </div>
-        )}
-        <div className="dialog-footer">
-          <button
-            type="button"
-            className="button button--secondary"
-            onClick={onClose}
-            disabled={busy}
-          >
-            {t("Annuler")}
-          </button>
-          <button className="button button--primary" disabled={busy}>
-            {t(busy ? "Enregistrement…" : "Enregistrer le brouillon")}
-          </button>
-        </div>
-      </form>
-    </Dialog>
   );
 }

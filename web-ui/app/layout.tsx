@@ -4,6 +4,7 @@ import "./screens.css";
 import "./usermanagement.css";
 import "./monitoring.css";
 import "./execution-gallery.css";
+import "./workflow-editor.css";
 import { LocaleProvider } from "../lib/i18n";
 import { resolveLocale, serverT } from "../lib/i18n-server";
 import { direction } from "../lib/i18n-core";
