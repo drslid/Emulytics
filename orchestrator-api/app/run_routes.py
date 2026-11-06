@@ -19,6 +19,7 @@ from .run_models import (
 )
 from .run_store import RunStore
 from .execution_store import ExecutionStore
+from .auth import auth_enabled
 
 
 logger = logging.getLogger(__name__)
@@ -26,13 +27,15 @@ bearer = HTTPBearer(auto_error=False)
 
 
 def control_store(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
 ) -> Iterator[RunStore]:
     dsn = os.getenv("EMULYTIX_DATABASE_URL", "")
     token = os.getenv("EMULYTIX_CONTROL_TOKEN", "")
-    if not token:
+    user_session = auth_enabled() and getattr(request.state, "auth_user", None)
+    if not token and not user_session:
         raise HTTPException(503, "Runs API requires EMULYTIX_CONTROL_TOKEN")
-    if credentials is None or not secrets.compare_digest(credentials.credentials.encode(), token.encode()):
+    if not user_session and (credentials is None or not secrets.compare_digest(credentials.credentials.encode(), token.encode())):
         raise HTTPException(401, "Invalid control token", headers={"WWW-Authenticate": "Bearer"})
     if not dsn:
         raise HTTPException(503, "Runs API requires EMULYTIX_DATABASE_URL")
@@ -83,6 +86,11 @@ def register_workflow(payload: WorkflowRegistration, response: Response, store: 
     record, created = store.register_workflow(payload)
     response.status_code = 201 if created else 200
     return record
+
+
+@router.get("/workflows", response_model=Page[WorkflowView])
+def list_workflows(store: Store, limit: Limit = 100, offset: Offset = 0) -> dict:
+    return {"items": store.list_workflows(limit, offset), "limit": limit, "offset": offset}
 
 
 @router.get("/workflows/{workflow_id}/versions/{version}", response_model=WorkflowView)

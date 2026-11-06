@@ -20,6 +20,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .run_routes import router as run_router
+from .auth import auth_enabled
+from .auth_routes import AuthMiddleware, router as auth_router
+from .console_routes import router as console_router
 
 
 APP_NAME = os.getenv("APP_NAME", "Emulytix Orchestrator API")
@@ -463,14 +466,17 @@ app = FastAPI(
 )
 
 app.include_router(run_router)
+app.include_router(auth_router)
+app.include_router(console_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[os.getenv("EMULYTIX_PUBLIC_ORIGIN", "")] if auth_enabled() else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(AuthMiddleware)
 
 SESSIONS: dict[str, SessionRecord] = {}
 

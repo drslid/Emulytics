@@ -82,6 +82,14 @@ class RunStore:
                 raise HTTPException(404, "Workflow version not found")
             return {**record["definition"], "created_at": record["created_at"]}
 
+    def list_workflows(self, limit: int, offset: int) -> list[dict]:
+        with self.connect() as connection:
+            rows = connection.execute(
+                "SELECT definition, created_at FROM workflows ORDER BY workflow_id, version DESC LIMIT %s OFFSET %s",
+                (limit, offset),
+            ).fetchall()
+            return [{**row["definition"], "created_at": row["created_at"]} for row in rows]
+
     @staticmethod
     def _read_run(connection, run_id: UUID) -> dict:
         # Writers lock the run first, so the detail and executions form one consistent snapshot.
