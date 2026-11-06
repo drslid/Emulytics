@@ -50,7 +50,7 @@ if ! docker network inspect "$bench_network" >/dev/null 2>&1; then
   created_network=true
 fi
 
-container_id="$(docker create --name "$bench_container" --network "$bench_network" \
+container_id="$(docker create --name "$bench_container" --network "$bench_network" --restart unless-stopped \
   --label emulytix.bench=wf01 --device /dev/kvm --memory 3g --cpus 2 --shm-size 256m \
   --env ANDROID_AVD_HOME=/project/.android-user/avd --entrypoint /bin/bash "$bench_image" -lc '
     set -e
