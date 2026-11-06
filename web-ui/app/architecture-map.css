@@ -1,0 +1,90 @@
+.architecture-map { padding:24px; container-type:inline-size; }
+.architecture-map-heading { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px; }
+.architecture-map-heading h2 { font-size:18px; margin:0 0 8px; }
+.architecture-map-heading p,.architecture-map-note,.architecture-map-freshness { color:var(--muted); font-size:12px; line-height:1.7; margin:0; }
+.architecture-motion-toggle { font-size:11px; min-height:44px; max-width:100%; text-align:start; }
+.architecture-map-freshness { display:flex; flex-wrap:wrap; gap:6px 18px; margin-top:14px; font-size:11px; }
+.architecture-map-freshness strong { font-weight:500; color:var(--warning); }
+.architecture-map-canvas { position:relative; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); grid-template-areas:"web api go" "scheduler database artifacts" ". workers android"; gap:70px 54px; padding:28px 4px; isolation:isolate; }
+.architecture-map-connectors { position:absolute; inset:0; z-index:-1; overflow:visible; pointer-events:none; }
+.architecture-edge path { stroke:#8393aa; stroke-width:1.6; stroke-linejoin:round; }
+.architecture-edge--active path { stroke:#1a73e8; stroke-width:2.1; stroke-dasharray:6 6; animation:architecture-flow 1.4s linear infinite; }
+.architecture-edge--warning path { stroke:#a46b13; stroke-dasharray:3 5; }
+.architecture-edge--unknown path { stroke:#7b8491; stroke-dasharray:3 5; }
+.architecture-arrow { stroke:#8393aa; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+.architecture-arrow--active { stroke:#1a73e8; }
+.architecture-arrow--warning { stroke:#a46b13; }
+.architecture-arrow--unknown { stroke:#7b8491; }
+.architecture-map-canvas[data-motion=paused] .architecture-edge path { animation-play-state:paused; }
+.architecture-map-node { position:relative; display:grid; grid-template-columns:32px minmax(0,1fr); align-content:start; align-items:center; gap:8px 10px; min-width:0; width:100%; min-height:150px; padding:16px; background:var(--surface,#fff); border:1px solid #c7d4e7; border-radius:14px; color:var(--text); text-align:start; box-shadow:0 2px 4px #20212406; transition:border-color .15s,box-shadow .15s; }
+.architecture-map-node:hover { border-color:var(--accent); box-shadow:0 3px 10px #174ea612; }
+.architecture-map-node:focus-visible,.architecture-map-connections summary:focus-visible { outline:3px solid var(--accent); outline-offset:4px; }
+.architecture-map-node--web { grid-area:web; --architecture-color:#185abc; --architecture-tint:#e8f0fe; }
+.architecture-map-node--api { grid-area:api; --architecture-color:#137333; --architecture-tint:#e6f4ea; }
+.architecture-map-node--api-go { grid-area:go; --architecture-color:#137333; --architecture-tint:#e6f4ea; }
+.architecture-map-node--database { grid-area:database; --architecture-color:#185abc; --architecture-tint:#e8f0fe; }
+.architecture-map-node--scheduler { grid-area:scheduler; --architecture-color:#8b5606; --architecture-tint:#fef7e0; }
+.architecture-map-node--workers { grid-area:workers; --architecture-color:#8b5606; --architecture-tint:#fef7e0; }
+.architecture-map-node--android { grid-area:android; --architecture-color:#137333; --architecture-tint:#e6f4ea; }
+.architecture-map-node--artifacts { grid-area:artifacts; --architecture-color:#a13224; --architecture-tint:#fce8e6; }
+.architecture-map-node-icon { display:flex; align-items:center; justify-content:center; color:var(--architecture-color); background:var(--architecture-tint); width:32px; height:32px; border-radius:9px; }
+.architecture-map-node-name { font-size:13px; font-weight:600; line-height:1.5; overflow-wrap:anywhere; }
+.architecture-map-node-summary { grid-column:1/-1; color:var(--muted); font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
+.architecture-map-node>.architecture-state { grid-column:1/-1; padding-inline-end:16px; margin-top:auto; }
+.architecture-map-node-open { position:absolute; inset-inline-end:12px; bottom:15px; color:var(--muted); }
+.architecture-state { display:inline-flex; align-items:center; gap:5px; width:fit-content; max-width:100%; font-size:10px; line-height:1.5; color:#59616c; }
+.architecture-state svg { flex-shrink:0; }
+.architecture-state--active { color:#185abc; }
+.architecture-state--ready { color:#137333; }
+.architecture-state--warning { color:#8b5606; }
+.architecture-map-legend { display:flex; flex-wrap:wrap; gap:12px 22px; margin:2px 0 14px; }
+.architecture-map-legend>span { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--muted); }
+.architecture-legend-line { width:24px; height:0; border-top:2px solid #8393aa; }
+.architecture-legend-line--active { border-color:#1a73e8; border-top-style:dashed; }
+.architecture-legend-line--unknown { border-color:#7b8491; border-top-style:dotted; }
+.architecture-map-sampling { margin-top:14px; }
+.architecture-map-connections { margin-top:18px; border-top:1px solid var(--line); padding-top:6px; }
+.architecture-map-connections summary { cursor:pointer; width:fit-content; max-width:100%; font-size:12px; color:var(--accent-soft); min-height:44px; padding:12px 0; line-height:1.6; }
+.architecture-map-connections ul,.architecture-instance-list,.architecture-activity-list { list-style:none; padding:0; margin:0; display:grid; gap:12px; }
+.architecture-map-connections li { border:1px solid var(--line); border-radius:10px; padding:13px; display:grid; gap:6px; font-size:12px; min-width:0; }
+.architecture-map-connections li>div { display:flex; flex-wrap:wrap; align-items:center; gap:8px 18px; justify-content:space-between; }
+.architecture-map-connections strong { font-size:11px; line-height:1.7; overflow-wrap:anywhere; }
+.architecture-map-connections small { color:var(--muted); font-size:11px; line-height:1.7; }
+.architecture-detail-body { padding:24px; display:grid; gap:22px; }
+.architecture-detail-body p { margin:0; }
+.architecture-detail-status { display:flex; align-items:center; flex-wrap:wrap; gap:12px 20px; font-size:11px; line-height:1.7; color:var(--muted); }
+.architecture-detail-facts { margin:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px 24px; }
+.architecture-detail-facts:empty { display:none; }
+.architecture-detail-facts>div { min-width:0; }
+.architecture-detail-facts dt { font-size:11px; line-height:1.7; color:var(--muted); }
+.architecture-detail-facts dd { margin:7px 0 0; font-size:15px; line-height:1.6; overflow-wrap:anywhere; }
+.architecture-detail-section { display:grid; gap:12px; min-width:0; }
+.architecture-detail-section h3 { margin:0; font-size:14px; line-height:1.6; }
+.architecture-detail-section>p { color:var(--muted); font-size:11px; line-height:1.8; }
+.architecture-instance-list li { border:1px solid var(--line); border-radius:12px; padding:16px; display:grid; gap:12px; min-width:0; }
+.architecture-instance-list li>div { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+.architecture-instance-list code { overflow-wrap:anywhere; font-size:11px; white-space:normal; }
+.architecture-instance-list small { color:var(--muted); }
+.architecture-activity-list li { border-bottom:1px solid var(--line); padding-bottom:12px; display:grid; gap:6px; min-width:0; }
+.architecture-activity-list li:last-child { border-bottom:0; }
+.architecture-activity-list li>div { display:flex; justify-content:space-between; align-items:baseline; gap:12px; font-size:12px; line-height:1.7; }
+.architecture-activity-list strong { font-size:17px; }
+.architecture-activity-list small { color:var(--muted); font-size:11px; line-height:1.7; overflow-wrap:anywhere; }
+.architecture-detail-link { justify-self:start; min-height:44px; }
+@keyframes architecture-flow { to { stroke-dashoffset:-24; } }
+@container (max-width:679px) {
+  .architecture-map-canvas { grid-template-columns:minmax(0,1fr); grid-template-areas:none; gap:26px; padding:24px 28px; }
+  .architecture-map-node { grid-area:auto; min-height:126px; }
+}
+@media (max-width:620px) {
+  .architecture-map { padding:18px; }
+  .architecture-map-heading h2 { font-size:17px; }
+  .architecture-map-canvas { padding-inline:24px; }
+  .architecture-map-node { padding:14px 12px; }
+  .architecture-map-node-name { font-size:12px; }
+  .architecture-detail-body { padding:20px 18px; gap:20px; }
+  .architecture-detail-facts { gap:16px; }
+  .architecture-detail-facts dd { font-size:14px; }
+  .architecture-instance-list li { padding:12px; }
+}
+@media (prefers-reduced-motion:reduce) { .architecture-edge--active path { animation:none; } .architecture-map-node { transition:none; } }

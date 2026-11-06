@@ -3,6 +3,7 @@ import "./locale.css";
 import "./screens.css";
 import "./usermanagement.css";
 import "./monitoring.css";
+import "./architecture-map.css";
 import "./execution-gallery.css";
 import "./workflow-editor.css";
 import "./responsive.css";

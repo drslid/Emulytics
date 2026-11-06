@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocale, useT } from "../../lib/i18n";
-import { currentSignals, signalIsFresh, streamIsFresh, type MonitorSnapshot, type MonitorWindow } from "../../lib/monitoring";
+import { currentSignals, signalIsFresh, streamIsFresh, topologyIsValid, type MonitorSnapshot, type MonitorWindow } from "../../lib/monitoring";
 import { ErrorNotice } from "./shared";
 import { Icon } from "./icons";
+import { ArchitectureMap } from "./architecture-map";
 
 const labels = { api: "API de contrôle", "api-go": "API Go", scheduler: "Ordonnanceur", worker: "Worker Android" };
 const periods = [{ value: "1h", label: "1 heure" }, { value: "24h", label: "24 heures" }, { value: "7d", label: "7 jours" }] as const;
@@ -12,7 +13,7 @@ const outcomes = [
   { key: "cancelled", label: "Annulées", color: "cancelled" }, { key: "needs_review", label: "À vérifier", color: "review" }
 ] as const;
 
-export function Monitor() {
+export function Monitor({ permissions = [] }: { permissions?: string[] }) {
   const t = useT(), { locale } = useLocale();
   const [data, setData] = useState<MonitorSnapshot | null>(null), [period, setPeriod] = useState<MonitorWindow>("24h");
   const [transport, setTransport] = useState<"connecting" | "live" | "lost" | "paused">("connecting");
@@ -30,7 +31,7 @@ export function Monitor() {
         if (source !== stream) return;
         try {
           const snapshot = JSON.parse(event.data) as MonitorSnapshot;
-          if (!snapshot.queue || !snapshot.capacity || !snapshot.fleet || !snapshot.freshness || !snapshot.schedule_health || !snapshot.database || !snapshot.web || !snapshot.results || snapshot.results.window !== period || !Array.isArray(snapshot.services) || !Array.isArray(snapshot.hosts) || !Number.isFinite(Date.parse(snapshot.observed_at))) throw new Error();
+          if (!snapshot.queue || !snapshot.capacity || !snapshot.fleet || !snapshot.freshness || !snapshot.schedule_health || !snapshot.database || !snapshot.web || !snapshot.results || snapshot.results.window !== period || !Array.isArray(snapshot.services) || !Array.isArray(snapshot.hosts) || !topologyIsValid(snapshot.topology) || !Number.isFinite(Date.parse(snapshot.observed_at))) throw new Error();
           received.current = performance.now(); setNow(received.current); setData(snapshot); setTransport("live"); setError("");
         } catch { setTransport("lost"); setError("Les mesures sont indisponibles. Les dernières données sont conservées."); }
       };
@@ -55,8 +56,6 @@ export function Monitor() {
   const ratio = (used: number | null | undefined, total: number | null | undefined) => <bdi dir="ltr">{number(used)} / {number(total)}</bdi>;
   const signals = data ? archives ? data.services : currentSignals(data.services) : [];
   const historicalCount = data ? data.services.length - currentSignals(data.services).length : 0;
-  const healthy = (component: string) => !!data && live && data.services.some(service => service.component === component && signalIsFresh(service, elapsed, data.freshness.stale_after_seconds));
-  const node = (label: string, ready: boolean, detail: string) => <div className={`architecture-node ${ready ? "architecture-node--ready" : "architecture-node--inactive"}`}><span className="status-dot" /><strong>{t(label)}</strong><span>{t(!live ? "État non confirmé" : ready ? "Signal confirmé" : "À vérifier")}</span><small>{detail}</small></div>;
   const connectionLabel = transport === "paused" ? "En pause" : live ? "En direct" : transport === "connecting" ? "Connexion…" : "Mesures périmées";
   const stale = transport === "live" && !live && received.current !== null;
   return <div className="monitor-layout">
@@ -70,6 +69,7 @@ export function Monitor() {
         <Metric label={t("Workers occupés")} value={ratio(data.capacity.busy_workers, data.capacity.live_workers)} icon="activity" detail={data.capacity.live_workers ? t("{n} emplacements libres", { n: number(data.capacity.idle_workers) }) : t("Aucune capacité confirmée")} />
         <Metric label={t("Taux de réussite")} value={data.results.success_percent === null ? "—" : new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(data.results.success_percent / 100)} icon="check" detail={t("{n} réussites sur {total} résultats évalués", { n: number(data.results.succeeded), total: number(data.results.succeeded + data.results.failed) })} />
       </div>
+      <ArchitectureMap data={data} live={live} elapsed={elapsed} permissions={permissions} />
       {(data.capacity.unconfirmed_leases > 0 || data.fleet.needs_review > 0 || data.schedule_health.overdue > 0 || data.schedule_health.errors > 0 || (data.queue.queued > 0 && !data.capacity.live_workers)) && <section className="surface monitor-attention"><h2><Icon name="warning" />{t("Points à vérifier")}</h2><ul>
         {data.queue.queued > 0 && !data.capacity.live_workers && <li>{t("La file attend un worker actif.")} <a href="/activite">{t("Voir les exécutions")}</a></li>}
         {data.capacity.unconfirmed_leases > 0 && <li>{t("{n} réservations ont un worker sans signal récent.", { n: number(data.capacity.unconfirmed_leases) })}</li>}
@@ -83,13 +83,6 @@ export function Monitor() {
         {data.results.sample_size ? <><div className="monitor-outcome-bar" aria-hidden="true">{outcomes.map(item => <span key={item.key} className={`monitor-outcome--${item.color}`} style={{ flexGrow: data.results[item.key] }} />)}</div><ul className="monitor-outcomes">{outcomes.map(item => <li key={item.key}><span className={`monitor-outcome-dot monitor-outcome--${item.color}`} /><span>{t(item.label)}</span><strong>{number(data.results[item.key])}</strong></li>)}</ul></> : <p className="monitor-empty">{t("Aucune exécution terminée sur cette période. Les taux et les durées restent inconnus.")}</p>}
         <dl className="monitor-facts"><Fact label={t("Durée médiane")} value={duration(data.results.duration_p50_seconds)} /><Fact label={t("Durée p95")} value={duration(data.results.duration_p95_seconds)} /><Fact label={t("Attente avant démarrage p95")} value={duration(data.results.queue_wait_p95_seconds)} /><Fact label={t("Dernière réussite, toutes périodes")} value={timestamp(data.results.last_success_at)} /></dl>
         <p className="monitor-note">{t("La réussite compare les succès aux succès + échecs. Annulations et vérifications sont comptées séparément.")}</p><p className="monitor-note">{t("Le p95 couvre 95 % des durées observées. Durée : {duration} mesures · attente : {wait} mesures.", { duration: number(data.results.duration_sample_size), wait: number(data.results.queue_wait_sample_size) })}</p>
-      </section>
-      <section className="surface architecture-board" aria-label={t("État de l’architecture")}>
-        <div className="monitor-section-heading"><h2>{t("Architecture en direct")}</h2><p>{t("Un signal de vie confirme le processus, pas la réussite d’un parcours.")}</p></div>
-        <div className="monitor-entry-nodes">{node("Interface web", live && data.web.status === "ready", data.web.status === "unconfigured" ? t("Sonde non configurée") : t("Console de pilotage mobile"))}{node("API de contrôle", healthy("api"), t("Sessions, droits et commandes"))}</div>
-        <div className="architecture-branches">{node("PostgreSQL", live && data.database.status === "ready", t("{n} ms · connexion et requête témoin", { n: number(data.database.latency_ms, 1) }))}{node("Ordonnanceur", healthy("scheduler"), t("{n} planifications actives", { n: number(data.schedules.enabled) }))}{node("Workers Android", healthy("worker"), t("{n} workers actifs", { n: number(data.capacity.live_workers) }))}</div>
-        <dl className="monitor-facts monitor-database-facts"><Fact label={t("Connexions PostgreSQL (cluster)")} value={ratio(data.database.connections_used, data.database.connections_max)} /><Fact label={t("Taille de la base")} value={bytes(data.database.size_bytes)} /><Fact label={t("Exécutions actives")} value={number(data.queue.active)} /><Fact label={t("En attente d’authentification")} value={number(data.queue.waiting_auth)} /></dl>
-        <p className="architecture-footnote">{t("Chaque worker dispose d’un emplacement d’exécution. Le nombre d’appareils connectés reste une mesure distincte.")}</p>
       </section>
       <section className="surface">
         <div className="surface-heading"><div><h2>{t("Services et ressources")}</h2><p>{t("CPU et mémoire du processus uniquement, hors commandes ADB enfants et émulateur Android.")}</p></div></div>
