@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
 const paths = {
+  users: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M17 4a4 4 0 0 1 0 7 M22 21v-2a4 4 0 0 0-3-4",
   overview: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
   phone: "M7 2h10a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z M10 18h4",
   workflow: "M4 4h6v6H4z M14 14h6v6h-6z M10 7h7v7 M7 10v7h7",
@@ -21,5 +22,5 @@ const paths = {
   key: "M9 15a6 6 0 1 1 4-10 6 6 0 0 1 0 8l8 0v4h-4v3h-4v-5H9z"
 };
 export function Icon({ name, size = 20, style }: { name: keyof typeof paths; size?: number; style?: CSSProperties }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={style}><path d={paths[name]} /></svg>;
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-directional={name === "arrow" || name === "logout" ? "true" : undefined} style={style}><path d={paths[name]} /></svg>;
 }

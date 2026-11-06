@@ -264,3 +264,14 @@ L'étape suivante engagée est :
 - [main.py](/home/slid/Emulytix/orchestrator-api/app/main.py)
 - [main.py](/home/slid/Emulytix/agent-service/app/main.py)
 - [page.tsx](/home/slid/Emulytix/web-ui/app/page.tsx)
+
+
+## Console d'exploitation — 6 novembre 2026
+
+La console locale `http://localhost:3100` distingue Tableau de bord, Appareils, Parcours, Exécutions, Planifications, Monitoring, Journal, Utilisateurs et Mon profil/Sécurité. Les comptes et le parc préexistants sont conservés. Les migrations 005–008 ajoutent cinq rôles avec droits serveur, audit, brouillons et versions publiées, planifications persistantes, noms d'affichage et heartbeats. Le service `console-scheduler` est inclus dans le démarrage normal.
+
+Une planification suit un CRON à cinq champs et un fuseau explicite, avec aperçu et pause/reprise. Les échéances produisent des runs idempotents et recontrôlent les droits du créateur. Le monitoring SSE reçoit des observations réelles et distingue services absents et signaux périmés. Les journaux exposent des codes d'événements et corrélations autorisés, sans arguments ni secrets.
+
+Dix langues locales, détection navigateur, choix persistant par petits drapeaux, polices locales et arabe RTL. Les noms métier restent ceux saisis par les utilisateurs. Les catalogues ont reçu une première traduction automatique et une revue de terminologie technique ; une validation linguistique native reste à faire avant diffusion internationale.
+
+Le moteur reste le profil Chrome/Wikipédia et la saisie ASCII validés sur le banc. L'ajout d'appareil est une déclaration, sans démarrage automatique d'Android. iOS, l'API publique, le MCP et les clés personnelles restent prévus au PLAN.MD. L'édition d'un planning complet passe actuellement par sa recréation ; la console propose pause/reprise.

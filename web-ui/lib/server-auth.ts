@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-export type User = { id: string; username: string };
+import type { User } from "./console-types";
+export type { User } from "./console-types";
 
 export async function currentUser(): Promise<User | null> {
   const session = (await cookies()).get("emulytix_session");

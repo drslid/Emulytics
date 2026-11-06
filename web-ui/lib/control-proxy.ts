@@ -1,7 +1,14 @@
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const identifier = "[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}";
-const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events)?|console/(summary|fleet|executions/${UUID}/captures/${identifier}))$`);
-const writes = new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/cancel)$`);
+const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events)?|console/(summary|fleet|monitor(/stream)?|logs|users|recipes|schedules|executions/${UUID}/captures/${identifier}))$`);
+const userPath = `console/users/${UUID}`;
+const recipePath = `console/recipes/${UUID}`;
+const schedulePath = `console/schedules/${UUID}`;
+const changes = {
+  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/cancel|console/(users|recipes|schedules|schedules/preview)|${userPath}/(reset-password|reset-2fa)|${recipePath}/publish)$`),
+  PATCH: new RegExp(`^(${userPath}|${recipePath}|${schedulePath})$`),
+  DELETE: new RegExp(`^${schedulePath}$`)
+};
 
 export function sessionCookies(raw: string | null): string {
   return (raw ?? "").split(";").map((part) => part.trim()).filter((part) =>
@@ -15,14 +22,14 @@ function error(status: number, detail: string): Response {
 
 export async function proxyControl(request: Request, segments: string[], fetcher = fetch): Promise<Response> {
   const endpoint = segments.join("/");
-  const allowed = request.method === "GET" ? reads.test(endpoint) : request.method === "POST" && writes.test(endpoint);
+  const allowed = request.method === "GET" ? reads.test(endpoint) : changes[request.method as keyof typeof changes]?.test(endpoint);
   if (!allowed || segments.some((part) => !part || part.includes("/"))) return error(404, "Route indisponible.");
   const base = process.env.EMULYTIX_API_INTERNAL_URL;
   const origin = process.env.EMULYTIX_PUBLIC_ORIGIN;
   if (!base || !origin) return error(503, "La console n’est pas encore configurée.");
   const headers = new Headers({ Accept: "application/json", Cookie: sessionCookies(request.headers.get("cookie")) });
   let body: Uint8Array<ArrayBuffer> | undefined;
-  if (request.method === "POST") {
+  if (request.method !== "GET") {
     if (request.headers.get("origin") !== origin || request.headers.get("X-Emulytix-Client") !== "console") {
       return error(403, "Cette demande doit venir de la console.");
     }
@@ -53,14 +60,18 @@ export async function proxyControl(request: Request, segments: string[], fetcher
   }
   const search = new URL(request.url).searchParams;
   const query = new URLSearchParams();
-  for (const key of ["limit", "offset", "after"]) {
+  for (const key of ["limit", "offset", "after", "q", "category", "severity"]) {
     const value = search.get(key);
     if (value !== null) query.set(key, value);
   }
   try {
-    const upstream = await fetcher(`${base.replace(/\/$/, "")}/${endpoint}?${query}`, {
-      method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15_000)
-    });
+    const streaming = endpoint === "console/monitor/stream";
+    const controller = new AbortController();
+    const timer = streaming ? setTimeout(() => controller.abort(), 15_000) : undefined;
+    let upstream: Response;
+    try { upstream = await fetcher(`${base.replace(/\/$/, "")}/${endpoint}?${query}`, {
+      method: request.method, headers, body, cache: "no-store", redirect: "error", signal: streaming ? AbortSignal.any([request.signal, controller.signal]) : AbortSignal.timeout(15_000)
+    }); } finally { if (timer) clearTimeout(timer); }
     const responseHeaders = new Headers({
       "Content-Type": upstream.headers.get("content-type") ?? "application/json",
       "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"
@@ -68,6 +79,7 @@ export async function proxyControl(request: Request, segments: string[], fetcher
     for (const cookie of upstream.headers.getSetCookie()) {
       if (/^(emulytix_session|emulytix_challenge)=/.test(cookie)) responseHeaders.append("Set-Cookie", cookie);
     }
+    if (streaming) responseHeaders.set("X-Accel-Buffering", "no");
     const retry = upstream.headers.get("retry-after");
     if (retry) responseHeaders.set("Retry-After", retry);
     if (upstream.status >= 500) return error(503, "Le service est indisponible. Réessaie dans un instant.");

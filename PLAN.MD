@@ -448,3 +448,33 @@ Le logo « E en mouvement » remplace le carré générique dans la connexion et
 Favicon ICO 16/32/48, PNG transparents, Apple Touch Icon opaque 180, icônes web 192/512 et variante adaptative 512 sont livrés avec un manifeste stable. Le script d’export vérifie la zone sûre du masque ; les ressources sont publiques et les données métier restent authentifiées. Build de production et 13 tests frontend réussis ; fichiers et HTML contrôlés dans Chromium et WebKit, sans erreur de manifeste ni JavaScript. Les vues contrôlées ne débordent pas aux largeurs 320/390/768/1440. Rapports et planche visuelle dans `storage/brand-review/`.
 
 L’ajout sur écran d’accueil physique reste à essayer lorsque le site disposera d’une URL HTTPS accessible au téléphone. Le déploiement courant reste en localhost ; aucune ouverture réseau ni mise en cache hors ligne de données privées n’a été introduite.
+
+### Console exploitable, profils et internationalisation — 6 novembre 2026
+
+Demande confirmée : séparer l'enregistrement d'un appareil, la construction d'un parcours et son exécution immédiate ou planifiée. Les noms lisibles acceptent les espaces ; les identifiants techniques sont préparés automatiquement. Les numéros ADB restent exacts après suppression des espaces périphériques.
+
+Rôles canoniques anglais, libellés traduits : **Admin**, **Builder**, **Operator**, **Viewer**, **Auditor**. Admin administre toute la solution ; Builder crée/publie et lance/planifie les parcours ; Operator gère les appareils et lance/planifie les versions publiées ; Viewer consulte ; Auditor consulte aussi la traçabilité. Chaque accès est contrôlé sur le serveur. Les nouveaux comptes suivent mot de passe temporaire → changement obligatoire → TOTP. Le dernier administrateur actif doit rester accessible.
+
+- [x] C01 — Ajouter les rôles, l'administration des comptes et la traçabilité sans modifier le compte initial existant.
+- [x] C02 — Simplifier l'ajout d'appareil et conserver un nom d'affichage distinct de son identifiant.
+- [x] C03 — Créer/éditer un brouillon avec instructions et étapes, puis publier une version immuable compatible avec le worker.
+- [x] C04 — Lancer une version immédiatement ou créer une planification quotidienne/hebdomadaire/mensuelle, avec CRON avancé, fuseau explicite, aperçu et pause/reprise.
+- [x] C05 — Exécuter les échéances avec un ordonnanceur persistant, idempotent et soumis aux droits actuels du créateur.
+- [x] C06 — Afficher l'architecture et les signaux réels des services, workers, files et appareils ; signaler explicitement les composants absents ou périmés.
+- [x] C07 — Donner accès à un journal paginé des événements d'exécution et d'administration, sans secrets.
+- [x] C08 — Renommer l'accueil Tableau de bord et traduire l'interface en anglais, français, mandarin, hindi, espagnol, portugais, arabe, russe, bengali et allemand ; détection navigateur, choix persistant par petits drapeaux, arabe RTL.
+- [x] C09 — Vérifier migrations, autorisations, concurrence de l'ordonnanceur, parcours navigateur, petits écrans et langues avant déploiement local.
+
+Les instructions textuelles décrivent l'objectif ; les étapes structurées constituent le parcours exécutable. Cette tranche ne prétend pas transformer automatiquement une consigne libre en actions Android sans moteur configuré. L'API publique, le MCP et les clés personnelles sont une **tranche ultérieure**, avec droits et révocation rattachés au profil utilisateur.
+
+
+Validation de la tranche console : **227 tests API et 24 tests frontend réussis**, TypeScript et build Next.js de production réussis ; audit npm sans vulnérabilité connue signalée. Les migrations sont appliquées sur la stack locale et `console-scheduler` fonctionne à côté de l'API et du frontend.
+
+Quatorze contrôles navigateur groupés couvrent l'accès temporaire et le TOTP, les noms d'appareil accentués avec espaces et ponctuation, la conservation de la casse du numéro ADB, l'éditeur visuel/JSON et ses entrées invalides, la publication, un CRON avec aperçu et récupération après fuseau invalide, pause persistée, lancement immédiat/annulation, création d'utilisateur et les restrictions directes API des cinq rôles. Le monitoring reste connecté au-delà de quinze secondes. Aucun appel Android n'est déclenché par ces essais ; le worker absent est signalé comme tel. Preuves locales : `storage/operations-review/`.
+
+Les données QA identifiées, leurs comptes, sessions et secrets de test sont retirés après vérification ; les appareils, comptes, parcours et exécutions préexistants sont conservés. L'interface prévoit jour/semaine/mois et CRON avancé ; une modification complète d'un planning passe actuellement par sa recréation, avec pause/reprise dans l'écran livré. Le journal est celui des événements applicatifs et d'exécution ; il ne donne pas accès aux sorties brutes des conteneurs. Le monitoring mesure la vie des services, les files et PostgreSQL ; il ne mesure pas encore CPU/RAM hôte ou streaming vidéo des téléphones.
+
+
+Les dernières vérifications couvrent aussi la création concurrente d'un planning avec le même `request_id` (une seule ligne et un seul audit), le replay après réponse perdue, les noms de parcours correspondant à une propriété JavaScript, et les heures d'hiver/d'été dans des fuseaux différents. La création depuis la même fenêtre réutilise sa clé lors d'une nouvelle tentative. La diffusion SSE revalide les droits pendant la connexion.
+
+Contrôles de localisation en production : dix langues sur la connexion et le sélecteur ; dix vues privées et cinq formulaires contrôlés en allemand, arabe et mandarin à 1440 et 320 px. Les **45 écrans et formulaires examinés avec axe** ne signalent aucune violation automatisée, sans constituer une certification. Aucune erreur JavaScript ni débordement de page relevé dans ces scénarios. Les catalogues sont locaux, avec terminologie technique revue ; la relecture linguistique native reste à prévoir. Preuves : `storage/i18n-review/` et [documentation des langues](docs/design/localization.md).

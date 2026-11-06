@@ -70,3 +70,29 @@ test("password replacement uses the restricted challenge route and rotates its c
   assert.deepEqual(await response.json(), { step: "enroll" });
   assert.match(response.headers.get("set-cookie"), /emulytix_challenge=rotated/);
 });
+
+test("new administrative and automation routes remain explicitly bounded and CSRF protected", async () => {
+  const id = "00000000-0000-4000-8000-000000000001";
+  for (const [path, method] of [[`console/users/${id}`, "PATCH"], [`console/schedules/${id}`, "DELETE"], [`console/recipes/${id}/publish`, "POST"]]) {
+    let called = false;
+    const options = {...post(),method};
+    const result = await proxyControl(request(path,options),path.split("/"),async (_url,upstream) => {
+      called = true; assert.equal(upstream.method,method); return Response.json({ok:true});
+    });
+    assert.equal(result.status,200);assert.equal(called,true);
+    assert.equal((await proxyControl(request(path,{...options,headers:{...options.headers,Origin:"https://invalid.test"}}),path.split("/"))).status,403);
+  }
+  for (const [path, method] of [["console/users","DELETE"],[`console/users/${id}/reset-password`,"PATCH"],["console/monitor/stream","POST"]]) {
+    assert.equal((await proxyControl(request(path,{...post(),method}),path.split("/"))).status,404);
+  }
+});
+
+test("monitor stream preserves streaming and aborts with the browser request, without passing credentials", async () => {
+  const abort = new AbortController(); let signal;
+  const result = await proxyControl(request("console/monitor/stream",{signal:abort.signal}),["console","monitor","stream"], async (_url,options) => {
+    signal = options.signal;
+    return new Response('data: {"ready":true}\n\n',{headers:{"Content-Type":"text/event-stream"}});
+  });
+  assert.equal(result.headers.get("content-type"),"text/event-stream");assert.equal(result.headers.get("x-accel-buffering"),"no");
+  assert.match(await result.text(),/ready/);abort.abort();assert.equal(signal.aborted,true);
+});

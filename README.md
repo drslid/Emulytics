@@ -8,7 +8,7 @@ Console de pilotage d’une flotte d’appareils mobiles : téléphones, automat
 scripts/start-console.sh
 ```
 
-Ouvrir **http://localhost:3100**. Le script crée `.env.console` avec des secrets aléatoires si ce fichier n’existe pas, démarre PostgreSQL privé, applique les migrations, construit l’API et le frontend, puis publie WF01 dans le catalogue. Sur une installation vierge, il prépare aussi le compte `admin` et un mot de passe temporaire unique. Les secrets de configuration et le mot de passe initial ne sont pas régénérés lors d’un redémarrage.
+Ouvrir **http://localhost:3100**. Le script crée `.env.console` avec des secrets aléatoires si ce fichier n’existe pas, démarre PostgreSQL privé, applique les migrations, construit l’API, l’ordonnanceur et le frontend, puis publie WF01 dans le catalogue. Sur une installation vierge, il prépare aussi le compte `admin` et un mot de passe temporaire unique. Les secrets de configuration et le mot de passe initial ne sont pas régénérés lors d’un redémarrage.
 
 La stack utilise le projet Compose `emulytix-preview`, ses propres conteneurs et son volume PostgreSQL. Aucun service MobileAgent sur les ports 8080/8443 n’est modifié. Seul le frontend publie un port, limité à `127.0.0.1:3100` ; API et base restent privées. Aucun socket Docker ni accès direct ADB n’est donné à l’API de la console.
 
@@ -47,12 +47,26 @@ Cette commande révoque les sessions et les codes précédents et impose un nouv
 
 ### Utiliser la console
 
-- **Vue d’ensemble** : synthèse de toute la base, activités récentes et situations à vérifier.
-- **Téléphones** : recherche, filtres, déclaration d’appareil et sélection multiple. Un appareil déclaré n’est pas annoncé connecté sans observation réelle.
-- **Automatisations** : versions publiées et étapes du parcours ; lancement sur un lot explicite, avec récapitulatif et concurrence bornée.
-- **Activité** : suivi réel des runs, résultat par appareil, journal, captures protégées et demande d’arrêt. Une réponse 202 signifie que l’arrêt attend encore confirmation du worker.
-- **Sécurité** : compte courant, second facteur et déconnexion.
-- **Banc de validation** : les deux réussites WF01 du 5 novembre restent une archive distincte de la base courante, sur `/validation`.
+- **Tableau de bord** : synthèse du parc, activités récentes et situations à vérifier.
+- **Appareils** : ajout indépendant d'un téléphone physique ou d'un émulateur Android. Le nom accepte les espaces ; l'identifiant est préparé automatiquement. Une déclaration ne prouve aucune connexion.
+- **Parcours** : instructions, étapes visuelles ou JSON avancé, modèles, brouillons et versions publiées immuables.
+- **Exécutions** : lancement immédiat, lot explicite, résultats par appareil, journal et captures privées. Une demande d'arrêt reste distincte de son résultat confirmé.
+- **Planifications** : jour/semaine/mois ou CRON avancé, fuseau IANA, aperçu des cinq prochaines dates, pause/reprise. L'ordonnanceur démarre automatiquement ; un worker connecté reste nécessaire à l'exécution.
+- **Monitoring** : architecture en direct par SSE, signaux des services, latence PostgreSQL, files et hôtes. Un signal devient périmé après vingt secondes sans heartbeat.
+- **Journal** : événements d'exécution et d'administration, pagination, recherche, catégories et niveaux, sans secrets ni corps des requêtes.
+- **Utilisateurs** : comptes locaux, rôle, activation, réinitialisation et accès temporaire. Réservé à Admin ; les nouveaux comptes changent leur mot de passe et activent TOTP.
+- **Mon profil / Sécurité** : identité, rôle, langue, second facteur et déconnexion. Petits drapeaux, dix langues détectées depuis le navigateur et arabe RTL.
+- **Banc de validation** : les deux réussites WF01 archivées restent disponibles sur `/validation`.
+
+| Rôle de référence | Autorisations |
+|---|---|
+| Admin | Toute la console, utilisateurs et sécurité |
+| Builder | Créer/publier les parcours, lancer/planifier/arrêter les exécutions, consulter le parc et le monitoring |
+| Operator | Gérer les appareils, lancer/planifier/arrêter les parcours publiés |
+| Viewer | Consulter le parc, les parcours publiés, résultats, planifications et monitoring |
+| Auditor | Lecture, avec accès supplémentaire aux journaux et à la traçabilité |
+
+Les noms de rôles sont traduits ; les identifiants serveur restent stables. Les droits sont vérifiés sur chaque requête et avant chaque échéance. Le dernier Admin actif ne peut être désactivé ou rétrogradé. Les clés personnelles, l'API publique et le MCP appartiennent à une prochaine tranche.
 
 La console n’invente aucune flotte de démonstration. Le catalogue WF01 est préchargé ; les téléphones et les runs sont ceux enregistrés dans cette base. Sans worker sur l’hôte ciblé, une nouvelle exécution reste en attente. Le worker Android et son banc sont documentés plus bas. Les anciens contrôles directs APK/chat/ADB sont désactivés dans cette stack.
 
@@ -63,7 +77,7 @@ android-runtime/scripts/start-bench.sh
 docker compose --env-file .env.console -p emulytix-preview -f docker-compose.preview.yml -f docker-compose.console-worker.yml --profile worker up -d --build console-worker
 ```
 
-Déclarer alors dans Téléphones un émulateur avec l’hôte `bench-host` et le numéro Android `emulator-5554`, puis choisir WF01. Le démarrage normal de la console ne lance pas Android ni ce worker. Ce profil est fourni pour ce banc ; il ne prouve pas une découverte ou connexion automatique de téléphones physiques.
+Déclarer alors dans Appareils un émulateur avec l’hôte `bench-host` et le numéro Android `emulator-5554`, puis choisir WF01. Le démarrage normal de la console ne lance pas Android ni ce worker. Ce profil est fourni pour ce banc ; il ne prouve pas une découverte ou connexion automatique de téléphones physiques.
 
 L’[étude de l’interface](docs/design/control-console.md) décrit les choix élément par élément ; l’[audit MobileAgent](docs/design/mobileagent-audit.md) détaille les idées reprises et leurs limites.
 
@@ -80,9 +94,9 @@ Ne pas ajouter `--volumes` pour conserver les comptes, appareils et runs. Les pr
 
 Les cookies sont HttpOnly / SameSite Strict. Le mode HTTP avec cookies non Secure est limité au localhost explicitement configuré. Pour un accès par réseau ou domaine, utiliser HTTPS, fixer `EMULYTIX_PUBLIC_ORIGIN` à l’origine exacte et `EMULYTIX_COOKIE_SECURE=true`, puis placer la console derrière un reverse proxy TLS. L’origine `http://localhost:3100` doit être utilisée telle quelle en local : `127.0.0.1` est une autre origine.
 
-Les mots de passe sont hachés avec Argon2, les secrets TOTP chiffrés, les sessions et codes de secours stockés sous forme d’empreintes. Le contrôle anti-rejeu TOTP, les challenges de cinq minutes et les limites de tentatives sont persistés dans PostgreSQL. Derrière le BFF, le plafond IP de 50 tentatives par 15 minutes couvre actuellement tous les opérateurs de l’instance ; la limite par compte est distincte (10 tentatives). Les comptes partagent le même espace : les rôles fins et l’isolation entre clients restent à implémenter.
+Les mots de passe sont hachés avec Argon2, les secrets TOTP chiffrés, les sessions et codes de secours stockés sous forme d’empreintes. Le contrôle anti-rejeu TOTP, les challenges de cinq minutes et les limites de tentatives sont persistés dans PostgreSQL. Derrière le BFF, le plafond IP de 50 tentatives par 15 minutes couvre actuellement tous les opérateurs de l’instance ; la limite par compte est distincte (10 tentatives). Les comptes partagent le même espace : les cinq rôles contrôlent les actions ; l’isolation entre clients reste à implémenter.
 
-Le navigateur passe par `/api/control/*`, sans jeton Bearer de service. Les pages, l’API, les anciennes routes et les captures sont contrôlées côté serveur. Les appels de scripts existants peuvent conserver leur Bearer, injecté hors du navigateur. Les événements sont actualisés périodiquement ; SSE, télémétrie de connexion et contrôle Android en direct restent les lots du [plan](PLAN.MD).
+Le navigateur passe par `/api/control/*`, sans jeton Bearer de service. Les pages, l’API, les anciennes routes et les captures sont contrôlées côté serveur. Les appels de scripts existants peuvent conserver leur Bearer, injecté hors du navigateur. Le monitoring diffuse les mesures par SSE et revalide la session pendant le flux. Les événements des exécutions sont actualisés périodiquement. Le contrôle vidéo Android en direct reste un lot du [plan](PLAN.MD).
 
 ## Répertoires
 

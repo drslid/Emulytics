@@ -1,0 +1,50 @@
+.language-selector { position:relative; display:inline-flex; flex-shrink:0; color:var(--text); }
+.language-trigger { display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line); border-radius:20px; min-height:40px; padding:8px 10px; color:var(--text); background:#fff; }
+.language-trigger img,.language-options img { object-fit:cover; border:1px solid #00000012; border-radius:2px; flex-shrink:0; }
+.language-code { font-size:11px; font-weight:600; }
+.language-options { position:absolute; z-index:150; inset-inline-end:0; top:calc(100% + 8px); display:grid; gap:2px; min-width:188px; max-height:min(480px,70vh); overflow-y:auto; padding:6px; border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:0 6px 22px #20212422; }
+.language-options[hidden] { display:none; }
+.language-options button { display:flex; align-items:center; gap:10px; border:0; border-radius:6px; background:#fff; min-height:40px; padding:8px 10px; text-align:start; color:var(--text); }
+.language-options button:hover,.language-options button[aria-pressed="true"] { background:var(--blue-soft); }
+.language-selected { margin-inline-start:auto; color:var(--accent-soft); }
+.login-language { position:absolute; top:24px; inset-inline-end:32px; }
+[dir="rtl"] body { font-family:Tahoma,Arial,sans-serif; }
+[dir="rtl"] .nav-count,[dir="rtl"] .language-selected { margin-left:0; margin-right:auto; }
+[dir="rtl"] .metric { border-right:0; border-left:1px solid var(--line); }
+[dir="rtl"] .metric:last-child { border-left:0; }
+[dir="rtl"] .data-table { text-align:right; }
+[dir="rtl"] .data-table th,[dir="rtl"] .data-table td { text-align:start; }
+[dir="rtl"] .dialog-header>button { margin-right:auto; margin-left:0; }
+[dir="rtl"] code,[dir="rtl"] .otp-input,[dir="rtl"] .recovery-input { direction:ltr; unicode-bidi:isolate; }
+[dir="rtl"] .login-back { text-align:start; }
+[dir="rtl"] .password-field input { padding-left:74px; padding-right:14px; }
+[dir="rtl"] .password-toggle { left:6px; right:auto; }
+@media(max-width:620px) { .login-language { top:18px; inset-inline-end:16px; } .language-code { display:none; } .language-options { min-width:170px; } }
+[dir="rtl"] .skip-link { left:auto; right:12px; }
+[dir="rtl"] .refresh-line .text-button { margin-left:0; margin-right:4px; }
+[dir="rtl"] .count-label { margin-left:0; margin-right:6px; }
+[dir="rtl"] .next-action .text-button { margin-left:0; margin-right:-9px; }
+[dir="rtl"] .notice a,[dir="rtl"] .workflow-row>.button { margin-left:0; margin-right:auto; }
+[dir="rtl"] .data-table .checkbox-cell { padding-right:24px; padding-left:0; }
+[dir="rtl"] .row-link { text-align:right; }
+[dir="rtl"] .workflow-steps { padding-left:0; padding-right:22px; }
+[dir="rtl"] .workflow-steps code { margin-left:0; margin-right:12px; }
+[dir="rtl"] .device-picker legend span { margin-left:0; margin-right:8px; }
+[dir="rtl"] .event-timeline li:not(:last-child)::before { left:auto; right:3px; border-left:0; border-right:1px solid var(--line); }
+[dir="rtl"] .security-line strong { text-align:left; }
+[lang="ar"] h1,[lang="ar"] h2,[lang="ar"] h3,[lang="ar"] .app-brand,[lang="ar"] .brand-caption { letter-spacing:0; }
+@media(max-width:620px) {
+ [dir="rtl"] .metric:nth-child(2) { border-left:0; }
+ [dir="rtl"] .surface-heading>.text-button { padding-left:0; padding-right:9px; }
+ [dir="rtl"] .notice a { margin-right:0; }
+ [dir="rtl"] .workflow-row>.button { margin-right:50px; }
+ [dir="rtl"] .security-line strong { text-align:right; }
+}
+@font-face { font-family:"Emulytix Arabic"; src:url("/fonts/noto-arabic.ttf") format("truetype"); font-weight:100 900; font-display:swap; }
+@font-face { font-family:"Emulytix Devanagari"; src:url("/fonts/noto-devanagari.ttf") format("truetype"); font-weight:100 900; font-display:swap; }
+@font-face { font-family:"Emulytix Bengali"; src:url("/fonts/noto-bengali.ttf") format("truetype"); font-weight:100 900; font-display:swap; }
+[lang="ar"] body,.language-options button[lang="ar"] { font-family:"Emulytix Arabic",Tahoma,Arial,sans-serif; }
+[lang="hi"] body,.language-options button[lang="hi"] { font-family:"Emulytix Devanagari",Arial,sans-serif; }
+[lang="bn"] body,.language-options button[lang="bn"] { font-family:"Emulytix Bengali",Arial,sans-serif; }
+
+[dir="rtl"] svg[data-directional="true"] { transform:scaleX(-1); }
