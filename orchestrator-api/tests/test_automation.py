@@ -1,11 +1,13 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import uuid4
 
 import psycopg
 import pytest
 from fastapi import HTTPException
 
+from app.android_driver import AndroidDriver
 from app.automation_models import RecipeInput, ScheduleInput
 from app.automation_store import AutomationStore, next_occurrences
 from app.run_models import DeviceRegistration, WorkflowRegistration
@@ -61,6 +63,117 @@ def test_draft_publish_revision_and_driver_validation(database_dsn, workflow_pay
         store.publish_recipe(saved["id"], 3, None)
     assert error.value.status_code == 422
     assert len(RunStore(database_dsn).list_workflows(100, 0)) == 2
+
+
+def test_builtin_workflow_can_be_opened_as_a_draft(control_client, database_dsn):
+    builtin = WorkflowRegistration.model_validate_json(
+        (Path(__file__).resolve().parents[2] / "workflows/chrome-wikipedia-football.v1.json").read_text()
+    )
+    runs = RunStore(database_dsn)
+    runs.register_workflow(builtin)
+    before = runs.get_workflow(builtin.workflow_id, 1)
+    response = control_client.post("/console/recipes/from-workflow", json={
+        "workflow_id": builtin.workflow_id, "version": 1,
+        "name": " Recherche Wikipédia ", "instructions": " Ouvrir Chrome et rechercher football ",
+    })
+    assert response.status_code == 200, response.text
+    draft = response.json()
+    assert draft["workflow_id"] == builtin.workflow_id
+    assert draft["status"] == "draft"
+    assert draft["definition"]["steps"] == before["steps"]
+    assert draft["name"] == "Recherche Wikipédia"
+    assert draft["instructions"] == "Ouvrir Chrome et rechercher football"
+    assert runs.get_workflow(builtin.workflow_id, 1) == before
+    draft["definition"]["steps"][-1]["timeout_ms"] = 25_000
+    update = {"name": draft["name"], "instructions": draft["instructions"], "revision": draft["revision"], **draft["definition"]}
+    assert control_client.patch(f"/console/recipes/{draft['id']}", json=update).status_code == 200
+    published = control_client.post(f"/console/recipes/{draft['id']}/publish", json={"revision": 2})
+    assert published.status_code == 200, published.text
+    assert published.json()["latest_version"] == 2
+    assert runs.get_workflow(builtin.workflow_id, 2)["steps"][-1]["timeout_ms"] == 25_000
+    assert runs.get_workflow(builtin.workflow_id, 1) == before
+
+
+def test_workflow_import_copies_publication_metadata_and_preserves_existing_draft(database_dsn, workflow_payload):
+    store = AutomationStore(database_dsn)
+    store.register_workflow(WorkflowRegistration(**workflow_payload))
+    with store.connect() as connection:
+        connection.execute("INSERT INTO automation_publications(workflow_id,version,name,instructions) VALUES('go-home',1,'Parcours publié','Consigne publiée')")
+    draft = store.recipe_from_workflow("go-home", 1, None, name="Autre nom", instructions="Autre consigne")
+    assert draft["name"] == "Parcours publié"
+    assert draft["instructions"] == "Consigne publiée"
+    changed = recipe(workflow_payload)
+    changed.steps[0].timeout_ms = 25_000
+    saved = store.update_recipe(draft["id"], draft["revision"], changed, None)
+    assert store.recipe_from_workflow("go-home", 1, None, name="Écrasement", instructions="Écrasement") == saved
+    assert store.list_recipes(100, 0)["total"] == 1
+
+
+def test_workflow_import_is_concurrent_and_audited_once(database_dsn, workflow_payload):
+    store = AutomationStore(database_dsn)
+    store.register_workflow(WorkflowRegistration(**workflow_payload))
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        drafts = list(pool.map(lambda _: store.recipe_from_workflow("go-home", 1, None), range(4)))
+    assert all(draft == drafts[0] for draft in drafts)
+    assert drafts[0]["name"] == "go-home"
+    assert drafts[0]["instructions"] == ""
+    assert store.list_recipes(100, 0)["total"] == 1
+    with store.connect() as connection:
+        assert connection.execute("SELECT count(*) AS n FROM audit_log WHERE action='recipe.created'").fetchone()["n"] == 1
+
+
+def test_imported_draft_publishes_after_latest_version_and_keeps_history(database_dsn, workflow_payload):
+    store, schedule, _ = schedule_fixture(database_dsn, workflow_payload)
+    store.dispatch_due()
+    old_runs = store.list_runs(100, 0)
+    with store.connect() as connection:
+        original = connection.execute("SELECT * FROM workflows WHERE workflow_id='go-home' AND version=1").fetchone()
+    store.register_workflow(WorkflowRegistration(**{**workflow_payload, "version": 3}))
+    draft = store.recipe_from_workflow("go-home", 1, None)
+    changed = recipe(workflow_payload)
+    changed.steps[0].timeout_ms = 25_000
+    saved = store.update_recipe(draft["id"], draft["revision"], changed, None)
+    # A separately registered newer publication must not make this draft reuse a version.
+    store.register_workflow(WorkflowRegistration(**{**workflow_payload, "version": 5}))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        published = list(pool.map(lambda _: store.publish_recipe(saved["id"], saved["revision"], None), range(2)))
+    assert all(value["latest_version"] == 6 for value in published)
+    assert store.get_workflow("go-home", 6)["steps"][0]["timeout_ms"] == 25_000
+    assert store.list_runs(100, 0) == old_runs
+    assert store.list_schedules(100, 0)["items"][0]["workflow_version"] == schedule["workflow_version"] == 1
+    with store.connect() as connection:
+        assert connection.execute("SELECT * FROM workflows WHERE workflow_id='go-home' AND version=1").fetchone() == original
+        assert connection.execute("SELECT count(*) AS n FROM automation_publications WHERE workflow_id='go-home'").fetchone()["n"] == 1
+
+
+def test_workflow_import_route_validates_identity_and_missing_source(control_client, database_dsn):
+    assert control_client.post("/console/recipes/from-workflow", json={"workflow_id": "missing", "version": 1}).status_code == 404
+    for payload in ({"workflow_id": "bad/id", "version": 1}, {"workflow_id": "missing", "version": 0},
+                    {"workflow_id": "missing", "version": "1"}, {"workflow_id": "missing", "version": 1, "unexpected": True},
+                    {"workflow_id": "missing", "version": 1, "name": " "}, {"workflow_id": "missing", "version": 1, "name": "x" * 121},
+                    {"workflow_id": "missing", "version": 1, "instructions": "x" * 8001}):
+        assert control_client.post("/console/recipes/from-workflow", json=payload).status_code == 422
+    assert AutomationStore(database_dsn).list_recipes(100, 0)["total"] == 0
+
+
+def test_publication_collision_rolls_back_and_can_be_retried(database_dsn, workflow_payload, monkeypatch):
+    store = AutomationStore(database_dsn)
+    saved = store.create_recipe(recipe(workflow_payload), None)
+    validate_step = AndroidDriver.validate_step
+
+    def register_competing_version(step):
+        validate_step(step)
+        store.register_workflow(WorkflowRegistration(**{**workflow_payload, "workflow_id": saved["workflow_id"]}))
+
+    monkeypatch.setattr(AndroidDriver, "validate_step", register_competing_version)
+    with pytest.raises(HTTPException) as error:
+        store.publish_recipe(saved["id"], 1, None)
+    assert error.value.status_code == 409
+    assert store.list_recipes(100, 0)["items"][0] == saved
+    with store.connect() as connection:
+        assert connection.execute("SELECT count(*) AS n FROM automation_publications").fetchone()["n"] == 0
+    monkeypatch.setattr(AndroidDriver, "validate_step", validate_step)
+    assert store.publish_recipe(saved["id"], 1, None)["latest_version"] == 2
 
 
 def schedule_fixture(database_dsn, workflow_payload):
@@ -181,6 +294,7 @@ def test_builder_authoring_operator_execution_and_draft_privacy(auth_client, aut
     saved = response.json()
     published = auth_client.post(f"/console/recipes/{saved['id']}/publish", json={"revision": 1})
     assert published.status_code == 200, published.text
+    assert auth_client.post("/console/recipes/from-workflow", json={"workflow_id": saved["workflow_id"], "version": 1}).json()["id"] == saved["id"]
     assert auth_client.post("/devices", json={"device_id": "scheduled-phone", "host_id": "host", "serial": "emulator-5554", "kind": "emulator"}, headers={"Authorization": f"Bearer {CONTROL_TOKEN}"}).status_code == 201
     scheduled = auth_client.post("/console/schedules", json={"name": "  Football chaque matin  ", "workflow_id": saved["workflow_id"], "workflow_version": 1, "device_ids": ["scheduled-phone"], "max_concurrency": 1, "cron": "0 9 * * *", "timezone": "Europe/Paris"})
     assert scheduled.status_code == 201, scheduled.text
@@ -195,6 +309,10 @@ def test_builder_authoring_operator_execution_and_draft_privacy(auth_client, aut
     assert auth_client.post("/auth/verify", json={"code": current_code(auth_store, secret)}).status_code == 200
     assert auth_client.get("/console/recipes").json()["items"] == []
     assert auth_client.post("/console/recipes", json=recipe(workflow_payload).model_dump(mode="json", by_alias=True)).status_code == 403
+    assert auth_client.post("/console/recipes/from-workflow", json={"workflow_id": saved["workflow_id"], "version": 1}).status_code == 403
     assert auth_client.post(f"/console/recipes/{saved['id']}/publish", json={"revision": 1}).status_code == 403
     assert auth_client.get("/console/schedules").status_code == 200
     assert auth_client.request("DELETE", f"/console/schedules/{schedule_id}", json={}).status_code == 204
+    with auth_store.connect() as connection:
+        connection.execute("UPDATE auth_users SET role='viewer' WHERE id=%s", (operator["id"],))
+    assert auth_client.post("/console/recipes/from-workflow", json={"workflow_id": saved["workflow_id"], "version": 1}).status_code == 403

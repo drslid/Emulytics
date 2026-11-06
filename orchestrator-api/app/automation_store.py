@@ -74,6 +74,35 @@ class AutomationStore(RunStore):
             audit_event(connection, actor_id, "recipe.created", str(recipe_id), {"revision": 1}, category="automation")
             return _recipe_view(row)
 
+    def recipe_from_workflow(self, workflow_id: str, version: int, actor_id: UUID | None,
+                             *, name: str | None = None, instructions: str | None = None) -> dict:
+        with self.connect() as connection:
+            existing = connection.execute("SELECT * FROM automation_recipes WHERE workflow_id=%s", (workflow_id,)).fetchone()
+            if existing is not None:
+                return _recipe_view(existing)
+            source = connection.execute(
+                "SELECT w.definition,p.name,p.instructions FROM workflows w "
+                "LEFT JOIN automation_publications p ON p.workflow_id=w.workflow_id AND p.version=w.version "
+                "WHERE w.workflow_id=%s AND w.version=%s", (workflow_id, version),
+            ).fetchone()
+            if source is None:
+                raise HTTPException(404, "Workflow version not found")
+            latest = connection.execute("SELECT MAX(version) AS version FROM workflows WHERE workflow_id=%s", (workflow_id,)).fetchone()["version"]
+            definition = {"steps": source["definition"]["steps"], "recovery_budget": source["definition"].get("recovery_budget", 0)}
+            row = connection.execute(
+                "INSERT INTO automation_recipes(id,workflow_id,name,instructions,definition,latest_version,created_by) "
+                "VALUES(%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(workflow_id) DO NOTHING RETURNING *",
+                (uuid4(), workflow_id, source["name"] if source["name"] is not None else name or workflow_id[:120],
+                 source["instructions"] if source["instructions"] is not None else instructions or "", Jsonb(definition), latest, actor_id),
+            ).fetchone()
+            if row is None:
+                # Another editor opened this workflow first; keep that draft intact.
+                row = connection.execute("SELECT * FROM automation_recipes WHERE workflow_id=%s", (workflow_id,)).fetchone()
+            else:
+                audit_event(connection, actor_id, "recipe.created", str(row["id"]),
+                            {"workflow_id": workflow_id, "workflow_version": version, "revision": 1}, category="automation")
+            return _recipe_view(row)
+
     def list_recipes(self, limit: int, offset: int, *, include_drafts: bool = True) -> dict:
         # Readers cannot retrieve unpublished instructions or unpublished draft definitions.
         # Executable catalog /workflows remains the source for operator/viewer roles.
@@ -106,7 +135,8 @@ class AutomationStore(RunStore):
                 raise HTTPException(409, "Draft changed; reload before publishing")
             if row["published_revision"] == revision:
                 return _recipe_view(row)
-            version = (row["latest_version"] or 0) + 1
+            latest = connection.execute("SELECT MAX(version) AS version FROM workflows WHERE workflow_id=%s", (row["workflow_id"],)).fetchone()["version"]
+            version = max(row["latest_version"] or 0, latest or 0) + 1
             definition = WorkflowRegistration(workflow_id=row["workflow_id"], version=version, **row["definition"]).model_dump(mode="json", by_alias=True)
             try:
                 for step in definition["steps"]:
@@ -119,10 +149,13 @@ class AutomationStore(RunStore):
                         step.pop("when", None)
             except DriverError as error:
                 raise HTTPException(422, str(error)) from None
-            connection.execute(
-                "INSERT INTO workflows(workflow_id,version,definition,content_hash) VALUES(%s,%s,%s,%s)",
-                (row["workflow_id"], version, Jsonb(definition), fingerprint(definition)),
-            )
+            try:
+                connection.execute(
+                    "INSERT INTO workflows(workflow_id,version,definition,content_hash) VALUES(%s,%s,%s,%s)",
+                    (row["workflow_id"], version, Jsonb(definition), fingerprint(definition)),
+                )
+            except psycopg.errors.UniqueViolation:
+                raise HTTPException(409, "Workflow changed; retry publishing a new version") from None
             connection.execute(
                 "INSERT INTO automation_publications(workflow_id,version,name,instructions) VALUES(%s,%s,%s,%s)",
                 (row["workflow_id"], version, row["name"], row["instructions"]),

@@ -54,6 +54,8 @@ def required_permission(method: str, path: str) -> str | None:
         return 'devices.read' if read else None
     if path == '/workflows' or re.fullmatch(r'/workflows/[^/]+/versions/[0-9]+', path):
         return 'workflows.read' if read else 'workflows.publish'
+    if path == '/console/recipes/from-workflow':
+        return 'workflows.write' if method == 'POST' else None
     if path.startswith('/console/recipes'):
         return 'workflows.read' if read else 'workflows.publish' if path.endswith('/publish') else 'workflows.write'
     if path.startswith('/console/schedules'):

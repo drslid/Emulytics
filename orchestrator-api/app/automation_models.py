@@ -4,7 +4,7 @@ from typing import Annotated, Self
 
 from pydantic import Field, field_validator, model_validator
 
-from .run_models import Contract, Identifier, Version, WorkflowRegistration, WorkflowStep
+from .run_models import Contract, Identifier, Version, WorkflowStep
 
 
 class RecipeInput(Contract):
@@ -27,6 +27,18 @@ class RecipeInput(Contract):
 
 class RecipeUpdate(RecipeInput):
     revision: int = Field(ge=1, le=2_147_483_647)
+
+
+class WorkflowRecipeInput(Contract):
+    workflow_id: Identifier
+    version: Version
+    name: Annotated[str | None, Field(min_length=1, max_length=120)] = None
+    instructions: Annotated[str | None, Field(max_length=8000)] = None
+
+    @field_validator("name", "instructions", mode="before")
+    @classmethod
+    def trim_text(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
 
 class PublishInput(Contract):

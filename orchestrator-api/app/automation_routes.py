@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from .automation_models import PreviewInput, PublishInput, RecipeInput, RecipeUpdate, ScheduleInput, ScheduleToggle
+from .automation_models import PreviewInput, PublishInput, RecipeInput, RecipeUpdate, ScheduleInput, ScheduleToggle, WorkflowRecipeInput
 from .automation_store import AutomationStore, next_occurrences
 from .run_routes import ControlRoute, Limit, Offset, Store
 
@@ -27,6 +27,13 @@ def recipes(request: Request, store: Store, limit: Limit = 100, offset: Offset =
 @router.post("/recipes", status_code=201)
 def create_recipe(payload: RecipeInput, request: Request, store: Store):
     return AutomationStore(store.dsn).create_recipe(payload, _actor(request))
+
+
+@router.post("/recipes/from-workflow")
+def recipe_from_workflow(payload: WorkflowRecipeInput, request: Request, store: Store):
+    return AutomationStore(store.dsn).recipe_from_workflow(
+        payload.workflow_id, payload.version, _actor(request), name=payload.name, instructions=payload.instructions,
+    )
 
 
 @router.patch("/recipes/{recipe_id}")
