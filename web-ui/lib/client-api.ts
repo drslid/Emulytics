@@ -1,6 +1,6 @@
 import { browserT } from "./i18n";
 export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public code?: string) { super(message); }
 }
 
 export async function api<T>(path: string, body?: unknown, method?: "GET" | "POST" | "PATCH" | "DELETE"): Promise<T> {
@@ -26,7 +26,10 @@ export async function api<T>(path: string, body?: unknown, method?: "GET" | "POS
       429: "Trop de tentatives. Patientez quelques minutes avant de réessayer.",
       503: "Le service est indisponible. Réessayez dans un instant."
     };
-    throw new ApiError(response.status, browserT(response.status === 401 && path.startsWith("auth/") && path !== "auth/login" ? "Code incorrect ou connexion expirée. Réessayez avec le code actuel, ou revenez à la connexion." : messages[response.status] ?? "L’action n’a pas abouti. Réessayez."));
+    const payload = await response.json().catch(() => null);
+    const known = ["invalid_email", "email_in_use", "username_in_use", "last_admin_required", "self_security_required"];
+    const code = typeof payload?.detail?.code === "string" && known.includes(payload.detail.code) ? payload.detail.code : undefined;
+    throw new ApiError(response.status, browserT(response.status === 401 && path.startsWith("auth/") && path !== "auth/login" ? "Code incorrect ou connexion expirée. Réessayez avec le code actuel, ou revenez à la connexion." : messages[response.status] ?? "L’action n’a pas abouti. Réessayez."), code);
   }
   if (response.status === 204) return null as T;
   return response.json() as Promise<T>;

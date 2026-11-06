@@ -538,3 +538,23 @@ Le renouvellement des codes exige l'application d'authentification ; une applica
 Validation de la gestion personnelle : **288 tests API et 31 tests frontend réussis**, build de production et TypeScript réussis. La revue indépendante a identifié et fait corriger un refus de mots de passe Unicode valides et un deadlock avec une déconnexion concurrente ; leurs régressions sont couvertes.
 
 Cinq contrôles navigateur groupés ont vérifié les mots de passe Unicode avec espaces significatifs, le refus d'une mauvaise confirmation sans déconnexion, la révocation d'une autre session, l'annulation d'un remplacement 2FA, le QR lié à la session, un mauvais nouveau code puis sa validation correcte, le renouvellement à affichage unique et la protection de fermeture. Une connexion ultérieure refuse l'ancien mot de passe, l'ancien authentificateur et les codes remplacés, puis accepte le nouveau mot de passe et un nouveau code de secours. Aucun débordement à 320 px et aucune erreur JavaScript. Preuves locales : storage/self-security-review/. Le compte temporaire et ses sessions sont retirés après vérification ; le véritable compte administrateur reste intact.
+
+
+### Gestion avancée des utilisateurs et de leur identité — 6 novembre 2026
+
+Demande : administration complète des utilisateurs, mots de passe et 2FA avec prénom, nom et adresse e-mail. Les données existantes sont conservées : aucune identité ou adresse n'est inventée pour les comptes déjà installés. Le prénom est requis dans le nouveau formulaire, le nom reste facultatif pour les personnes ayant un seul nom, et les noms Unicode sont conservés. L'identifiant est préparé automatiquement ; une collision de noms reçoit un suffixe sans demander de reformuler l'identité.
+
+L'e-mail est une coordonnée de contact normalisée, unique sans distinction de casse, sans vérification de possession ni envoi de message. Il ne devient pas un identifiant de connexion ou un canal de réinitialisation automatique. Chaque utilisateur peut modifier sa propre identité et son contact depuis le profil, sans accès aux rôles ou aux autres comptes.
+
+L'annuaire ajoute recherche et filtres côté serveur, fiche détaillée, état du compte et de l'enrôlement, dates connues de connexion/changement de mot de passe, nombre de sessions actives et de codes de secours disponibles. Aucun mot de passe existant, seed TOTP, code ou jeton de session n'est exposé. Les anciennes dates inconnues restent inconnues.
+
+L'administrateur peut réinitialiser le mot de passe temporaire, imposer un changement, réinitialiser le 2FA et fermer les sessions. Les changements sensibles revérifient les droits actuels de l'administrateur sous verrou. Le dernier administrateur réellement prêt reste protégé, y compris si un autre compte admin n'a pas fini son enrôlement. La sécurité de son propre compte se gère depuis Mon profil plutôt que par les réinitialisations administratives.
+
+- [x] U01 — Ajouter l'identité, le contact et les métriques sans perte des comptes ni sessions existants.
+- [x] U02 — Ajouter les actions d'administration protégées et la conservation du dernier administrateur opérationnel.
+- [x] U03 — Livrer l'annuaire filtrable, les fiches et l'édition personnelle dans les dix langues.
+- [x] U04 — Vérifier validation, permissions, concurrence, révocation et parcours navigateur sur données temporaires.
+
+Validation : **315 tests API et 32 tests frontend réussis**, TypeScript, build de production et audit npm réussis. Onze groupes de recette navigateur passent sur la version déployée : identité, création, collision de noms, doublons d'e-mail avec erreur au champ, première connexion, droits, changement imposé, révocation, réinitialisations, désactivation et gestion de son propre compte. Dix contrôles WCAG automatisés passent sur l'annuaire, la fiche et le profil, en français, allemand et arabe, sur ordinateur et à 320 px. Aucune erreur JavaScript ni débordement horizontal observé. Preuves locales : storage/advanced-users-review/.
+
+La revue indépendante a fait retirer les recherches par nom et e-mail des journaux HTTP techniques ; les événements applicatifs restent tracés. Les comptes temporaires et leurs sessions sont supprimés après recette. Les empreintes de l'identité, des droits, du mot de passe et du facteur du compte préexistant sont identiques avant et après le déploiement. Les traductions des dix langues restent à relire par des locuteurs natifs avant diffusion internationale.

@@ -2,6 +2,9 @@ export type User = {
   id: string;
   username: string;
   display_name: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
   role: "admin" | "builder" | "operator" | "viewer" | "auditor";
   permissions: string[];
   active: boolean;
@@ -26,7 +29,13 @@ export type Device = {
   status: "registered";
   created_at: string;
   availability: "declared" | "busy" | "needs_review";
-  connection_status?: "connected" | "worker_offline" | "not_connected" | "unauthorized" | "offline" | "unknown";
+  connection_status?:
+    | "connected"
+    | "worker_offline"
+    | "not_connected"
+    | "unauthorized"
+    | "offline"
+    | "unknown";
   worker_last_seen_at?: string | null;
   active_run_id: string | null;
   lease_expires_at: string | null;

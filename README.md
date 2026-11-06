@@ -55,8 +55,8 @@ Cette commande révoque les sessions et les codes précédents et impose un nouv
 - **Planifications** : jour/semaine/mois ou CRON avancé, fuseau IANA, aperçu des cinq prochaines dates, pause/reprise. L'ordonnanceur démarre automatiquement ; un worker connecté reste nécessaire à l'exécution.
 - **Monitoring** : architecture en direct par SSE, signaux des services, latence PostgreSQL, files et hôtes. Un signal devient périmé après vingt secondes sans heartbeat.
 - **Journal** : événements d'exécution et d'administration, pagination, recherche, catégories et niveaux, sans secrets ni corps des requêtes.
-- **Utilisateurs** : comptes locaux, rôle, activation, réinitialisation et accès temporaire. Réservé à Admin ; les nouveaux comptes changent leur mot de passe et activent TOTP.
-- **Mon profil** : identité, rôle, langue et section Sécurité du compte intégrée, avec mot de passe, second facteur, session et déconnexion. Petits drapeaux, dix langues détectées depuis le navigateur et arabe RTL.
+- **Utilisateurs** : annuaire avec recherche, filtres et fiche détaillée ; nom, prénom, e-mail de contact, rôle, activation et actions de sécurité. Réservé à Admin ; les nouveaux comptes changent leur mot de passe et activent TOTP.
+- **Mon profil** : modification de son identité et de son e-mail de contact, rôle, langue et section Sécurité du compte intégrée, avec mot de passe, second facteur, session et déconnexion. Petits drapeaux, dix langues détectées depuis le navigateur et arabe RTL.
 - **Banc de validation** : les deux réussites WF01 archivées restent disponibles sur `/validation`.
 
 | Rôle de référence | Autorisations |
@@ -67,7 +67,7 @@ Cette commande révoque les sessions et les codes précédents et impose un nouv
 | Viewer | Consulter le parc, les parcours publiés, résultats, planifications et monitoring |
 | Auditor | Lecture, avec accès supplémentaire aux journaux et à la traçabilité |
 
-Les noms de rôles sont traduits ; les identifiants serveur restent stables. Les droits sont vérifiés sur chaque requête et avant chaque échéance. Le dernier Admin actif ne peut être désactivé ou rétrogradé. Les clés personnelles, l'API publique et le MCP appartiennent à une prochaine tranche.
+Les noms de rôles sont traduits ; les identifiants serveur restent stables. Les droits sont vérifiés sur chaque requête et avant chaque échéance. Le dernier Admin opérationnel, actif avec un mot de passe personnel et un 2FA confirmé, doit être conservé. Un compte Admin encore en cours d'activation ne suffit pas à le remplacer. Les clés personnelles, l'API publique et le MCP appartiennent à une prochaine tranche.
 
 La console n’invente aucune flotte de démonstration. Le catalogue WF01 est préchargé ; les téléphones et les runs sont ceux enregistrés dans cette base. Sans worker sur l’hôte ciblé, une nouvelle exécution reste en attente. Le worker Android et son banc sont documentés plus bas. Les anciens contrôles directs APK/chat/ADB sont désactivés dans cette stack.
 
@@ -85,13 +85,30 @@ Ce banc requiert `/dev/kvm` et l'image Android déjà présente localement `emul
 
 L’[étude de l’interface](docs/design/control-console.md) décrit les choix élément par élément ; l’[audit MobileAgent](docs/design/mobileagent-audit.md) détaille les idées reprises et leurs limites.
 
+### Administrer les comptes
+
+Dans **Utilisateurs**, un Admin crée un compte à partir du prénom, du nom facultatif, de l'e-mail et du rôle. Les espaces sont corrigés et les accents conservés. L'identifiant de connexion est proposé automatiquement ; si le même nom existe déjà, un suffixe distingue le nouveau compte. Un identifiant personnalisé reste possible. Le mot de passe temporaire est affiché une seule fois et impose un changement avant l'activation du 2FA.
+
+La recherche et les filtres de rôle, d'activation, de 2FA et de première connexion portent sur tout l'annuaire, y compris les pages suivantes. La fiche d'un compte donne ses dates connues, ses sessions actives et le nombre de codes de secours restants. Les dates inconnues des anciens comptes restent vides. Modifier le rôle ou désactiver un compte ferme ses sessions et ses connexions en cours ; modifier uniquement son identité conserve ses accès.
+
+| Action de sécurité | Effet |
+|---|---|
+| Réinitialiser le mot de passe | Génère un accès temporaire affiché une seule fois, ferme les sessions et impose un nouveau mot de passe ; le facteur existant reste configuré |
+| Imposer un changement de mot de passe | Ferme les sessions et impose un nouveau mot de passe après saisie du mot de passe actuel |
+| Réinitialiser le 2FA | Ferme les sessions, supprime l'ancien facteur et ses codes de secours, puis exige un nouvel enrôlement |
+| Fermer les sessions | Révoque les sessions et les connexions en cours, en conservant le mot de passe et le facteur |
+
+Les modifications d'accès sont revérifiées côté serveur dans la transaction. La protection du dernier Admin opérationnel s'applique aussi aux actions qui lui imposeraient une nouvelle activation. Un Admin gère son propre mot de passe et son propre facteur depuis **Mon profil** ; il peut fermer toutes ses sessions depuis sa fiche, ce qui le déconnecte aussi.
+
+Chaque utilisateur peut modifier son prénom, son nom et son e-mail dans **Mon profil**. L'identifiant de connexion reste fixe. L'e-mail est un contact facultatif pour les comptes existants, unique sans distinction de casse, et sa syntaxe est validée. Cette adresse n'est pas vérifiée : aucun message n'est envoyé et elle ne sert ni d'identifiant de connexion ni de canal de récupération. Les changements d'identité sont tracés sans copier les noms ou adresses dans le journal.
+
 ### Gérer sa sécurité personnelle
 
 Dans **Mon profil → Sécurité du compte**, chaque utilisateur peut changer son mot de passe, remplacer son application d'authentification et renouveler ses codes de secours. Ces actions demandent le mot de passe actuel et une confirmation par un facteur disponible. Le 2FA reste obligatoire.
 
 Le remplacement affiche un QR temporaire lié à la session et conserve l'ancien facteur jusqu'à validation d'un code de la nouvelle application. Après activation, les anciens codes de secours sont remplacés. Les nouveaux codes ne sont affichés qu'une fois : les conserver avant de fermer le dialogue. Annuler conserve l'ancien facteur, mais un code de secours déjà utilisé reste consommé.
 
-Changer un identifiant sensible ferme les autres sessions et renouvelle la session courante. Le renouvellement des codes exige l'application d'authentification ; si elle est perdue, utiliser d'abord un code de secours pour changer d'application. Le dernier code disponible est réservé à cette récupération. Si aucun facteur n'est disponible, un administrateur peut réinitialiser l'accès depuis Utilisateurs ou les outils locaux.
+Changer son mot de passe ou son application d'authentification ferme les autres sessions et renouvelle la session courante. Le renouvellement des codes exige l'application d'authentification ; si elle est perdue, utiliser d'abord un code de secours pour changer d'application. Le dernier code disponible est réservé à cette récupération. Si aucun facteur n'est disponible, un administrateur peut réinitialiser l'accès depuis Utilisateurs ou les outils locaux.
 
 ### Observer et exécuter plusieurs parcours
 

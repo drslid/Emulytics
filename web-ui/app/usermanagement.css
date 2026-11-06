@@ -1,0 +1,224 @@
+.users-directory .surface-heading {
+  flex-wrap: wrap;
+}
+.users-table td:first-child {
+  max-width: 220px;
+  overflow-wrap: anywhere;
+}
+.users-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 0 24px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.users-filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  flex: 1;
+  min-width: 150px;
+}
+.users-filters select {
+  font: inherit;
+  font-size: 12px;
+  background: #fff;
+  color: var(--text);
+  min-height: 42px;
+  border: 1px solid #c9d0da;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.users-search {
+  border-bottom: 0;
+}
+.users-results-status {
+  padding: 12px 24px;
+  font-size: 11px;
+  color: var(--muted);
+  min-height: 38px;
+}
+.users-loading {
+  padding: 24px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.users-table td {
+  padding: 16px 18px;
+}
+.users-table th {
+  padding-inline: 18px;
+}
+.users-table td:nth-child(2) {
+  max-width: 250px;
+  overflow-wrap: anywhere;
+}
+.user-detail-body {
+  display: grid;
+  gap: 24px;
+  padding: 24px;
+}
+.user-detail-body section {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 24px;
+}
+.user-detail-body h3 {
+  margin: 0 0 18px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.user-detail-body .section-heading {
+  padding-bottom: 4px;
+}
+.user-detail-body .section-heading h3 {
+  margin: 0;
+}
+.user-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+  margin: 18px 0;
+}
+.user-facts > div {
+  min-width: 0;
+}
+.user-facts dt {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.user-facts dd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.user-fact-wide {
+  grid-column: 1/-1;
+}
+.user-security-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 20px 0 8px;
+}
+.user-revoke {
+  margin-top: 12px;
+}
+.user-login-options {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 12px;
+}
+.user-login-options summary {
+  cursor: pointer;
+  color: var(--accent-soft);
+  font-weight: 500;
+}
+.user-login-options label {
+  margin-top: 16px;
+}
+.profile-identity-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.profile-facts {
+  padding-block: 14px;
+  border-block: 1px solid var(--line);
+  margin-block: 24px;
+}
+.field-error {
+  color: var(--danger) !important;
+}
+@media (max-width: 760px) {
+  .users-table thead {
+    display: none;
+  }
+  .users-table,
+  .users-table tbody,
+  .users-table tr,
+  .users-table td {
+    display: block;
+    width: 100%;
+  }
+  .users-table tr {
+    border-bottom: 1px solid var(--line);
+    padding: 10px 0;
+  }
+  .users-table td {
+    display: grid;
+    grid-template-columns: minmax(100px, 0.7fr) minmax(0, 1fr);
+    gap: 4px 12px;
+    padding: 8px 18px;
+    border: 0;
+    max-width: none !important;
+  }
+  .users-table td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    color: var(--muted);
+    grid-column: 1;
+    grid-row: 1/8;
+    padding-top: 3px;
+  }
+  .users-table td > * {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .users-table td:last-child .button {
+    min-width: 100px;
+  }
+  .users-table td:nth-child(2),
+  .users-table td:nth-child(3),
+  .users-table td:nth-child(6) {
+    display: block;
+    padding-inline-start: calc(100px + 30px);
+    position: relative;
+    min-height: 34px;
+  }
+  .users-table td:nth-child(2)::before,
+  .users-table td:nth-child(3)::before,
+  .users-table td:nth-child(6)::before {
+    position: absolute;
+    inset-inline-start: 18px;
+    top: 8px;
+    width: 100px;
+  }
+  .users-filters {
+    padding-inline: 18px;
+    gap: 12px;
+  }
+  .users-filters label {
+    min-width: min(180px, 100%);
+  }
+}
+@media (max-width: 620px) {
+  .user-detail-body {
+    padding: 20px 18px;
+  }
+  .user-facts {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .user-fact-wide {
+    grid-column: auto;
+  }
+  .profile-identity-heading {
+    flex-wrap: wrap;
+  }
+  .users-filters label {
+    flex-basis: 100%;
+  }
+}
+
+.user-detail-body .dialog-footer {
+  padding: 0;
+}
+
+.sidebar-account strong {
+  white-space: nowrap;
+}

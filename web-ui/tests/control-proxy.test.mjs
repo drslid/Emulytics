@@ -129,3 +129,17 @@ test("personal security routes are explicit, CSRF protected and forward rotated 
     assert.equal((await proxyControl(request(path,post()),path.split("/"))).status,404,path);
   }
 });
+
+test("user administration detail, filters and security actions use only bounded routes", async () => {
+  const id="00000000-0000-4000-8000-000000000001";
+  const response=await proxyControl(request(`console/users/${id}?role=viewer&active=active&two_factor=pending&onboarding=required&secret=discard`),["console","users",id],async(url)=>{
+    assert.match(url,/role=viewer/);assert.match(url,/two_factor=pending/);assert.match(url,/onboarding=required/);assert.doesNotMatch(url,/secret/);return Response.json({id});
+  });assert.equal(response.status,200);
+  for(const action of ["revoke-sessions","force-password-change"]){
+    const path=`console/users/${id}/${action}`;
+    assert.equal((await proxyControl(request(path,post()),path.split("/"),async()=>Response.json({ok:true}))).status,200);
+    assert.equal((await proxyControl(request(path,post("{}","https://invalid.test")),path.split("/"))).status,403);
+  }
+  assert.equal((await proxyControl(request("console/account/profile",{...post(),method:"PATCH"}),["console","account","profile"],async()=>Response.json({user:{id}}))).status,200);
+  assert.equal((await proxyControl(request("console/users/invalid/user"),["console","users","invalid","user"])).status,404);
+});
