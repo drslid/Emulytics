@@ -1,0 +1,77 @@
+"use client";
+
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import type { Device, RunDetail, Workflow } from "../../lib/console-types";
+import { draftKey, parseRunDraft, type RunSubmission } from "../../lib/run-draft";
+import { ApiError, api } from "../../lib/client-api";
+import { Badge, Dialog, ErrorNotice, workflowName } from "./shared";
+import { Icon } from "./icons";
+
+export function RunDialog({ userId, devices, workflows, initialDeviceIds, initialWorkflow, onClose, onLaunched }: {
+  userId: string; devices: Device[]; workflows: Workflow[]; initialDeviceIds: string[]; initialWorkflow?: Workflow;
+  onClose: () => void; onLaunched: (run: RunDetail) => void;
+}) {
+  const [workflowKey, setWorkflowKey] = useState(initialWorkflow ? `${initialWorkflow.workflow_id}:${initialWorkflow.version}` : "");
+  const [ids, setIds] = useState(initialDeviceIds);
+  const [concurrency, setConcurrency] = useState(1);
+  const [search, setSearch] = useState("");
+  const [review, setReview] = useState<RunSubmission | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const attempted = useRef(false);
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(draftKey(userId));
+      const pending = saved ? parseRunDraft(JSON.parse(saved)) : null;
+      if (pending) { setReview(pending); setWorkflowKey(`${pending.workflow_id}:${pending.workflow_version}`); attempted.current = true; }
+    } catch { setError("Votre navigateur ne permet pas de conserver une demande en cours. Autorisez le stockage de session avant de lancer."); }
+  }, [userId]);
+  useEffect(() => {
+    if (!attempted.current) setIds((current) => current.filter((id) => !devices.some((device) => device.device_id === id && device.availability === "needs_review")));
+  }, [devices]);
+  const blocked = !!review?.device_ids.some((id) => devices.some((device) => device.device_id === id && device.availability === "needs_review"));
+  const workflow = workflows.find((item) => `${item.workflow_id}:${item.version}` === workflowKey);
+  const visible = devices.filter((device) => device.device_id.toLocaleLowerCase("fr").includes(search.toLocaleLowerCase("fr")));
+  function prepare(event: FormEvent) {
+    event.preventDefault();
+    if (!workflow || !ids.length || !Number.isInteger(concurrency) || concurrency < 1 || concurrency > ids.length || ids.some((id) => devices.some((device) => device.device_id === id && device.availability === "needs_review"))) return;
+    setReview({ workflow_id: workflow.workflow_id, workflow_version: workflow.version, device_ids: [...ids], max_concurrency: concurrency, parameters: {}, idempotency_key: crypto.randomUUID() });
+    setError("");
+  }
+  async function launch() {
+    if (!review || busy || (blocked && !attempted.current)) return;
+    setBusy(true); setError("");
+    try {
+      sessionStorage.setItem(draftKey(userId), JSON.stringify(review));
+      attempted.current = true;
+      const run = await api<RunDetail>("runs", review);
+      try { sessionStorage.removeItem(draftKey(userId)); } catch { /* The same key still safely replays the recorded result. */ }
+      onLaunched(run);
+    } catch (failure) {
+      if (failure instanceof ApiError && [401, 403, 404, 422].includes(failure.status)) {
+        try { sessionStorage.removeItem(draftKey(userId)); } catch { /* No request was accepted. */ }
+        attempted.current = false;
+      }
+      setError(attempted.current ? (failure as Error).message + " La demande est conservée : réessayez pour vérifier son résultat sans créer de doublon." : failure instanceof ApiError ? failure.message : "Votre navigateur empêche de conserver la demande. Aucun lancement n’a été envoyé. Autorisez le stockage de session pour continuer.");
+    }
+    finally { setBusy(false); }
+  }
+  return <Dialog title={review ? "Vérifier le lancement" : "Lancer une automatisation"} description={review ? "Ce lot sera conservé pour toute l’exécution." : "Un parcours, une sélection de téléphones, un résultat traçable."} onClose={() => { if (!busy) onClose(); }} wide>
+    {error && <div className="dialog-notice"><ErrorNotice message={error} /></div>}
+    {review ? <div className="dialog-form">
+      {attempted.current && <div className="notice notice--warning">Une demande précédente doit être confirmée. Ce bouton vérifie la même demande ; il ne crée pas un nouveau lot. Vous pouvez fermer cette fenêtre et la retrouver après connexion.</div>}
+      {blocked && !attempted.current && <ErrorNotice message="Un téléphone sélectionné nécessite une vérification. Revenez à la sélection avant de lancer." />}
+      <div className="review-section"><span className="eyebrow">Automatisation</span><h3>{workflowName(review.workflow_id)}</h3><p>Version {review.workflow_version} · {workflow?.steps.length} étapes</p></div>
+      <div className="review-section"><span className="eyebrow">Téléphones ciblés · {review.device_ids.length}</span><div className="device-chips">{review.device_ids.map((id) => <span key={id}><Icon name="phone" size={16} />{id}</span>)}</div></div>
+      <div className="review-section"><span className="eyebrow">Exécution</span><p>{review.max_concurrency} téléphone{review.max_concurrency > 1 ? "s" : ""} à la fois. Chaque appareil dispose de son propre journal et de ses preuves.</p></div>
+      <div className="notice notice--info"><Icon name="clock" /><span>Le worker doit être actif sur chaque hôte. Les téléphones occupés attendront leur tour ; une inscription ne confirme pas une connexion Android.</span></div>
+      <div className="dialog-footer"><button className="button button--secondary" disabled={busy || attempted.current} onClick={() => setReview(null)}>Modifier</button><button className="button button--primary" disabled={busy || (blocked && !attempted.current)} onClick={() => void launch()}><Icon name="play" size={18} />{busy ? "Envoi en cours…" : (attempted.current ? "Confirmer le résultat de la demande" : "Confirmer le lancement")}</button></div>
+    </div> : <form className="dialog-form" onSubmit={prepare}>
+      <label>1. Choisir l’automatisation<select required value={workflowKey} onChange={(event) => setWorkflowKey(event.target.value)}><option value="" disabled>Sélectionner un parcours</option>{workflows.map((item) => <option key={`${item.workflow_id}:${item.version}`} value={`${item.workflow_id}:${item.version}`}>{workflowName(item.workflow_id)} · v{item.version}</option>)}</select></label>
+      {!workflows.length && <div className="notice notice--info">Aucun parcours n’a encore été publié.</div>}
+      <fieldset className="device-picker"><legend>2. Cibler les téléphones <span>{ids.length} sélectionné{ids.length > 1 ? "s" : ""}</span></legend><input type="search" aria-label="Filtrer les téléphones proposés" placeholder="Rechercher dans les téléphones chargés…" value={search} onChange={(event) => setSearch(event.target.value)} /><div className="device-picker-list">{visible.length ? visible.map((device) => <label key={device.device_id} className="device-picker-row"><input type="checkbox" checked={ids.includes(device.device_id)} disabled={(!ids.includes(device.device_id) && device.availability === "needs_review") || (!ids.includes(device.device_id) && ids.length >= 100)} onChange={() => setIds((current) => current.includes(device.device_id) ? current.filter((id) => id !== device.device_id) : [...current, device.device_id])} /><span><strong>{device.device_id}</strong><small>{device.host_id} · {device.kind === "emulator" ? "Émulateur" : "Physique"}</small></span><Badge status={device.availability} /></label>) : <p className="picker-empty">Aucun téléphone à proposer. Ajoutez un appareil dans Téléphones.</p>}</div></fieldset>
+      <label>Téléphones exécutés en parallèle<input type="number" required min={1} max={Math.max(1, ids.length)} value={concurrency} onChange={(event) => setConcurrency(Number(event.target.value))} /><span>De 1 à {Math.max(1, ids.length)}, dans la limite de votre sélection.</span></label>
+      <div className="dialog-footer"><button type="button" className="button button--secondary" onClick={onClose}>Annuler</button><button className="button button--primary" disabled={!workflow || !ids.length || concurrency < 1 || concurrency > ids.length}>Vérifier le lancement<Icon name="arrow" size={18} /></button></div>
+    </form>}
+  </Dialog>;
+}

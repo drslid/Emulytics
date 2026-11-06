@@ -1,0 +1,8 @@
+"use client";
+
+import type { User } from "../../lib/console-types";
+import { Icon } from "./icons";
+
+export function Security({ user, onLogout }: { user: User; onLogout: () => void }) {
+  return <div className="security-layout"><section className="surface security-card"><span className="secure-symbol secure-symbol--large"><Icon name="shield" size={32} /></span><h2>Votre accès est protégé</h2><p>Connecté en tant que <strong>{user.username}</strong>.</p><div className="security-line"><span><Icon name="key" />Mot de passe</span><strong>Requis à la connexion</strong></div><div className="security-line"><span><Icon name="shield" />Validation en deux étapes</span><span className="status-badge status-badge--green"><Icon name="check" size={14} />Activée</span></div><div className="security-line"><span><Icon name="clock" />Session</span><strong>Expire au plus tard après 8 h</strong></div><div className="security-actions"><button className="button button--secondary" onClick={onLogout}><Icon name="logout" size={18} />Se déconnecter</button></div></section><aside className="surface security-card"><h2>Gardez vos codes de secours</h2><p>Ils permettent de retrouver l’accès si votre application d’authentification n’est plus disponible. Chaque code ne peut servir qu’une fois.</p><p>Vos codes ont été affichés lors de l’activation. Conservez-les hors de cette console, dans un endroit sûr.</p><hr /><h3>Besoin de réinitialiser votre accès ?</h3><p>L’administrateur de l’installation peut réinitialiser la validation en deux étapes depuis le serveur. Aucune désactivation n’est possible sans contrôle de votre accès.</p></aside></div>;
+}

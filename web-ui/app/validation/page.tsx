@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { readValidation } from "../../lib/validation";
+import { requireUser } from "../../lib/server-auth";
 import styles from "./validation.module.css";
 
 export const dynamic = "force-dynamic";
@@ -28,13 +29,14 @@ function Captures({ run }: { run: number }) {
 }
 
 export default async function ValidationPage() {
+  await requireUser();
   const report = await readValidation();
   const succeeded = report?.runs.filter((run) => run.status === "succeeded").length ?? 0;
 
   return (
     <main className={styles.page} lang="fr">
       <nav className={styles.navigation} aria-label="Navigation Emulytix">
-        <a href="/">← Console historique</a>
+        <a href="/">← Tour de contrôle</a>
         <span>WF01 / Résultats</span>
       </nav>
 
