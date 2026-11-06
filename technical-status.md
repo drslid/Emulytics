@@ -288,3 +288,10 @@ La déclaration `banc-de-test` sous `bench` / `moultiplate` et ses quatre soumis
 La page /ecrans, les appareils et le détail d'une exécution proposent désormais l'écran Android actuel en lecture seule, actualisé environ une fois par seconde. Le worker capture uniquement à la demande ; l'API sert une image privée vérifiée avec date et fraîcheur. Une image ancienne est signalée figée. Chaque lecture vérifie la session et les permissions. L'API n'a toujours aucun accès Docker/ADB.
 
 Les quatre anciennes demandes ont été reprises sur local-emulator, puis leurs sources annulées avec lien de provenance. Les quatre remplacements ont réussi leurs 11 étapes. Les lots d'origine restent immuables. La capacité courante est une exécution simultanée ; les quatre ont été observées en série sur le seul émulateur connecté. Tests : 268 API et 30 frontend. Direct, plein écran, mobile et expiration ont été observés dans le navigateur.
+
+
+### Actions personnelles de sécurité — 6 novembre 2026
+
+Mon profil propose maintenant des actions réelles : changement de mot de passe, remplacement de l'application 2FA, renouvellement des codes de secours. Réauthentification, limitation persistante, anti-rejeu et rotation des sessions sont appliqués côté serveur. Le QR temporaire chiffré expire après cinq minutes et reste lié à la session initiatrice. Le 2FA obligatoire n'est pas désactivé pendant le remplacement.
+
+La migration 010 ajoute la configuration TOTP temporaire. Les actions sont disponibles pour les cinq rôles sur leur propre compte, sans accès par Bearer de service ni possibilité de choisir un autre utilisateur. Les autres sessions sont fermées après modification ; la session courante est renouvelée. Validation : 288 tests API, 31 tests frontend et cinq groupes de contrôles dans le navigateur. Le compte administrateur existant n'a pas servi aux essais.

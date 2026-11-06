@@ -112,3 +112,20 @@ test("live device frames stay within the private proxy and preserve observation 
   }
   assert.equal((await proxyControl(request("console/devices/local-emulator/screen",post()),["console","devices","local-emulator","screen"])).status,404);
 });
+
+test("personal security routes are explicit, CSRF protected and forward rotated cookies", async () => {
+  for (const path of ["console/account/security","console/account/two-factor/enrollment","console/account/two-factor/enrollment/qr"]) {
+    const response=await proxyControl(request(path),path.split("/"),async()=>Response.json({ok:true}));
+    assert.equal(response.status,200,path);
+  }
+  for (const path of ["console/account/password","console/account/recovery-codes","console/account/two-factor/start","console/account/two-factor/confirm"]) {
+    let sent=false;
+    const response=await proxyControl(request(path,post()),path.split("/"),async(_url,options)=>{sent=true;assert.equal(options.headers.get("authorization"),null);return Response.json({ok:true},{headers:{"Set-Cookie":"emulytix_session=rotated; HttpOnly; SameSite=Strict; Path=/"}});});
+    assert.equal(sent,true,path);assert.equal(response.headers.getSetCookie().length,1);
+    assert.equal((await proxyControl(request(path,post("{}","https://invalid.test")),path.split("/"))).status,403);
+  }
+  assert.equal((await proxyControl(request("console/account/two-factor/enrollment",{...post(),method:"DELETE"}),["console","account","two-factor","enrollment"],async()=>Response.json({ok:true}))).status,200);
+  for (const path of ["console/account/users/admin/password","console/account/two-factor/disable","console/account/security/reset"]) {
+    assert.equal((await proxyControl(request(path,post()),path.split("/"))).status,404,path);
+  }
+});

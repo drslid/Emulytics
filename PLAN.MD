@@ -520,3 +520,21 @@ Validation : **268 tests API et 30 tests frontend réussis**, build de productio
 L'entrée Sécurité disparaît du menu principal. Mon profil regroupe l'identité, le rôle, les préférences, puis la sécurité du compte : mot de passe, 2FA, session, déconnexion et informations sur les codes de secours. Les anciens liens vers /securite redirigent vers /profil#securite après contrôle de la connexion. Les protections d'authentification ne changent pas.
 
 Validation : 30 tests frontend, TypeScript et build réussis ; navigateur vérifié sur ordinateur et à 320 px, sécurité intégrée, menu unique, redirection de l’ancienne URL et déconnexion depuis le profil. Compte temporaire retiré. Preuves locales : storage/profile-security-review/.
+
+
+### Gestion personnelle du mot de passe et du 2FA — 6 novembre 2026
+
+Depuis Mon profil, chaque utilisateur peut changer son mot de passe, remplacer son application 2FA et renouveler ses codes de secours. Les actions sensibles demandent une réauthentification par le mot de passe actuel et un facteur disponible. Le 2FA reste obligatoire : le remplacement conserve l'ancien secret jusqu'à confirmation d'un code de la nouvelle application.
+
+La configuration temporaire est chiffrée, expire après cinq minutes et reste liée à la session qui l'a initiée. Le mot de passe modifié, le facteur remplacé et les codes renouvelés invalident les anciennes sessions et remplacent le cookie courant. Les codes de secours ne sont jamais relus en clair après leur affichage unique. Les opérations sont limitées en fréquence et journalisées sans secrets.
+
+Le renouvellement des codes exige l'application d'authentification ; une application perdue se remplace d'abord avec un code de secours. Le dernier code de secours ne peut être consommé pour un simple changement de mot de passe. Une annulation du remplacement conserve l'ancien facteur, mais ne restaure pas un code de secours déjà consommé. Le recours administrateur reste prévu si aucun facteur n'est disponible.
+
+- [x] P01 — Ajouter les actions personnelles protégées, la configuration temporaire et les rotations de session.
+- [x] P02 — Ajouter les formulaires, QR et codes de secours à affichage unique dans les dix langues.
+- [x] P03 — Vérifier les refus d'accès, expiration, concurrence, révocation et parcours réels sans modifier le compte administrateur existant.
+
+
+Validation de la gestion personnelle : **288 tests API et 31 tests frontend réussis**, build de production et TypeScript réussis. La revue indépendante a identifié et fait corriger un refus de mots de passe Unicode valides et un deadlock avec une déconnexion concurrente ; leurs régressions sont couvertes.
+
+Cinq contrôles navigateur groupés ont vérifié les mots de passe Unicode avec espaces significatifs, le refus d'une mauvaise confirmation sans déconnexion, la révocation d'une autre session, l'annulation d'un remplacement 2FA, le QR lié à la session, un mauvais nouveau code puis sa validation correcte, le renouvellement à affichage unique et la protection de fermeture. Une connexion ultérieure refuse l'ancien mot de passe, l'ancien authentificateur et les codes remplacés, puis accepte le nouveau mot de passe et un nouveau code de secours. Aucun débordement à 320 px et aucune erreur JavaScript. Preuves locales : storage/self-security-review/. Le compte temporaire et ses sessions sont retirés après vérification ; le véritable compte administrateur reste intact.

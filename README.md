@@ -85,6 +85,14 @@ Ce banc requiert `/dev/kvm` et l'image Android déjà présente localement `emul
 
 L’[étude de l’interface](docs/design/control-console.md) décrit les choix élément par élément ; l’[audit MobileAgent](docs/design/mobileagent-audit.md) détaille les idées reprises et leurs limites.
 
+### Gérer sa sécurité personnelle
+
+Dans **Mon profil → Sécurité du compte**, chaque utilisateur peut changer son mot de passe, remplacer son application d'authentification et renouveler ses codes de secours. Ces actions demandent le mot de passe actuel et une confirmation par un facteur disponible. Le 2FA reste obligatoire.
+
+Le remplacement affiche un QR temporaire lié à la session et conserve l'ancien facteur jusqu'à validation d'un code de la nouvelle application. Après activation, les anciens codes de secours sont remplacés. Les nouveaux codes ne sont affichés qu'une fois : les conserver avant de fermer le dialogue. Annuler conserve l'ancien facteur, mais un code de secours déjà utilisé reste consommé.
+
+Changer un identifiant sensible ferme les autres sessions et renouvelle la session courante. Le renouvellement des codes exige l'application d'authentification ; si elle est perdue, utiliser d'abord un code de secours pour changer d'application. Le dernier code disponible est réservé à cette récupération. Si aucun facteur n'est disponible, un administrateur peut réinitialiser l'accès depuis Utilisateurs ou les outils locaux.
+
 ### Observer et exécuter plusieurs parcours
 
 Ouvrir **http://localhost:3100/ecrans** pour suivre un Android connecté. La vue en lecture seule observe l'écran actuel, indépendamment des captures conservées par le parcours. Une image ancienne est marquée figée. Fermer le panneau ou masquer l'onglet arrête les requêtes, puis la capture s'arrête à l'expiration de la consultation. Chaque image exige une session et des droits de consultation ; aucun port Android public n'est ajouté.
