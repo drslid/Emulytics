@@ -608,3 +608,16 @@ Les anciennes captures conservent leurs données originales : aucun horaire ou t
 Validation : **378 tests API et 51 tests frontend réussis**, TypeScript, build de production et audit npm réussis. La revue indépendante ne relève aucun défaut bloquant. Sept groupes de recette navigateur passent sur un parcours temporaire : ouverture depuis une publication, édition et conservation des champs, actions sur les étapes, critères et assertions, publication v2 avec v1 inchangée, conflit de révision et contrôle des droits Viewer.
 
 Les largeurs 320/768/1024/1440 px et six contrôles WCAG automatisés passent en français, allemand et arabe, sans débordement horizontal ni erreur JavaScript. La recette ne lance aucun parcours Android. Les deux comptes temporaires, le brouillon et les deux versions de test sont supprimés ; l’empreinte du parcours préexistant et les neuf états d’exécution sont conservés. Preuves locales : `storage/workflow-edit-review/`.
+
+### Diagnostic du message « Worker indisponible » — 6 novembre 2026
+
+Le worker local est opérationnel : heartbeat frais sur `bench-host`, Android `emulator-5554` connecté, dernière exécution réelle réussie pendant le diagnostic. Le message concernait l’ancienne déclaration `banc-de-test` sur `bench` / `moultiplate`, sans worker associé. Cette déclaration reste conservée avec ses exécutions historiques ; elle ne doit pas être réaffectée arbitrairement au véritable émulateur.
+
+- [x] Préciser « Aucun worker actif sur cet hôte » et afficher l’hôte concerné avec son dernier signal connu ou l’absence de signal.
+- [x] Proposer à l’ajout les hôtes des workers réellement actifs, au lieu de tous les hôtes déclarés historiquement. Découvrir ces hôtes même avant le premier appareil et indépendamment de la pagination de la flotte ; préremplir le seul hôte actif.
+- [x] Conserver les contrôles de fraîcheur et la preuve ADB : un worker actif ne suffit pas à déclarer Android connecté, et l’ancien banc reste exclu des lancements immédiats.
+- [x] Traduire les explications dans les dix langues et rendre le sélecteur d’appareils lisible sur mobile sans chevauchement du nom et du diagnostic.
+
+Validation : **381 tests API et 52 tests frontend réussis**, build de production réussi. Les régressions couvrent la découverte sans appareil, les hôtes périmés/non prêts/absents, les doublons et la séparation entre présence du worker et connexion Android. La correction ne demande ni migration ni redémarrage du worker ou du banc Android.
+
+Après déploiement API/interface, quatre groupes de recette navigateur et huit contrôles WCAG automatisés passent : données réelles, ajout prérempli, sélection de lancement et vues françaises/allemandes/arabes sur ordinateur et mobile. Aucun chevauchement entre nom et diagnostic à 320 px, aucune erreur JavaScript ni nouveau parcours Android lancé par la recette. Les comptes temporaires sont retirés et les dix états d’exécution préexistants restent identiques. Preuves : `storage/worker-status-review/`.

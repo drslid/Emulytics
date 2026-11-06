@@ -807,5 +807,9 @@
   "Événements": "事件",
   "étapes": "步骤",
   "← Revenir à la connexion": "← 返回连接",
-  "← Tableau de bord": "← 仪表板"
+  "← Tableau de bord": "← 仪表板",
+  "Aucun worker actif sur cet hôte": "此主机上没有运行中的工作进程",
+  "Aucun signal de worker reçu pour l’hôte {host}.": "尚未收到主机 {host} 上工作进程的心跳信号。",
+  "Dernier signal de l’hôte {host} : {time}.": "主机 {host} 的最近心跳：{time}。",
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "建议的主机均有当前运行中的工作进程。"
 }

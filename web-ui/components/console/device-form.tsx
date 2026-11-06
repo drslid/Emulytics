@@ -98,6 +98,7 @@ export function DeviceForm({
           </datalist>
           <span>
             {t("Choisissez le worker auquel l’appareil est connecté.")}
+            {" "}{t("Les hôtes proposés correspondent aux workers actuellement actifs.")}
           </span>
         </label>
         <label>

@@ -807,5 +807,9 @@
   "Événements": "घटनाएँ",
   "étapes": "चरण",
   "← Revenir à la connexion": "← कनेक्शन पर लौटें",
-  "← Tableau de bord": "← डैशबोर्ड"
+  "← Tableau de bord": "← डैशबोर्ड",
+  "Aucun worker actif sur cet hôte": "इस होस्ट पर कोई सक्रिय वर्कर नहीं है",
+  "Aucun signal de worker reçu pour l’hôte {host}.": "होस्ट {host} से वर्कर का कोई हार्टबीट नहीं मिला।",
+  "Dernier signal de l’hôte {host} : {time}.": "होस्ट {host} का आखिरी हार्टबीट: {time}।",
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "सुझाए गए होस्ट पर अभी सक्रिय वर्कर हैं।"
 }

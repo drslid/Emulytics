@@ -807,5 +807,9 @@
   "Événements": "Ereignisse",
   "étapes": "Schritte",
   "← Revenir à la connexion": "← Zurück zur Verbindung",
-  "← Tableau de bord": "← Dashboard"
+  "← Tableau de bord": "← Dashboard",
+  "Aucun worker actif sur cet hôte": "Kein aktiver Worker auf diesem Host",
+  "Aucun signal de worker reçu pour l’hôte {host}.": "Kein Worker-Signal für Host {host} empfangen.",
+  "Dernier signal de l’hôte {host} : {time}.": "Letztes Signal von Host {host}: {time}.",
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "Auf den vorgeschlagenen Hosts sind derzeit Worker aktiv."
 }

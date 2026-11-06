@@ -81,6 +81,8 @@ Le script crée le banc privé s'il est absent, ou vérifie le banc existant san
 
 Dans **Appareils**, choisir cet émulateur, puis lancer **Recherche Wikipédia**. Le helper ne crée aucun run ; le worker peut toutefois reprendre les demandes déjà en attente pour `bench-host`. Un téléphone déclaré avec un autre hôte ou un autre numéro Android nécessite sa propre connexion réelle : son nom ne suffit pas à le rattacher au banc.
 
+L’ajout d’un appareil propose les hôtes dont un worker `ready` répond depuis moins de vingt secondes, même si aucun appareil n’y est encore déclaré. L’hôte unique est prérempli. « Aucun worker actif sur cet hôte » concerne uniquement l’hôte de la ligne, avec dernier signal connu ou absence de signal ; une ancienne déclaration ne prouve pas une panne du worker actuel. La connexion Android exige toujours une observation ADB du bon numéro sur le bon hôte.
+
 Ce banc requiert `/dev/kvm` et l'image Android déjà présente localement `emulytix/android-runtime-check:0.8.1`. Il utilise Android 10 / Chrome 74, et ne représente pas la cible Android 14 du plan. Aucun port Android/ADB n'est publié. Après un arrêt de la console, réactivez ce profil avec le helper. Le démarrage normal de la console ne lance pas Android ; le helper active le profil facultatif `docker-compose.console-worker.yml`.
 
 L’[étude de l’interface](docs/design/control-console.md) décrit les choix élément par élément ; l’[audit MobileAgent](docs/design/mobileagent-audit.md) détaille les idées reprises et leurs limites.

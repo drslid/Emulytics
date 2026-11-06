@@ -807,5 +807,9 @@
   "Événements": "ঘটনা",
   "étapes": "ধাপ",
   "← Revenir à la connexion": "← সংযোগে ফিরে যান",
-  "← Tableau de bord": "← ড্যাশবোর্ড"
+  "← Tableau de bord": "← ড্যাশবোর্ড",
+  "Aucun worker actif sur cet hôte": "এই হোস্টে কোনো সক্রিয় ওয়ার্কার নেই",
+  "Aucun signal de worker reçu pour l’hôte {host}.": "হোস্ট {host} থেকে ওয়ার্কারের কোনো হার্টবিট পাওয়া যায়নি।",
+  "Dernier signal de l’hôte {host} : {time}.": "হোস্ট {host} থেকে শেষ হার্টবিট: {time}।",
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "প্রস্তাবিত হোস্টগুলোতে বর্তমানে সক্রিয় ওয়ার্কার রয়েছে।"
 }

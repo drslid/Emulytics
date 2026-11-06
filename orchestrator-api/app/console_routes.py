@@ -67,11 +67,12 @@ def fleet(store: Store, limit: Limit = 100, offset: Offset = 0) -> dict:
         workers = connection.execute(
             "SELECT host_id,status,metrics,last_seen_at, "
             "last_seen_at > clock_timestamp() - interval '20 seconds' AS live "
-            "FROM service_heartbeats WHERE component='worker' AND host_id=ANY(%s) "
-            "ORDER BY last_seen_at DESC", (list({item["host_id"] for item in items}),),
+            "FROM service_heartbeats WHERE component='worker' ORDER BY last_seen_at DESC",
         ).fetchall()
+        worker_hosts = sorted({worker["host_id"] for worker in workers
+                               if worker["live"] and worker["status"] == "ready" and worker["host_id"]})
         return {"items": [{**item, **device_connection(item, workers)} for item in items],
-                "total": total, "limit": limit, "offset": offset}
+                "total": total, "limit": limit, "offset": offset, "worker_hosts": worker_hosts}
 
 
 @router.get("/executions/{execution_id}/captures/{step_id}")

@@ -807,5 +807,9 @@
   "Événements": "الأحداث",
   "étapes": "الخطوات",
   "← Revenir à la connexion": "العودة إلى تسجيل الدخول →",
-  "← Tableau de bord": "لوحة التحكم →"
+  "← Tableau de bord": "لوحة التحكم →",
+  "Aucun worker actif sur cet hôte": "لا توجد خدمة تنفيذ نشطة على هذا المضيف",
+  "Aucun signal de worker reçu pour l’hôte {host}.": "لم تصل أي إشارة من خدمة التنفيذ على المضيف {host}.",
+  "Dernier signal de l’hôte {host} : {time}.": "آخر إشارة من المضيف {host}: {time}.",
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "تعمل خدمات تنفيذ نشطة حاليًا على المضيفين المقترحين."
 }

@@ -807,5 +807,9 @@
   "Événements": "События",
   "étapes": "шаги",
   "← Revenir à la connexion": "← Возврат к подключению",
-  "← Tableau de bord": "← Панель мониторинга"
+  "← Tableau de bord": "← Панель мониторинга",
+  "Aucun worker actif sur cet hôte": "На этом хосте нет активного рабочего процесса",
+  "Aucun signal de worker reçu pour l’hôte {host}.": "От рабочего процесса на хосте {host} не поступало сигналов.",
+  "Dernier signal de l’hôte {host} : {time}.": "Последний сигнал от хоста {host}: {time}.",
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "На предложенных хостах сейчас есть активные рабочие процессы."
 }

@@ -85,3 +85,43 @@ def test_any_fresh_worker_can_confirm_connection_without_using_stale_proof(contr
     heartbeat(database_dsn, "worker", "observing-worker", "actual-host", metrics={"adb_status": "ready", "devices": [{"serial": "SerialABC", "state": "device"}]})
     heartbeat(database_dsn, "worker", "temporarily-disconnected-worker", "actual-host", metrics={"adb_status": "unavailable", "devices": []})
     assert observed(control_client)["connection_status"] == "connected"
+
+
+def test_fleet_discovers_unique_worker_hosts_before_any_device_is_registered(control_client, database_dsn):
+    assert control_client.get("/console/fleet").json()["worker_hosts"] == []
+    heartbeat(database_dsn, "worker", "worker-b1", "host-b")
+    heartbeat(database_dsn, "worker", "worker-a", "host-a", metrics={"adb_status": "unavailable", "devices": []})
+    heartbeat(database_dsn, "worker", "worker-b2", "host-b")
+    result = control_client.get("/console/fleet")
+    assert result.status_code == 200
+    assert result.json()["items"] == []
+    assert result.json()["total"] == 0
+    assert result.json()["worker_hosts"] == ["host-a", "host-b"]
+
+
+def test_fleet_worker_hosts_excludes_stale_not_ready_and_missing_hosts(control_client, database_dsn):
+    heartbeat(database_dsn, "worker", "ready-worker", "ready-host")
+    heartbeat(database_dsn, "worker", "stale-worker", "stale-host")
+    heartbeat(database_dsn, "worker", "starting-worker", "starting-host", status="starting")
+    heartbeat(database_dsn, "worker", "hostless-worker")
+    heartbeat(database_dsn, "worker", "empty-host-worker", "")
+    heartbeat(database_dsn, "api", "api-only", "api-host")
+    with psycopg.connect(database_dsn) as connection:
+        connection.execute("UPDATE service_heartbeats SET last_seen_at=clock_timestamp()-interval '21 seconds' WHERE instance_id='stale-worker'")
+    result = control_client.get("/console/fleet")
+    assert result.status_code == 200
+    assert result.json()["worker_hosts"] == ["ready-host"]
+
+
+def test_discovered_worker_hosts_do_not_prove_connection_for_a_new_device(control_client, database_dsn):
+    register(control_client)
+    heartbeat(database_dsn, "worker", "other-worker", "another-host", metrics={"adb_status": "ready", "devices": [{"serial": "SerialABC", "state": "device"}]})
+    result = control_client.get("/console/fleet").json()
+    assert result["worker_hosts"] == ["another-host"]
+    assert result["items"][0]["connection_status"] == "worker_offline"
+    heartbeat(database_dsn, "worker", "matching-worker", "actual-host")
+    result = control_client.get("/console/fleet").json()
+    assert result["worker_hosts"] == ["actual-host", "another-host"]
+    assert result["items"][0]["connection_status"] == "unknown"
+    heartbeat(database_dsn, "worker", "matching-worker", "actual-host", metrics={"adb_status": "ready", "devices": [{"serial": "SerialABC", "state": "device"}]})
+    assert observed(control_client)["connection_status"] == "connected"

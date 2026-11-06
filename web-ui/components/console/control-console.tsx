@@ -21,6 +21,7 @@ import { Logs } from "./logs";
 import { Users, Profile } from "./users";
 import { Screens } from "./screens";
 import { LiveScreen } from "./live-screen";
+import { connectionWorkerHosts } from "../../lib/device-readiness";
 
 const navigation = [
   {
@@ -87,11 +88,11 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
     pending.current = true; setRefreshing(true);
     try {
       const [fleet, workflows, runs, summary] = await Promise.all([
-        api<Page<Device>>(`console/fleet?limit=100&offset=${offset}`), api<Page<Workflow>>("workflows?limit=100&offset=0"),
+        api<Page<Device> & { worker_hosts?: string[] }>(`console/fleet?limit=100&offset=${offset}`), api<Page<Workflow>>("workflows?limit=100&offset=0"),
         api<Page<Run>>(`runs?limit=100&offset=${runOffset}`), api<Summary>("console/summary")
       ]);
       if (request !== sequence.current) return;
-      setData({ devices: fleet.items, devicesTotal: fleet.total ?? fleet.items.length, workflows: workflows.items, runs: runs.items, summary });
+      setData({ devices: fleet.items, devicesTotal: fleet.total ?? fleet.items.length, workerHosts: connectionWorkerHosts(fleet.items, fleet.worker_hosts), workflows: workflows.items, runs: runs.items, summary });
       setLoadedOffsets({ devices: offset, runs: runOffset });
       setSelected((current) => current.filter((id) => !fleet.items.some((device) => device.device_id === id && device.availability === "needs_review")));
       setUpdatedAt(new Date()); setError("");
@@ -148,7 +149,7 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
         </>}
       </main>
     </div>
-    {adding && can("devices.write") && <DeviceForm hosts={[...new Set(data?.devices.map(d => d.host_id) ?? [])]} onClose={() => setAdding(false)} onAdded={() => { setAdding(false); setNotice(t("Téléphone ajouté. Sa connexion reste à vérifier sur le worker.")); void load(); }} />}
+    {adding && can("devices.write") && <DeviceForm hosts={data?.workerHosts ?? []} onClose={() => setAdding(false)} onAdded={() => { setAdding(false); setNotice(t("Téléphone ajouté. Sa connexion reste à vérifier sur le worker.")); void load(); }} />}
     {launching && data && can("runs.execute") && <RunDialog userId={user.id} devices={data.devices} workflows={data.workflows} initialWorkflow={launching.workflow} initialDeviceIds={launching.ids} onClose={() => setLaunching(null)} onLaunched={launched} />}
     {scheduling && data && can("schedules.write") && <ScheduleEditor devices={data.devices} workflows={data.workflows} initial={scheduling} onClose={() => setScheduling(null)} onSaved={() => {setScheduling(null); setNotice(t("Planification créée."));}} />}
     {screen && <Dialog title={t("Écran de {name}", {name: screen.display_name || screen.device_id})} description={t("L’écran est affiché en direct, indépendamment des captures du parcours.")} wide onClose={() => setScreen(null)}><div className="screen-dialog-body"><LiveScreen deviceId={screen.device_id} name={screen.display_name || screen.device_id} /></div></Dialog>}

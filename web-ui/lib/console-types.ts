@@ -98,6 +98,7 @@ export type Summary = {
 export type Data = {
   devices: Device[];
   devicesTotal: number;
+  workerHosts: string[];
   workflows: Workflow[];
   runs: Run[];
   summary: Summary;

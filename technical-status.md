@@ -337,3 +337,13 @@ API, worker et interface sont déployés localement après vérification que le 
 L’éditeur présente des cartes repliables avec paramètres, cibles, vérifications et délai, ainsi que duplication, déplacement, ajout et suppression. Les champs avancés sont préservés et restent éditables en JSON. Un conflit de révision laisse les modifications locales disponibles. La publication crée le prochain numéro disponible sous la même identité ; les anciennes versions, exécutions et planifications gardent leurs références et définitions.
 
 API et interface déployées localement, sans nouvelle migration ni modification du worker. Validation : **378 tests API, 51 tests frontend**, TypeScript, build et audit npm réussis ; revue indépendante sans défaut bloquant. Sept groupes de recette navigateur et six contrôles WCAG passent en français, allemand et arabe sur ordinateur et mobile, sans erreur JavaScript ni débordement. Les données temporaires sont supprimées, l’empreinte du parcours existant et les neuf états d’exécution sont inchangés. Aucun parcours Android lancé pour cette recette. Preuves : `storage/workflow-edit-review/`.
+
+### Disponibilité du worker et sélection de l’hôte — 6 novembre 2026
+
+Le diagnostic distingue l’ancien appareil `banc-de-test` (`bench` / `moultiplate`, aucun worker) de `local-emulator` (`bench-host` / `emulator-5554`, connecté). Le worker est actif et une nouvelle exécution a réussi pendant l’observation. Aucun redémarrage du worker ou d’Android n’est nécessaire et aucun historique n’est réaffecté.
+
+`GET /console/fleet` ajoute `worker_hosts`, liste triée et dédoublonnée des hôtes `ready` ayant un signal de moins de vingt secondes, même sans appareil enregistré. L’ajout d’un téléphone utilise cette liste et préremplit l’hôte unique. L’indisponibilité est maintenant expliquée par hôte, avec dernier signal connu ou absence de signal. Les conditions de connexion ADB restent inchangées. Le sélecteur mobile sépare le nom et le diagnostic sur deux lignes.
+
+Validation : **381 tests API, 52 tests frontend**, build et TypeScript réussis ; aucune nouvelle migration. La revue indépendante ne relève aucun défaut bloquant.
+
+API et interface déployées ; quatre groupes navigateur et huit contrôles WCAG passent en français, allemand et arabe sur ordinateur et à 320 px. Aucun nouveau parcours Android lancé par la recette, aucune erreur JavaScript. Le compte temporaire est supprimé et les dix états d’exécution préexistants sont conservés. Preuves : `storage/worker-status-review/`.

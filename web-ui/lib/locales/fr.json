@@ -807,5 +807,9 @@
   "Événements": "Événements",
   "étapes": "étapes",
   "← Revenir à la connexion": "← Revenir à la connexion",
-  "← Tableau de bord": "← Tableau de bord"
+  "← Tableau de bord": "← Tableau de bord",
+  "Aucun worker actif sur cet hôte": "Aucun worker actif sur cet hôte",
+  "Aucun signal de worker reçu pour l’hôte {host}.": "Aucun signal de worker reçu pour l’hôte {host}.",
+  "Dernier signal de l’hôte {host} : {time}.": "Dernier signal de l’hôte {host} : {time}.",
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "Les hôtes proposés correspondent aux workers actuellement actifs."
 }
