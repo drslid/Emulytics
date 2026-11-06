@@ -8,6 +8,8 @@ from contextlib import contextmanager
 import psycopg
 from psycopg.types.json import Jsonb
 
+from .process_metrics import ProcessMetrics
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,15 +29,17 @@ def service_heartbeat(dsn, component, instance_id=None, host_id=None, *, metrics
     stopped = threading.Event()
     identity = instance_id or socket.gethostname()
     def report():
+        resources = ProcessMetrics()
         while not stopped.is_set():
-            metrics = None
+            metrics = {}
             if metrics_provider:
                 try:
-                    metrics = metrics_provider()
+                    metrics = dict(metrics_provider() or {})
                 except Exception:
                     # Probe failures cannot make stale connection evidence look current.
                     metrics = {}
                     logger.warning('service.probe_unavailable component=%s', component)
+            metrics["resources"] = resources.sample()
             try:
                 heartbeat(dsn, component, identity, host_id, metrics=metrics)
             except psycopg.Error:

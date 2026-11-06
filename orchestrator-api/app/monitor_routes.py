@@ -2,8 +2,8 @@
 import asyncio
 import json
 import os
+import threading
 import time
-from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Query, Request
@@ -12,35 +12,25 @@ from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from .auth import AuthConfig, AuthStore, SESSION_COOKIE, auth_enabled, valid_control_token
+from .monitor_metrics import (HEARTBEAT_INTERVAL_SECONDS, STALE_AFTER_SECONDS, Window,
+                              database_metrics, readings)
 from .run_routes import Store, Limit, Offset
 
 router = APIRouter(prefix="/console", tags=["Monitoring"])
 
 
-def snapshot(store):
+def snapshot(store, window: Window = "24h"):
     started = time.monotonic()
     with store.connect() as connection:
-        connection.execute("SELECT 1")
+        observed_at = connection.execute("SELECT clock_timestamp() AS observed_at").fetchone()["observed_at"]
         latency = round((time.monotonic() - started) * 1000, 1)
         services = connection.execute(
-            "SELECT *, last_seen_at > clock_timestamp() - interval '20 seconds' AS live "
-            "FROM service_heartbeats ORDER BY component,instance_id"
+            "SELECT *,last_seen_at > %s - interval '20 seconds' AS live,"
+            "GREATEST(0,EXTRACT(EPOCH FROM (%s-last_seen_at))) AS age_seconds "
+            "FROM service_heartbeats ORDER BY component,instance_id", (observed_at, observed_at),
         ).fetchall()
-        queues = connection.execute(
-            "SELECT status,COUNT(*) AS count FROM executions GROUP BY status ORDER BY status"
-        ).fetchall()
-        hosts = connection.execute(
-            "SELECT host_id,COUNT(*) AS devices FROM devices GROUP BY host_id ORDER BY host_id"
-        ).fetchall()
-        leases = connection.execute(
-            "SELECT COUNT(*) FILTER (WHERE owner_id IS NOT NULL AND expires_at > clock_timestamp()) AS active, "
-            "COUNT(*) FILTER (WHERE quarantined OR (owner_id IS NOT NULL AND expires_at <= clock_timestamp())) "
-            "AS needs_review FROM device_leases"
-        ).fetchone()
-        schedules = connection.execute(
-            "SELECT COUNT(*) FILTER (WHERE enabled) AS enabled,MIN(next_run_at) FILTER (WHERE enabled) AS next_run_at "
-            "FROM automation_schedules"
-        ).fetchone()
+        metrics = readings(connection, observed_at, services, window)
+        database = {"status": "ready", "latency_ms": latency, **database_metrics(connection)}
     # This address is deployment-owned, never accepted from query parameters.
     ui_url = os.getenv("EMULYTIX_UI_INTERNAL_URL", "")
     ui_status = "unconfigured"
@@ -53,22 +43,50 @@ def snapshot(store):
     for component in ("api", "scheduler", "worker"):
         if not any(row["component"] == component for row in services):
             services.append({"component": component, "instance_id": component, "host_id": None,
-                             "status": "missing", "live": False, "metrics": {}, "last_seen_at": None})
-    return {"observed_at": datetime.now(timezone.utc), "database": {"status": "ready", "latency_ms": latency},
-            "web": {"status": ui_status}, "services": services, "queues": queues, "hosts": hosts,
-            "leases": leases, "schedules": schedules}
+                             "status": "missing", "live": False, "metrics": {}, "last_seen_at": None,
+                             "age_seconds": None, "active_executions": 0})
+    return {"observed_at": observed_at, "database": database,
+            "web": {"status": ui_status}, "services": services,
+            "freshness": {"heartbeat_interval_seconds": HEARTBEAT_INTERVAL_SECONDS,
+                          "stale_after_seconds": STALE_AFTER_SECONDS}, **metrics}
+
+
+class SnapshotCache:
+    """Share the two-second SSE sample across viewers without caching direct GETs."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.dsn = None
+        self.entries = {}
+
+    def get(self, store, window):
+        with self.lock:
+            if self.dsn != store.dsn:
+                self.dsn = store.dsn
+                self.entries.clear()
+            now = time.monotonic()
+            entry = self.entries.get(window)
+            if entry and now - entry[0] < 2:
+                return entry[1]
+            data = snapshot(store, window)
+            self.entries[window] = (time.monotonic(), data)
+            return data
 
 
 @router.get("/monitor")
-def monitor(store: Store):
-    return snapshot(store)
+def monitor(store: Store, window: Window = "24h"):
+    return snapshot(store, window)
 
 
 @router.get("/monitor/stream")
-async def monitor_stream(request: Request, store: Store):
+async def monitor_stream(request: Request, store: Store, window: Window = "24h"):
     service_token = valid_control_token(request)
     config = AuthConfig.load() if auth_enabled() and not service_token else None
     token = request.cookies.get(SESSION_COOKIE)
+    owner = request.scope["app"].state if "app" in request.scope else store
+    if not hasattr(owner, "monitor_snapshot_cache"):
+        owner.monitor_snapshot_cache = SnapshotCache()
+    cache = owner.monitor_snapshot_cache
     async def events():
         while not await request.is_disconnected():
             try:
@@ -77,7 +95,7 @@ async def monitor_stream(request: Request, store: Store):
                     if not user or "monitor.read" not in user.get("permissions", []):
                         yield 'event: revoked\ndata: {}\n\n'
                         return
-                data = await run_in_threadpool(snapshot, store)
+                data = await run_in_threadpool(cache.get, store, window)
                 yield 'data: ' + json.dumps(jsonable_encoder(data), ensure_ascii=False) + '\n\n'
             except Exception:
                 # Never send exception text, database URLs or stale success over this channel.

@@ -113,7 +113,7 @@ def test_open_sse_revalidates_permissions_before_each_snapshot(auth_store, datab
     request = Request({"type": "http", "method": "GET", "path": "/console/monitor/stream", "headers": [(b"cookie", b"emulytix_session=initially-valid")], "query_string": b""}, receive=receive)
     users = iter([{"permissions": ["monitor.read"]}, {"permissions": []}])
     monkeypatch.setattr(AuthStore, "current_user", lambda *args: next(users))
-    monkeypatch.setattr(monitor_routes, "snapshot", lambda store: {"observed": "once"})
+    monkeypatch.setattr(monitor_routes, "snapshot", lambda store, window="24h": {"observed": "once"})
     monkeypatch.setattr(monitor_routes.asyncio, "sleep", no_wait)
     async def check():
         response = await monitor_stream(request, RunStore(database_dsn))
