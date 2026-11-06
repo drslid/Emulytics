@@ -36,6 +36,7 @@ def required_permission(method: str, path: str) -> str | None:
     read = method in {'GET', 'HEAD'}
     account_methods = {
         '/console/account/security': {'GET', 'HEAD'},
+        '/console/account/profile': {'GET', 'HEAD', 'PATCH'},
         '/console/account/password': {'POST'},
         '/console/account/two-factor/start': {'POST'},
         '/console/account/two-factor/enrollment': {'GET', 'HEAD', 'DELETE'},
@@ -69,8 +70,12 @@ def required_permission(method: str, path: str) -> str | None:
         return 'monitor.read' if read else None
     if path == '/console/logs':
         return 'logs.read' if read else None
-    if path == '/console/users' or path.startswith('/console/users/'):
-        return 'users.manage'
+    if path == '/console/users':
+        return 'users.manage' if method in {'GET', 'HEAD', 'POST'} else None
+    if re.fullmatch(r'/console/users/[^/]+', path):
+        return 'users.manage' if method in {'GET', 'HEAD', 'PATCH'} else None
+    if re.fullmatch(r'/console/users/[^/]+/(?:reset-password|reset-2fa|force-password-change|revoke-sessions)', path):
+        return 'users.manage' if method == 'POST' else None
     if path in {'/docs', '/openapi.json', '/redoc'}:
         return 'users.manage' if read else None
     return None

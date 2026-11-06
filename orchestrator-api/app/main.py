@@ -24,6 +24,8 @@ from .auth import auth_enabled
 from .auth_routes import AuthMiddleware, router as auth_router
 from .console_routes import router as console_router
 from .user_routes import router as user_router
+from .user_security_routes import router as user_security_router
+from .profile_routes import router as profile_router
 from .automation_routes import router as automation_router
 from .monitor_routes import router as monitor_router
 from .screen_routes import router as screen_router
@@ -474,6 +476,8 @@ app.include_router(run_router)
 app.include_router(auth_router)
 app.include_router(console_router)
 app.include_router(user_router)
+app.include_router(user_security_router)
+app.include_router(profile_router)
 app.include_router(automation_router)
 app.include_router(monitor_router)
 app.include_router(screen_router)

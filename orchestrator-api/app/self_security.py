@@ -175,7 +175,7 @@ class SelfSecurityStore(AuthStore):
                 same = False
             if same:
                 raise HTTPException(422, "Choisissez un nouveau mot de passe différent")
-            connection.execute("UPDATE auth_users SET password_hash=%s WHERE id=%s", (PASSWORD_HASHER.hash(payload.new_password), user["id"]))
+            connection.execute("UPDATE auth_users SET password_hash=%s,password_changed_at=clock_timestamp() WHERE id=%s", (PASSWORD_HASHER.hash(payload.new_password), user["id"]))
             token = self._rotate_session(connection, user)
             audit_event(connection, user["id"], "account.password.changed", str(user["id"]))
             return token

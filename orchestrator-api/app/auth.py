@@ -155,14 +155,15 @@ class AuthStore:
     @staticmethod
     def public_user(row: dict) -> dict:
         return {"id": str(row["id"]), "username": row["username"],
-                "display_name": row["display_name"], "role": row["role"],
+                "display_name": row["display_name"], "first_name": row.get("first_name", ""),
+                "last_name": row.get("last_name", ""), "email": row.get("email"), "role": row["role"],
                 "permissions": permissions_for(row["role"]), "active": row["active"]}
 
     def login(self, username: str, password: str, ip: str) -> tuple[str, str]:
         username = normalize_username(username)
         self.limit("login", username, ip)
         with self.connect() as connection:
-            user = connection.execute("SELECT * FROM auth_users WHERE username = %s FOR UPDATE", (username,)).fetchone()
+            user = connection.execute("SELECT * FROM auth_users WHERE username = %s FOR NO KEY UPDATE", (username,)).fetchone()
             try:
                 PASSWORD_HASHER.verify(user["password_hash"] if user else _DUMMY_HASH, password)
             except (VerificationError, InvalidHashError):
@@ -186,7 +187,7 @@ class AuthStore:
             "SELECT u.*, c.purpose, c.token_hash AS challenge_hash, "
             "floor(extract(epoch FROM clock_timestamp()))::bigint AS current_epoch "
             "FROM auth_users u JOIN auth_challenges c ON c.user_id = u.id "
-            "WHERE c.token_hash = %s AND c.expires_at > clock_timestamp() FOR UPDATE OF u, c",
+            "WHERE c.token_hash = %s AND c.expires_at > clock_timestamp() FOR NO KEY UPDATE OF u FOR UPDATE OF c",
             (digest(token),),
         ).fetchone()
         if not row or not row["active"]:
@@ -226,7 +227,7 @@ class AuthStore:
                 raise HTTPException(401, "Connexion à reprendre")
             connection.execute("DELETE FROM auth_sessions WHERE user_id=%s", (user["id"],))
             connection.execute(
-                "UPDATE auth_users SET password_hash=%s,password_change_required=false WHERE id=%s",
+                "UPDATE auth_users SET password_hash=%s,password_change_required=false,password_changed_at=clock_timestamp() WHERE id=%s",
                 (password_hash, user["id"]),
             )
             purpose = "verify" if user["totp_enabled"] else "enroll"
@@ -295,6 +296,7 @@ class AuthStore:
                 "INSERT INTO auth_sessions(token_hash,user_id,expires_at) VALUES(%s,%s,clock_timestamp() + interval '8 hours')",
                 (digest(token), user["id"]),
             )
+            connection.execute('UPDATE auth_users SET last_login_at=clock_timestamp() WHERE id=%s', (user['id'],))
             audit_event(connection, user["id"], "auth.session.created", str(user["id"]))
         payload = {"user": self.public_user(user)}
         if recovery_codes:
@@ -323,7 +325,7 @@ class AuthStore:
 
     def reset_two_factor(self, username: str) -> bool:
         with self.connect() as connection:
-            user = connection.execute("SELECT id FROM auth_users WHERE username = %s FOR UPDATE", (username,)).fetchone()
+            user = connection.execute("SELECT id FROM auth_users WHERE username = %s FOR NO KEY UPDATE", (username,)).fetchone()
             if not user:
                 return False
             connection.execute("DELETE FROM auth_sessions WHERE user_id = %s", (user["id"],))

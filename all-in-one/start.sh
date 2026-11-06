@@ -60,7 +60,7 @@ cd /opt/emulytix/agent-service
 pids+=($!)
 
 cd /opt/emulytix/orchestrator-api
-/opt/emulytix/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port "${ORCHESTRATOR_API_PORT}" &
+/opt/emulytix/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port "${ORCHESTRATOR_API_PORT}" --no-access-log &
 pids+=($!)
 
 cd /opt/emulytix/web-ui
