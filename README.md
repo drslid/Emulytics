@@ -1,6 +1,6 @@
 # Emulytix
 
-Console de contrôle d’un parc Android : téléphones, automatisations versionnées, exécutions et preuves. Interface claire inspirée des outils Google, avec connexion par mot de passe et second facteur obligatoire.
+Console de pilotage d’une flotte d’appareils mobiles : téléphones, automatisations versionnées, exécutions et preuves. Interface claire inspirée des outils Google, avec connexion par mot de passe et second facteur obligatoire. Le moteur actuel pilote Android ; l’intégration iOS est prévue.
 
 ## Démarrer la console locale
 
@@ -93,6 +93,22 @@ Le navigateur passe par `/api/control/*`, sans jeton Bearer de service. Les page
 - `agent-service` : ancien planificateur conversationnel, non requis par la console déterministe.
 
 ## Développement et vérification
+
+### Logo et raccourcis mobiles
+
+L’identité Emulytix utilise un monogramme coloré, indépendant d’un système mobile. Les choix et contrôles sont décrits dans l’[étude de marque](docs/design/brand-identity.md). L’[image maîtresse](design/brand/emulytix-master.png) est conservée avec son [prompt de création](design/brand/prompt.txt).
+
+Le logo de l’interface et les favicons sont dans `web-ui/public/brand` et `web-ui/public/icons`. Le fichier ICO contient les tailles 16, 32 et 48 ; `apple-touch-icon.png` est une image opaque de 180 px. Le manifeste `/manifest.webmanifest` référence les PNG 192/512 et une variante `maskable` séparée, dont le signe reste dans la zone centrale sûre. Ces ressources publiques ne donnent aucun accès aux données de la console.
+
+Pour régénérer les tailles à partir de la source, avec ImageMagick (`convert` et `identify`) installé sur le poste de développement :
+
+```bash
+node scripts/export-brand.mjs
+```
+
+Le manifeste et les icônes préparent les raccourcis d’écran d’accueil. L’instance locale reste limitée au localhost de cet ordinateur ; un essai sur téléphone physique demande une URL HTTPS accessible et l’origine d’authentification correspondante. Aucun cache hors ligne de données privées n’a été ajouté.
+
+### Application
 
 ```bash
 cd web-ui

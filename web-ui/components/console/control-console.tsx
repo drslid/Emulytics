@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../lib/client-api";
 import type { Data, Device, Page, Run, RunDetail as Detail, Summary, User, View, Workflow } from "../../lib/console-types";
 import { Icon } from "./icons";
+import { BrandMark } from "./brand-mark";
 import { ErrorNotice } from "./shared";
 import { Overview } from "./overview";
 import { Devices } from "./devices";
@@ -77,7 +78,7 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Aller au contenu</a>
     <aside className="app-sidebar">
-      <a className="app-brand" href="/" aria-label="Emulytix, vue d’ensemble"><span className="brand-mark"><Icon name="overview" size={23} /></span><span>Emulytix<span className="brand-caption">Console opérateur</span></span></a>
+      <a className="app-brand" href="/" aria-label="Emulytix, vue d’ensemble"><BrandMark /><span>Emulytix<span className="brand-caption">Console opérateur</span></span></a>
       <nav className="main-navigation" aria-label="Navigation principale">{navigation.map((item) => <a key={item.id} href={item.href} aria-current={view === item.id ? "page" : undefined} className={view === item.id ? "nav-item nav-item--active" : "nav-item"}><Icon name={item.icon} /><span>{item.label}</span>{item.id === "activity" && !!data?.summary.runs_needs_review && <span className="nav-count">{data.summary.runs_needs_review}</span>}</a>)}</nav>
       <div className="sidebar-bottom"><a href="/validation" className="nav-item"><Icon name="archive" /><span>Banc de validation</span></a><a href="/securite" className={view === "security" ? "nav-item nav-item--active" : "nav-item"} aria-current={view === "security" ? "page" : undefined}><Icon name="shield" /><span>Sécurité</span></a><div className="sidebar-account"><span className="avatar">{user.username.slice(0, 1).toUpperCase()}</span><div><strong>{user.username}</strong><span>Accès vérifié</span></div><button className="icon-button" onClick={() => void logout()} aria-label="Se déconnecter"><Icon name="logout" size={18} /></button></div></div>
     </aside>
