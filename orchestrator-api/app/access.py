@@ -50,6 +50,12 @@ def required_permission(method: str, path: str) -> str | None:
         return 'self'
     if path == '/devices' or path == '/console/fleet':
         return 'devices.read' if read else 'devices.write'
+    if path == '/console/emulators':
+        return 'devices.read' if read else 'devices.write' if method=='POST' else None
+    if path == '/console/applications':
+        return 'devices.write' if method=='POST' else None
+    if re.fullmatch(r'/console/emulators/[^/]+/(?:configuration|start|prepare|stop)',path):
+        return 'devices.write' if method=='POST' else None
     if re.fullmatch(r'/console/devices/[^/]+/screen', path):
         return 'devices.read' if read else None
     if re.fullmatch(r'/console/executions/[^/]+/screen', path):

@@ -20,7 +20,7 @@ def summary(store: Store) -> dict:
     with store.connect() as connection:
         return connection.execute(
             "SELECT (SELECT COUNT(*) FROM devices) AS devices_total, "
-            "(SELECT COUNT(*) FROM workflows) AS workflows_total, "
+            "(SELECT COUNT(*) FROM workflows WHERE workflow_id NOT LIKE 'emulator-system-%%') AS workflows_total, "
             "COUNT(*) AS runs_total, "
             "COUNT(*) FILTER (WHERE status IN ('queued', 'running')) AS runs_active, "
             "COUNT(*) FILTER (WHERE status = 'needs_review') AS runs_needs_review, "

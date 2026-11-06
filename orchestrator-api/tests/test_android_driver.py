@@ -281,6 +281,36 @@ def test_selector_distinguishes_focused_and_checked_booleans():
     assert found.get("focused") == "true"
 
 
+def test_preinstalled_social_application_can_be_opened_and_verified(tmp_path, fake_adb):
+    result = driver(tmp_path, fake_adb).execute_step({
+        'id': 'open-linkedin', 'action': 'open_app', 'args': {'package_name': 'com.linkedin.android'},
+        'assert': {'type': 'package_installed', 'value': 'com.linkedin.android'},
+    })
+    assert result['assertion_passed']
+    observed = commands(fake_adb)
+    assert any('com.linkedin.android' in command and 'monkey' in command for command in observed)
+    assert any(command[-3:] == ['pm', 'path', 'com.linkedin.android'] for command in observed)
+
+
+@pytest.mark.parametrize('package', ['com.example;id', '-bad.option', 'com.example app', 'com.example/Activity'])
+def test_application_packages_cannot_inject_shell_commands(tmp_path, fake_adb, package):
+    with pytest.raises(DriverError):
+        driver(tmp_path, fake_adb).execute_step({'id': 'invalid-app', 'action': 'open_app',
+            'args': {'package_name': package}, 'assert': {'type': 'package_installed', 'value': package}})
+    assert not fake_adb[1].exists()
+
+
+def test_installation_failure_reported_on_stdout_has_a_useful_diagnostic(tmp_path):
+    import sys
+    executable = tmp_path / 'failing-adb'
+    executable.write_text(f'#!{sys.executable}\nprint("Failure [INSTALL_FAILED_NO_MATCHING_ABIS]")\nraise SystemExit(1)\n')
+    executable.chmod(0o700)
+    instance = AndroidDriver('emulator-5554', lambda *args: None, lambda: None, tmp_path,
+                             adb_binary=str(executable))
+    with pytest.raises(DriverError, match='INSTALL_FAILED_NO_MATCHING_ABIS'):
+        instance.command(['install', '-r', 'example.apk'], effect=True)
+
+
 def test_absent_when_skips_action_but_still_verifies_assertion(tmp_path, fake_adb):
     result = driver(tmp_path, fake_adb).execute_step({
         "id": "optional", "action": "tap", "args": {"selector": {"resource_id": "first-run"}},

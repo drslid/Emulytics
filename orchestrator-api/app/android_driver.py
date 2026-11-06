@@ -44,10 +44,14 @@ class AndroidDriver:
         poll: Callable[[], None], artifact_dir: Path, adb_binary: str = "adb",
         *, lock_fd: int | None = None, apk_dir: Path | None = None,
         after_command: Callable[[str, dict], None] | None = None,
+        adb_server_host: str | None = None,
     ):
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}", serial):
             raise DriverError("Invalid device serial")
         self.serial, self.adb_binary = serial, adb_binary
+        if adb_server_host is not None and not re.fullmatch(r'emulytix-managed-[a-f0-9]{32}', adb_server_host):
+            raise DriverError('Invalid managed ADB server')
+        self.adb_server_host = adb_server_host
         self.before_command, self.poll = before_command, poll
         self.after_command = after_command
         self.artifact_dir, self.apk_dir = Path(artifact_dir), Path(apk_dir).resolve() if apk_dir else None
@@ -83,7 +87,8 @@ class AndroidDriver:
         deadline = time.monotonic() + timeout_s
         if self._step_deadline is not None:
             deadline = min(deadline, self._step_deadline)
-        argv = [self.adb_binary, "-s", self.serial, *args]
+        server = ['-H', self.adb_server_host, '-P', '5037'] if self.adb_server_host else []
+        argv = [self.adb_binary, *server, "-s", self.serial, *args]
         self._check_abort()
         self.before_command(argv, effect)
         self.poll()
@@ -115,7 +120,8 @@ class AndroidDriver:
             evidence = {"returncode": process.returncode, "output_sha256": hashlib.sha256(output).hexdigest()}
             status = "done" if process.returncode == 0 else ("uncertain" if effect else "failed")
             if process.returncode != 0:
-                raise DriverError("ADB command failed: " + error.decode("utf-8", "replace")[:500])
+                diagnostic = error or (output if not binary else b'')
+                raise DriverError('ADB command failed: ' + (diagnostic.decode('utf-8', 'replace')[:500] or f'exit {process.returncode}'))
             return output if binary else output.decode("utf-8", "replace")
         finally:
             if process.poll() is None:
@@ -227,8 +233,10 @@ class AndroidDriver:
             if set(assertion) != {"type", "value"} or not isinstance(assertion["value"], str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_.]{1,199}", assertion["value"]):
                 raise DriverError("Invalid package assertion")
         elif kind == "package_installed":
-            if set(assertion) - {"type", "value"} or assertion.get("value", cls.CHROME) != cls.CHROME:
-                raise DriverError("Only Chrome package installation can be asserted")
+            package = assertion.get('value', cls.CHROME)
+            if (set(assertion) - {'type', 'value'} or not isinstance(package, str)
+                    or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+', package) or len(package) > 200):
+                raise DriverError('Invalid installed package assertion')
         elif kind == "url":
             if set(assertion) - {"type", "host", "path_contains"} or not isinstance(assertion.get("host"), str):
                 raise DriverError("Invalid URL assertion")
@@ -264,8 +272,10 @@ class AndroidDriver:
             raise DriverError("Unsupported action or action arguments")
         if action == "press_key" and (not isinstance(args.get("keycode"), str) or not re.fullmatch(r"KEYCODE_[A-Z0-9_]{1,60}", args["keycode"])):
             raise DriverError("Invalid Android key code")
-        if action == "open_app" and args.get("package_name") != cls.CHROME:
-            raise DriverError("Only Chrome may be opened by this workflow profile")
+        if action == 'open_app' and (not isinstance(args.get('package_name'), str)
+                or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+', args['package_name'])
+                or len(args['package_name']) > 200):
+            raise DriverError('Invalid application package')
         if action == "open_url":
             cls._wikipedia_url(args.get("url"))
         if action == "type_text":
@@ -340,8 +350,9 @@ class AndroidDriver:
             if parsed.hostname != assertion.get("host") or assertion.get("path_contains", "") not in parsed.path:
                 raise AssertionFailed("Chrome URL does not match the expected host/path")
         elif kind == "package_installed":
-            if not self.command(["shell", "pm", "path", self.CHROME], effect=False).strip().startswith("package:"):
-                raise AssertionFailed("Chrome is not installed")
+            self.validate_assertion(assertion)
+            if not self.command(['shell', 'pm', 'path', assertion.get('value', self.CHROME)], effect=False).strip().startswith('package:'):
+                raise AssertionFailed('Expected application is not installed')
         else:
             raise DriverError("Unsupported workflow assertion")
 
@@ -390,9 +401,7 @@ class AndroidDriver:
         elif action == "open_url":
             self.open_url(args.get("url", ""))
         elif action == "open_app":
-            if args.get("package_name") != self.CHROME:
-                raise DriverError("Only Chrome may be opened by this workflow profile")
-            self.command(["shell", "monkey", "-p", self.CHROME, "-c", "android.intent.category.LAUNCHER", "1"], effect=True)
+            self.command(['shell', 'monkey', '-p', args['package_name'], '-c', 'android.intent.category.LAUNCHER', '1'], effect=True)
         elif action == "ensure_package":
             self.ensure_package_installed(**args)
         elif action != "screenshot":

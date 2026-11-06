@@ -29,6 +29,7 @@ from .profile_routes import router as profile_router
 from .automation_routes import router as automation_router
 from .monitor_routes import router as monitor_router
 from .screen_routes import router as screen_router
+from .emulator_routes import router as emulator_router
 from .self_security import router as self_security_router
 
 
@@ -481,6 +482,7 @@ app.include_router(profile_router)
 app.include_router(automation_router)
 app.include_router(monitor_router)
 app.include_router(screen_router)
+app.include_router(emulator_router)
 app.include_router(self_security_router)
 
 app.add_middleware(

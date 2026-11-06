@@ -2,6 +2,7 @@
 
 import argparse
 from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
 import fcntl
 import hashlib
 import json
@@ -23,11 +24,12 @@ from .execution_store import ExecutionStore
 logger = logging.getLogger(__name__)
 
 
-def adb_device_metrics():
+def adb_device_metrics(*, adb_server_host=None):
     """Observe the configured ADB server without issuing any command to a device."""
     unavailable = {"adb_status": "unavailable", "devices": []}
     try:
-        result = subprocess.run(["adb", "devices"], stdout=subprocess.PIPE,
+        server = ['-H', adb_server_host, '-P', '5037'] if adb_server_host else []
+        result = subprocess.run(["adb", *server, "devices"], stdout=subprocess.PIPE,
                                 stderr=subprocess.DEVNULL, text=True, encoding="utf-8", errors="replace",
                                 timeout=3, check=False)
     except (OSError, subprocess.SubprocessError):
@@ -117,6 +119,22 @@ class Worker:
         self.driver_factory = driver_factory
         self.stopping = threading.Event()
 
+    def device_metrics(self):
+        from .emulator_store import EmulatorStore
+        from .emulator_runtime import adb_server
+        result = adb_device_metrics()
+        enabled = os.getenv('EMULYTIX_MANAGED_EMULATORS', '').lower() == 'true'
+        result['managed_emulators'] = enabled and os.path.exists('/var/run/docker.sock')
+        emulators = [emulator for emulator in EmulatorStore(self.store.dsn).list_managed(self.host_id)
+                     if emulator['state'] not in {'created', 'stopped'}]
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            observations = pool.map(lambda emulator: adb_device_metrics(adb_server_host=adb_server(emulator)), emulators)
+            for emulator, observed in zip(emulators, observations):
+                result['devices'].extend(device for device in observed['devices'] if device['serial'] == emulator['serial'])
+                if observed['adb_status'] == 'ready':
+                    result['adb_status'] = 'ready'
+        return result
+
     def run_once(self) -> bool:
         for candidate in self.store.candidates(self.host_id):
             if self.stopping.is_set():
@@ -133,11 +151,17 @@ class Worker:
         return False
 
     def _execute(self, grant, lock_fd, requested_at):
+        from .emulator_store import EmulatorStore
+        from .emulator_runtime import EmulatorRuntime, RuntimeUncertain, adb_server
+        emulator_store = EmulatorStore(self.store.dsn)
+        operation = emulator_store.operation(grant['execution_id'])
+        managed = emulator_store.managed_device(grant['device_id'])
         execution_id, epoch = grant["execution_id"], grant["lease_epoch"]
         current = {"step": None, "journal": None}
         timing = {"poll": 0.0, "renew": requested_at + self.ttl / 3}
         results = []
         driver = None
+        runtime = None
         watchdog = LeaseWatchdog(requested_at + self.ttl - 0.5, lambda: driver.abort() if driver else None)
 
         def check(force=False):
@@ -168,7 +192,9 @@ class Worker:
             step = current["step"]
             # The immutable workflow identifies arguments; typed text is not duplicated in logs.
             journal = self.store.before_action(execution_id, self.owner_id, epoch, step["id"],
-                {"transport": "adb", "operation": argv[3] if len(argv) > 3 else "adb", "effectful": effectful},
+                {"transport": 'docker' if argv[0] == 'docker' else 'adb',
+                 "operation": argv[1] if argv[0] == 'docker' else argv[argv.index('-s') + 2] if '-s' in argv else 'adb',
+                 "effectful": effectful},
                 bool(effectful and step.get("non_idempotent", False)))
             if journal is None:
                 raise LeaseLost("Action intent rejected")
@@ -185,22 +211,52 @@ class Worker:
 
         with watchdog:
             try:
+                extra = {'adb_server_host': adb_server(managed)} if managed else {}
                 driver = self.driver_factory(grant["serial"], before_command, check,
                     self.artifact_root / str(execution_id) / str(epoch), lock_fd=lock_fd,
-                    apk_dir=self.apk_dir, after_command=after_command)
+                    apk_dir=self.apk_dir, after_command=after_command, **extra)
+                if operation:
+                    if not operation['authorized']:
+                        raise PermissionError('Device management permission was revoked')
+                    if os.getenv('EMULYTIX_MANAGED_EMULATORS', '').lower() != 'true':
+                        raise PermissionError('Managed emulators are disabled on this worker')
+                    runtime = EmulatorRuntime(operation, driver)
+                    if operation['action'] != 'stop' and not emulator_store.update_runtime(grant['device_id'],
+                            'starting' if operation['action'] == 'start' else 'preparing',
+                            execution_id=execution_id, owner_id=self.owner_id, lease_epoch=epoch):
+                        raise LeaseLost('Emulator preparation state update rejected')
                 steps = grant["workflow"]["steps"]
-                for step in steps:
-                    driver.validate_step(step)
+                if not operation:
+                    for step in steps:
+                        driver.validate_step(step)
                 for step in steps:
                     check(force=True)
                     current["step"] = step
                     step_started = time.monotonic()
-                    evidence = driver.execute_step(step)
+                    if operation:
+                        try:
+                            evidence = runtime.execute_step(step)
+                        except RuntimeUncertain as exc:
+                            raise LeaseLost(str(exc)) from None
+                    else:
+                        evidence = driver.execute_step(step)
                     results.append({"step_id": step["id"], **evidence,
                                     "duration_ms": round((time.monotonic() - step_started) * 1000)})
                     if not self.store.save_progress(execution_id, self.owner_id, epoch, {"steps": results}):
                         raise LeaseLost("Step progress rejected")
                 check(force=True)
+                if operation:
+                    installed = None
+                    if operation['action'] != 'stop':
+                        known = {'com.android.chrome', *(app['package_name'] for app in operation['applications']),
+                                 *managed['installed_packages']}
+                        installed = sorted({line[len('package:'):] for line in driver.command(
+                            ['shell', 'pm', 'list', 'packages'], effect=False).splitlines()
+                            if line.startswith('package:') and line[len('package:'):] in known})
+                    if not emulator_store.update_runtime(grant['device_id'],
+                            'stopped' if operation['action'] == 'stop' else 'ready', installed_packages=installed,
+                            last_error=None, execution_id=execution_id, owner_id=self.owner_id, lease_epoch=epoch):
+                        raise LeaseLost('Emulator state update rejected')
                 if not self.store.finish(execution_id, self.owner_id, epoch, "succeeded", evidence={"steps": results}):
                     raise LeaseLost("Execution completion rejected")
                 logger.info(json.dumps({"event": "execution.finished", "execution_id": str(execution_id), "status": "succeeded"}))
@@ -220,6 +276,9 @@ class Worker:
                     return
                 self.store.finish(execution_id, self.owner_id, epoch, "failed", error=str(exc)[:512],
                                   evidence={"steps": results, "failed_step": current["step"]["id"] if current["step"] else None})
+            finally:
+                if runtime:
+                    runtime.close()
 
     def run(self, once=False, poll_seconds=1.0):
         while not self.stopping.is_set():
@@ -249,7 +308,7 @@ def main():
         signal.signal(signum, lambda *_: worker.stopping.set())
     from .telemetry import service_heartbeat
     from .live_screen import live_screens
-    with service_heartbeat(dsn, "worker", str(worker.owner_id), host_id, metrics_provider=adb_device_metrics), \
+    with service_heartbeat(dsn, "worker", str(worker.owner_id), host_id, metrics_provider=worker.device_metrics), \
             live_screens(dsn, host_id, worker.artifact_root, worker.lock_root):
         worker.run(once=args.once)
 

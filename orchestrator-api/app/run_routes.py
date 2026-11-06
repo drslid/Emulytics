@@ -114,7 +114,12 @@ def get_run(run_id: UUID, store: Store) -> dict:
 
 
 @router.post("/runs/{run_id}/cancel", response_model=RunDetail, responses={202: {"model": RunDetail}})
-def cancel_run(run_id: UUID, store: Store, response: Response) -> dict:
+def cancel_run(run_id: UUID, store: Store, response: Response, request: Request) -> dict:
+    user = getattr(request.state, 'auth_user', None)
+    if user and 'devices.write' not in user['permissions']:
+        with store.connect() as connection:
+            if connection.execute('SELECT 1 FROM emulator_operations WHERE run_id=%s', (run_id,)).fetchone():
+                raise HTTPException(403, 'Device administration permission required')
     record = ExecutionStore(store.dsn).cancel_run(run_id)
     response.status_code = 202 if record["status"] == "running" else 200
     return record

@@ -13,6 +13,7 @@ from psycopg.types.json import Jsonb
 
 from .run_models import DeviceRegistration, RunSubmission, WorkflowRegistration
 
+INTERNAL_WORKFLOW_PREFIX = 'emulator-system-'
 
 def fingerprint(value: dict[str, Any]) -> str:
     canonical = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
@@ -52,25 +53,30 @@ class RunStore:
             ).fetchall()
 
     def register_workflow(self, workflow: WorkflowRegistration) -> tuple[dict, bool]:
+        with self.connect() as connection:
+            return self._register_workflow(connection, workflow)
+
+    def _register_workflow(self, connection, workflow: WorkflowRegistration, *, internal=False) -> tuple[dict, bool]:
+        if workflow.workflow_id.startswith(INTERNAL_WORKFLOW_PREFIX) and not internal:
+            raise HTTPException(403, 'Managed emulator workflows are reserved')
         definition = workflow.model_dump(mode="json", by_alias=True)
         for step in definition["steps"]:
             # Preserve existing immutable hashes when upgrading the optional step envelope.
             if step.get("when") is None:
                 step.pop("when", None)
         content_hash = fingerprint(definition)
-        with self.connect() as connection:
-            inserted = connection.execute(
-                "INSERT INTO workflows (workflow_id, version, definition, content_hash) VALUES (%s, %s, %s, %s) "
-                "ON CONFLICT DO NOTHING RETURNING *",
-                (workflow.workflow_id, workflow.version, Jsonb(definition), content_hash),
-            ).fetchone()
-            record = inserted or connection.execute(
-                "SELECT * FROM workflows WHERE workflow_id = %s AND version = %s",
-                (workflow.workflow_id, workflow.version),
-            ).fetchone()
-            if record["content_hash"] != content_hash:
-                raise HTTPException(409, "Workflow version is immutable; publish a new version")
-            return {**record["definition"], "created_at": record["created_at"]}, inserted is not None
+        inserted = connection.execute(
+            "INSERT INTO workflows (workflow_id, version, definition, content_hash) VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT DO NOTHING RETURNING *",
+            (workflow.workflow_id, workflow.version, Jsonb(definition), content_hash),
+        ).fetchone()
+        record = inserted or connection.execute(
+            "SELECT * FROM workflows WHERE workflow_id = %s AND version = %s",
+            (workflow.workflow_id, workflow.version),
+        ).fetchone()
+        if record["content_hash"] != content_hash:
+            raise HTTPException(409, "Workflow version is immutable; publish a new version")
+        return {**record["definition"], "created_at": record["created_at"]}, inserted is not None
 
     def get_workflow(self, workflow_id: str, version: int) -> dict:
         with self.connect() as connection:
@@ -89,8 +95,8 @@ class RunStore:
             rows = connection.execute(
                 "SELECT w.definition,w.created_at,p.name,p.instructions FROM workflows w "
                 "LEFT JOIN automation_publications p ON p.workflow_id=w.workflow_id AND p.version=w.version "
-                "ORDER BY w.workflow_id,w.version DESC LIMIT %s OFFSET %s",
-                (limit, offset),
+                "WHERE w.workflow_id NOT LIKE %s ORDER BY w.workflow_id,w.version DESC LIMIT %s OFFSET %s",
+                (INTERNAL_WORKFLOW_PREFIX+'%',limit, offset),
             ).fetchall()
             return [{**row["definition"], "created_at": row["created_at"], "name": row["name"], "instructions": row["instructions"]} for row in rows]
 
@@ -118,42 +124,43 @@ class RunStore:
         return self._read_run(connection, previous["id"])
 
     def submit_run(self, submission: RunSubmission) -> dict:
-        request_hash = fingerprint(submission.model_dump(mode="json", exclude={"idempotency_key"}))
         with self.connect() as connection:
-            replay = self._replay_run(connection, submission.idempotency_key, request_hash)
-            if replay is not None:
-                return replay
-            if not connection.execute(
-                "SELECT 1 FROM workflows WHERE workflow_id = %s AND version = %s",
-                (submission.workflow_id, submission.workflow_version),
-            ).fetchone():
-                raise HTTPException(404, "Workflow version not found")
-            devices = connection.execute(
-                "SELECT device_id FROM devices WHERE device_id = ANY(%s)", (submission.device_ids,)
-            ).fetchall()
-            if len(devices) != len(submission.device_ids):
-                raise HTTPException(404, "One or more devices are not registered")
-            run_id = uuid4()
-            inserted = connection.execute(
-                "INSERT INTO runs (id, workflow_id, workflow_version, device_ids, max_concurrency, "
-                "parameters, idempotency_key, request_hash) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
-                "ON CONFLICT (idempotency_key) DO NOTHING RETURNING id",
-                (run_id, submission.workflow_id, submission.workflow_version, Jsonb(submission.device_ids),
-                 submission.max_concurrency, Jsonb(submission.parameters), submission.idempotency_key, request_hash),
+            return self._submit_run(connection, submission)
+
+    def _submit_run(self, connection, submission: RunSubmission, *, internal=False) -> dict:
+        if submission.workflow_id.startswith(INTERNAL_WORKFLOW_PREFIX) and not internal:
+            raise HTTPException(403, 'Managed emulator operations use their dedicated endpoint')
+        request_hash = fingerprint(submission.model_dump(mode='json',exclude={'idempotency_key'}))
+        replay = self._replay_run(connection,submission.idempotency_key,request_hash)
+        if replay is not None:
+            return replay
+        if not connection.execute('SELECT 1 FROM workflows WHERE workflow_id=%s AND version=%s',(submission.workflow_id,submission.workflow_version)).fetchone():
+            raise HTTPException(404,'Workflow version not found')
+        devices = connection.execute('SELECT device_id FROM devices WHERE device_id=ANY(%s) ORDER BY device_id FOR UPDATE',(submission.device_ids,)).fetchall()
+        if len(devices)!=len(submission.device_ids):
+            raise HTTPException(404,'One or more devices are not registered')
+        if not internal:
+            blocked = connection.execute(
+                "SELECT 1 FROM managed_emulators m LEFT JOIN device_leases l USING(device_id) WHERE m.device_id=ANY(%s) "
+                "AND (m.state<>'ready' OR l.quarantined OR (l.owner_id IS NOT NULL AND l.expires_at<=clock_timestamp()) "
+                "OR EXISTS(SELECT 1 FROM runs last_operation WHERE last_operation.id=m.last_run_id AND last_operation.status IN ('failed','needs_review')) "
+                "OR EXISTS(SELECT 1 FROM emulator_operations o JOIN executions e ON e.run_id=o.run_id WHERE o.device_id=m.device_id "
+                "AND e.status IN ('queued','leased','running','recovering','verifying_state','waiting_auth'))) LIMIT 1",(submission.device_ids,),
             ).fetchone()
-            if inserted:
-                with connection.cursor() as cursor:
-                    cursor.executemany(
-                        "INSERT INTO executions (id, run_id, device_id) VALUES (%s, %s, %s)",
-                        [(uuid4(), run_id, device_id) for device_id in submission.device_ids],
-                    )
-                connection.execute(
-                    "INSERT INTO run_events (run_id, sequence, type, payload) VALUES (%s, 1, 'run.created', %s)",
-                    (run_id, Jsonb({"device_count": len(submission.device_ids)})),
-                )
-            else:
-                return self._replay_run(connection, submission.idempotency_key, request_hash)
-            return self._read_run(connection, run_id)
+            if blocked:
+                raise HTTPException(409,'Prepare and start the managed emulator before launching a journey')
+        run_id = uuid4()
+        inserted = connection.execute(
+            'INSERT INTO runs(id,workflow_id,workflow_version,device_ids,max_concurrency,parameters,idempotency_key,request_hash) '
+            'VALUES(%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(idempotency_key) DO NOTHING RETURNING id',
+            (run_id,submission.workflow_id,submission.workflow_version,Jsonb(submission.device_ids),submission.max_concurrency,Jsonb(submission.parameters),submission.idempotency_key,request_hash),
+        ).fetchone()
+        if inserted is None:
+            return self._replay_run(connection,submission.idempotency_key,request_hash)
+        with connection.cursor() as cursor:
+            cursor.executemany('INSERT INTO executions(id,run_id,device_id) VALUES(%s,%s,%s)',[(uuid4(),run_id,device_id) for device_id in submission.device_ids])
+        connection.execute("INSERT INTO run_events(run_id,sequence,type,payload) VALUES(%s,1,'run.created',%s)",(run_id,Jsonb({'device_count':len(submission.device_ids)})))
+        return self._read_run(connection,run_id)
 
     def get_run(self, run_id: UUID) -> dict:
         with self.connect() as connection:

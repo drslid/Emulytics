@@ -123,12 +123,15 @@ def read_frame(root: Path, device_id: str, *, now=None) -> tuple[bytes, dict, fl
     return image, metadata, max(0.0, age)
 
 
-def capture_android(serial: str, *, adb_binary="adb") -> bytes:
+def capture_android(serial: str, *, adb_binary="adb", adb_server_host=None) -> bytes:
     if not isinstance(serial, str) or not IDENTIFIER.fullmatch(serial):
         raise ScreenUnavailable("Invalid Android identity")
     # The Linux launcher also kills this read-only client when its worker exits.
+    if adb_server_host is not None and not re.fullmatch(r'emulytix-managed-[a-f0-9]{32}', adb_server_host):
+        raise ScreenUnavailable('Invalid managed ADB server')
+    server = ['-H', adb_server_host, '-P', '5037'] if adb_server_host else []
     command = [sys.executable, str(Path(__file__).with_name("adb_child.py")), str(os.getpid()),
-               adb_binary, "-s", serial, "exec-out", "screencap", "-p"]
+               adb_binary, *server, "-s", serial, "exec-out", "screencap", "-p"]
     process = None
     try:
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -178,7 +181,8 @@ class ScreenPublisher:
     def publish_once(self, stopping=None) -> int:
         with self.store.connect() as connection:
             devices = connection.execute(
-                "SELECT d.device_id,d.serial FROM live_screen_requests s JOIN devices d USING(device_id) "
+                "SELECT d.device_id,d.serial,m.id AS managed_id FROM live_screen_requests s JOIN devices d USING(device_id) "
+                "LEFT JOIN managed_emulators m USING(device_id) "
                 "WHERE s.expires_at>clock_timestamp() AND d.host_id=%s ORDER BY d.device_id LIMIT 100",
                 (self.host_id,),
             ).fetchall()
@@ -204,7 +208,11 @@ class ScreenPublisher:
                     continue
                 try:
                     captured_at = datetime.now(timezone.utc)
-                    image = self.capture(device["serial"])
+                    if device['managed_id']:
+                        from .emulator_runtime import adb_server
+                        image = self.capture(device['serial'], adb_server_host=adb_server({'id': device['managed_id']}))
+                    else:
+                        image = self.capture(device["serial"])
                     write_frame(self.artifact_root, device["device_id"], image, captured_at=captured_at)
                     published += 1
                 except (ScreenUnavailable, OSError):

@@ -47,7 +47,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 if not service_token and request.method not in {"GET", "HEAD", "OPTIONS"}:
                     if origin != config.origin or request.headers.get("x-emulytix-client") != "console":
                         raise HTTPException(403, "Origine ou protection CSRF invalide")
-                    if request.headers.get("content-type", "").split(";", 1)[0].strip() != "application/json":
+                    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip()
+                    apk_upload = request.method == 'POST' and request.url.path == '/console/applications'
+                    if content_type != ('multipart/form-data' if apk_upload else 'application/json'):
                         raise HTTPException(415, "Requête JSON requise")
                 if request.url.path not in PUBLIC_AUTH_PATHS and not service_token:
                     user = await run_in_threadpool(AuthStore(config).current_user, request.cookies.get(SESSION_COOKIE))
