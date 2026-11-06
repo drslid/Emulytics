@@ -18,6 +18,7 @@ const paths = {
   clock: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 7v5l3 2",
   menu: "M4 6h16 M4 12h16 M4 18h16",
   play: "M8 4v16l12-8L8 4z",
+  power: "M12 2v10 M5.6 5.6a9 9 0 1 0 12.8 0",
   archive: "M3 4h18v5H3z M5 9v11h14V9 M9 13h6",
   key: "M9 15a6 6 0 1 1 4-10 6 6 0 0 1 0 8l8 0v4h-4v3h-4v-5H9z"
 };

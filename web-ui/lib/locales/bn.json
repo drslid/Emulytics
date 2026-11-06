@@ -836,7 +836,7 @@
   "Application inconnue": "অজানা অ্যাপ",
   "Applications et détails": "অ্যাপ ও বিস্তারিত",
   "Applications et préparation de l’émulateur.": "এমুলেটরের অ্যাপ ও প্রস্তুতি।",
-  "Applications installées et vérifiées": "ইনস্টল ও যাচাই করা অ্যাপ",
+  "Applications détectées": "সনাক্ত করা অ্যাপ",
   "Applications souhaitées": "নির্বাচিত অ্যাপ",
   "Arrêter l’émulateur": "এমুলেটর থামান",
   "Arrêté": "থেমে আছে",
@@ -948,5 +948,11 @@
   "État et commandes": "অবস্থা ও নির্দেশ",
   "File et réservations": "সারি ও সংরক্ষণ",
   "Publication des captures": "স্ক্রিনশট প্রকাশ",
-  "Images privées": "ব্যক্তিগত ছবি"
+  "Images privées": "ব্যক্তিগত ছবি",
+  "Allumer": "চালু করুন",
+  "Éteindre": "বন্ধ করুন",
+  "Allumé · à préparer": "চালু · প্রস্তুতি প্রয়োজন",
+  "Allumez Android, préparez ses applications, puis lancez vos parcours.": "Android চালু করুন, এর অ্যাপ প্রস্তুত করুন, তারপর আপনার কর্মপ্রবাহ শুরু করুন।",
+  "Choisissez ses applications maintenant, puis utilisez « Préparer les applications » pour les installer.": "এখন অ্যাপ বেছে নিন, তারপর সেগুলো ইনস্টল করতে “অ্যাপ প্রস্তুত করুন” ব্যবহার করুন।",
+  "La préparation allume Android si nécessaire et installe les applications choisies.": "প্রস্তুতির সময় প্রয়োজনে Android চালু হয় এবং নির্বাচিত অ্যাপ ইনস্টল হয়।"
 }

@@ -836,7 +836,7 @@
   "Application inconnue": "अज्ञात ऐप",
   "Applications et détails": "ऐप और विवरण",
   "Applications et préparation de l’émulateur.": "एमुलेटर के ऐप और तैयारी।",
-  "Applications installées et vérifiées": "इंस्टॉल और सत्यापित ऐप",
+  "Applications détectées": "पता लगाए गए ऐप",
   "Applications souhaitées": "चुने गए ऐप",
   "Arrêter l’émulateur": "एमुलेटर रोकें",
   "Arrêté": "रुका हुआ",
@@ -948,5 +948,11 @@
   "État et commandes": "स्थिति और आदेश",
   "File et réservations": "कतार और आरक्षण",
   "Publication des captures": "स्क्रीनशॉट प्रकाशन",
-  "Images privées": "निजी छवियाँ"
+  "Images privées": "निजी छवियाँ",
+  "Allumer": "चालू करें",
+  "Éteindre": "बंद करें",
+  "Allumé · à préparer": "चालू · तैयारी आवश्यक",
+  "Allumez Android, préparez ses applications, puis lancez vos parcours.": "Android चालू करें, उसके ऐप तैयार करें, फिर अपने वर्कफ़्लो चलाएँ।",
+  "Choisissez ses applications maintenant, puis utilisez « Préparer les applications » pour les installer.": "अभी ऐप चुनें, फिर उन्हें इंस्टॉल करने के लिए “ऐप तैयार करें” का उपयोग करें।",
+  "La préparation allume Android si nécessaire et installe les applications choisies.": "तैयारी के दौरान ज़रूरत पड़ने पर Android चालू होता है और चुने गए ऐप इंस्टॉल होते हैं।"
 }

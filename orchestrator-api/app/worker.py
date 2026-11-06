@@ -152,7 +152,7 @@ class Worker:
 
     def _execute(self, grant, lock_fd, requested_at):
         from .emulator_store import EmulatorStore
-        from .emulator_runtime import EmulatorRuntime, RuntimeUncertain, adb_server
+        from .emulator_runtime import EmulatorRuntime, RuntimeUncertain, adb_server, application_is_prepared
         emulator_store = EmulatorStore(self.store.dsn)
         operation = emulator_store.operation(grant['execution_id'])
         managed = emulator_store.managed_device(grant['device_id'])
@@ -247,14 +247,16 @@ class Worker:
                 check(force=True)
                 if operation:
                     installed = None
+                    state = 'stopped' if operation['action'] == 'stop' else 'ready'
                     if operation['action'] != 'stop':
                         known = {'com.android.chrome', *(app['package_name'] for app in operation['applications']),
                                  *managed['installed_packages']}
                         installed = sorted({line[len('package:'):] for line in driver.command(
                             ['shell', 'pm', 'list', 'packages'], effect=False).splitlines()
                             if line.startswith('package:') and line[len('package:'):] in known})
-                    if not emulator_store.update_runtime(grant['device_id'],
-                            'stopped' if operation['action'] == 'stop' else 'ready', installed_packages=installed,
+                        if operation['action'] == 'start' and not all(application_is_prepared(driver,app) for app in operation['applications']):
+                            state = 'running'
+                    if not emulator_store.update_runtime(grant['device_id'], state, installed_packages=installed,
                             last_error=None, execution_id=execution_id, owner_id=self.owner_id, lease_epoch=epoch):
                         raise LeaseLost('Emulator state update rejected')
                 if not self.store.finish(execution_id, self.owner_id, epoch, "succeeded", evidence={"steps": results}):

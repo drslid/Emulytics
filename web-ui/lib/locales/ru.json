@@ -836,7 +836,7 @@
   "Application inconnue": "Неизвестное приложение",
   "Applications et détails": "Приложения и сведения",
   "Applications et préparation de l’émulateur.": "Приложения и подготовка эмулятора.",
-  "Applications installées et vérifiées": "Установленные и проверенные приложения",
+  "Applications détectées": "Обнаруженные приложения",
   "Applications souhaitées": "Выбранные приложения",
   "Arrêter l’émulateur": "Остановить эмулятор",
   "Arrêté": "Остановлен",
@@ -948,5 +948,11 @@
   "État et commandes": "Состояние и команды",
   "File et réservations": "Очередь и резервирования",
   "Publication des captures": "Публикация снимков",
-  "Images privées": "Приватные изображения"
+  "Images privées": "Приватные изображения",
+  "Allumer": "Включить",
+  "Éteindre": "Выключить",
+  "Allumé · à préparer": "Включён · требуется подготовка",
+  "Allumez Android, préparez ses applications, puis lancez vos parcours.": "Включите Android, подготовьте приложения и запустите сценарии.",
+  "Choisissez ses applications maintenant, puis utilisez « Préparer les applications » pour les installer.": "Выберите приложения, затем нажмите «Подготовить приложения», чтобы установить их.",
+  "La préparation allume Android si nécessaire et installe les applications choisies.": "Подготовка при необходимости включает Android и устанавливает выбранные приложения."
 }

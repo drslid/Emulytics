@@ -8,7 +8,7 @@ from docker.errors import NotFound
 from requests.exceptions import ReadTimeout
 
 from app.android_driver import DriverError
-from app.emulator_runtime import BOOT_COMMAND, EmulatorRuntime, RuntimeUncertain, container_name, prepare_application
+from app.emulator_runtime import BOOT_COMMAND, EmulatorRuntime, RuntimeUncertain, application_is_prepared, container_name, prepare_application
 
 
 def record():
@@ -102,3 +102,51 @@ def test_prepared_apk_is_compared_to_installed_base_apk_before_and_after_install
     assert prepare_application(driver, application)['installed'] is True
     assert prepare_application(driver, application)['installed'] is False
     assert len(installed) == 1
+
+
+@pytest.mark.parametrize('digest,installed,expected', [
+    (None, False, False),
+    ('a' * 64, False, False),
+    ('a' * 64, True, True),
+    ('b' * 64, True, False),
+])
+def test_power_on_checks_apk_readiness_without_reading_or_installing_an_artifact(digest, installed, expected):
+    driver = Driver()
+    def command(args, *, effect):
+        assert effect is False
+        driver.commands.append(args)
+        if args == ['shell', 'pm', 'list', 'packages', 'com.example.demo']:
+            return 'package:com.example.demo\n' if installed else ''
+        if args == ['shell', 'pm', 'path', 'com.example.demo']:
+            assert installed
+            return 'package:/data/app/com.example.demo-X==/base.apk\n'
+        assert args == ['shell', 'sha256sum', '/data/app/com.example.demo-X==/base.apk']
+        return 'a' * 64 + '  /data/app/com.example.demo-X==/base.apk\n'
+    driver.command = command
+    application = {'source': 'apk', 'package_name': 'com.example.demo', 'sha256': digest}
+    assert application_is_prepared(driver, application) is expected
+    if digest is None:
+        assert not driver.commands
+
+
+@pytest.mark.parametrize('observed,expected', [
+    ('package:com.android.chrome\n', True),
+    ('package:com.android.chrome.beta\n', False),
+    ('', False),
+])
+def test_power_on_verifies_the_exact_system_package(observed, expected):
+    driver = Driver()
+    def command(args, *, effect):
+        assert args == ['shell', 'pm', 'list', 'packages', 'com.android.chrome']
+        assert effect is False
+        return observed
+    driver.command = command
+    assert application_is_prepared(driver, {'source': 'system', 'package_name': 'com.android.chrome'}) is expected
+
+
+@pytest.mark.parametrize('package', ['com.example; reboot', None])
+def test_power_on_rejects_invalid_packages_before_using_adb(package):
+    driver = Driver()
+    with pytest.raises(DriverError, match='Invalid application package'):
+        application_is_prepared(driver, {'source': 'apk', 'package_name': package})
+    assert not driver.commands

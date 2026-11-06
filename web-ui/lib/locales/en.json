@@ -836,7 +836,7 @@
   "Application inconnue": "Unknown application",
   "Applications et détails": "Applications and details",
   "Applications et préparation de l’émulateur.": "Emulator applications and preparation.",
-  "Applications installées et vérifiées": "Installed and verified applications",
+  "Applications détectées": "Detected applications",
   "Applications souhaitées": "Desired applications",
   "Arrêter l’émulateur": "Stop emulator",
   "Arrêté": "Stopped",
@@ -948,5 +948,11 @@
   "État et commandes": "State and commands",
   "File et réservations": "Queue and leases",
   "Publication des captures": "Screenshot publishing",
-  "Images privées": "Private images"
+  "Images privées": "Private images",
+  "Allumer": "Power on",
+  "Éteindre": "Power off",
+  "Allumé · à préparer": "Powered on · preparation needed",
+  "Allumez Android, préparez ses applications, puis lancez vos parcours.": "Power on Android, prepare its applications, then launch your workflows.",
+  "Choisissez ses applications maintenant, puis utilisez « Préparer les applications » pour les installer.": "Choose its applications now, then use “Prepare applications” to install them.",
+  "La préparation allume Android si nécessaire et installe les applications choisies.": "Preparation powers on Android if needed and installs the selected applications."
 }

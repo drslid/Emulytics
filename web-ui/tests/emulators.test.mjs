@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { canonicalizeEmulatorUpload, currentEmulatorLaunchDevice, emulatorCanLaunch, emulatorCanManage, emulatorConnectionDevice, emulatorIntentKey, emulatorOperationActive, mergeEmulatorLaunchDevices, missingEmulatorApplications, parseEmulatorCreation, parseEmulatorOperation } from "../lib/emulators.ts";
 import { isDeviceReady } from "../lib/device-readiness.ts";
 
-const emulator = {state:"ready",availability:"declared",operation_status:null};
+const emulator = {state:"ready",availability:"declared",operation_status:null,application_ids:[]};
 const key = "00000000-0000-4000-8000-000000000001";
 
 test("uploading a selected or unselected preset keeps its canonical catalog id visible and available",()=>{
@@ -51,7 +51,10 @@ test("an off-page launch follows fresh managed observations instead of keeping a
 
 test("runtime changes require an idle unquarantined emulator and respect its lifecycle",()=>{
   assert.equal(emulatorCanManage(emulator,"prepare"),true);assert.equal(emulatorCanManage(emulator,"stop"),true);assert.equal(emulatorCanManage(emulator,"start"),false);
-  for(const state of ["created","stopped"]){assert.equal(emulatorCanManage({...emulator,state},"start"),true);assert.equal(emulatorCanManage({...emulator,state},"stop"),false);}
+  for(const state of ["created","stopped"]){assert.equal(emulatorCanManage({...emulator,state},"start"),true);assert.equal(emulatorCanManage({...emulator,state},"stop"),false);assert.equal(emulatorCanManage({...emulator,state},"prepare"),true);}
+  assert.equal(emulatorOperationActive({...emulator,state:"running"}),false);
+  assert.equal(emulatorCanManage({...emulator,state:"running"},"start"),false);
+  for(const state of ["running","unknown","failed"])for(const action of ["stop","prepare"])assert.equal(emulatorCanManage({...emulator,state},action),true);
   for(const availability of ["busy","needs_review"])for(const action of ["start","prepare","stop"])assert.equal(emulatorCanManage({...emulator,availability},action),false);
   for(const operation_status of ["queued","running","waiting_auth"]){assert.equal(emulatorOperationActive({...emulator,operation_status}),true);assert.equal(emulatorCanManage({...emulator,operation_status},"stop"),false);}
 });
@@ -60,7 +63,17 @@ test("launch readiness requires preparation and real Android evidence without re
   assert.equal(emulatorCanLaunch(emulator,isDeviceReady(device)),true);
   assert.equal(emulatorCanLaunch({...emulator,availability:"busy"},isDeviceReady({...device,availability:"busy"})),true);
   for(const candidate of [undefined,{...device,connection_status:"worker_offline"},{...device,availability:"needs_review"}])assert.equal(emulatorCanLaunch(emulator,isDeviceReady(candidate)),false);
-  for(const state of ["created","stopped","preparing","failed","unknown"])assert.equal(emulatorCanLaunch({...emulator,state},isDeviceReady(device)),false);
+  for(const state of ["created","running","stopped","preparing","failed","unknown"])assert.equal(emulatorCanLaunch({...emulator,state},isDeviceReady(device)),false);
+});
+test("missing APKs block application preparation while power controls remain independent",()=>{
+  const applications=[{id:"chrome",available:true},{id:"snapchat",available:false}];
+  const desired={...emulator,application_ids:["chrome","snapchat"]};
+  for(const state of ["created","stopped","unknown","failed"])assert.equal(emulatorCanManage({...desired,state},"start",applications),true);
+  for(const state of ["running","ready","unknown","failed"])assert.equal(emulatorCanManage({...desired,state},"stop",applications),true);
+  for(const state of ["created","stopped","running","ready","unknown","failed"]){
+    assert.equal(emulatorCanManage({...desired,state},"prepare",applications),false);
+    assert.equal(emulatorCanManage({...desired,state},"prepare",applications.map(app=>({...app,available:true}))),true);
+  }
 });
 test("desired missing APKs stay configurable but are distinguishable from available applications",()=>{
   const applications=[{id:"chrome",available:true},{id:"instagram",available:false}];

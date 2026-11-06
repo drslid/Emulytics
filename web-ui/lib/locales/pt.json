@@ -836,7 +836,7 @@
   "Application inconnue": "Aplicação desconhecida",
   "Applications et détails": "Aplicações e detalhes",
   "Applications et préparation de l’émulateur.": "Aplicações e preparação do emulador.",
-  "Applications installées et vérifiées": "Aplicações instaladas e verificadas",
+  "Applications détectées": "Aplicativos detectados",
   "Applications souhaitées": "Aplicações pretendidas",
   "Arrêter l’émulateur": "Parar o emulador",
   "Arrêté": "Parado",
@@ -948,5 +948,11 @@
   "État et commandes": "Estado e comandos",
   "File et réservations": "Fila e reservas",
   "Publication des captures": "Publicação das capturas",
-  "Images privées": "Imagens privadas"
+  "Images privées": "Imagens privadas",
+  "Allumer": "Ligar",
+  "Éteindre": "Desligar",
+  "Allumé · à préparer": "Ligado · precisa de preparação",
+  "Allumez Android, préparez ses applications, puis lancez vos parcours.": "Ligue o Android, prepare os aplicativos e depois inicie seus percursos.",
+  "Choisissez ses applications maintenant, puis utilisez « Préparer les applications » pour les installer.": "Escolha os aplicativos agora e use “Preparar aplicativos” para instalá-los.",
+  "La préparation allume Android si nécessaire et installe les applications choisies.": "A preparação liga o Android se necessário e instala os aplicativos selecionados."
 }

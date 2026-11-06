@@ -3,11 +3,13 @@ from concurrent.futures import ThreadPoolExecutor
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
+from psycopg.types.json import Jsonb
 import pytest
 
 from app.emulator_store import EmulatorStore
 from app.execution_store import ExecutionStore
 from app.run_models import DeviceRegistration, RunSubmission, WorkflowRegistration
+from app.run_store import fingerprint
 from app.telemetry import heartbeat
 from test_authentication import auth_store
 from test_user_roles import signed_in
@@ -119,15 +121,68 @@ def test_creation_preserves_existing_unmanaged_device_ports(store):
     assert create(store)['serial']=='emulator-5558'
 
 
-def test_missing_preset_may_be_saved_but_cannot_be_started_or_prepared(store):
-    emulator = create(store,apps=['chrome','snapchat'])
-    assert emulator['application_ids']==['chrome','snapchat']
-    for action in ['start','prepare']:
-        with pytest.raises(HTTPException) as error:
-            store.queue_operation(emulator['device_id'],action,action)
-        assert error.value.status_code==422
+def test_missing_presets_allow_power_start_but_prepare_still_requires_artifacts(store,control_client):
+    apps = ['snapchat','linkedin','instagram','tiktok']
+    emulator = create(store,apps=apps)
+    device_id = emulator['device_id']
+    assert emulator['application_ids']==apps
+    prepare = control_client.post(f'/console/emulators/{device_id}/prepare',json={'idempotency_key':'missing-apks'})
+    assert prepare.status_code==422
     assert rows(store,'runs')==rows(store,'emulator_operations')==0
-    assert store.queue_operation(emulator['device_id'],'stop','stop-missing')['run_id']
+    started = control_client.post(f'/console/emulators/{device_id}/start',json={'idempotency_key':'power-only'})
+    assert started.status_code==202,started.text
+    run = store.get_run(UUID(started.json()['run_id']))
+    assert run['status']=='queued' and run['parameters']=={}
+    assert [step['id'] for step in store.get_workflow(run['workflow_id'],1)['steps']]==['runtime']
+    operation = store.operation(run['executions'][0]['id'])
+    assert operation['action']=='start' and [app['id'] for app in operation['applications']]==apps
+    assert all(app['filename'] is None and app['sha256'] is None for app in operation['applications'])
+    replay = control_client.post(f'/console/emulators/{device_id}/start',json={'idempotency_key':'power-only'})
+    assert replay.status_code==202 and replay.json()['run_id']==str(run['id'])
+    assert rows(store,'runs')==1
+    assert control_client.post(f'/console/emulators/{device_id}/stop',json={'idempotency_key':'busy-stop'}).status_code==409
+    ExecutionStore(store.dsn).cancel_run(run['id'])
+    assert control_client.post(f'/console/emulators/{device_id}/prepare',json={'idempotency_key':'still-missing'}).status_code==422
+    stopped = control_client.post(f'/console/emulators/{device_id}/stop',json={'idempotency_key':'stop-after-free'})
+    assert stopped.status_code==202,stopped.text
+    stop = store.get_run(UUID(stopped.json()['run_id']))
+    assert store.operation(stop['executions'][0]['id'])['applications']==[]
+    assert [step['id'] for step in store.get_workflow(stop['workflow_id'],1)['steps']]==['runtime']
+
+
+def test_power_only_start_pins_available_apks_without_planning_install_steps(store):
+    old = artifact()
+    store.add_application(old)
+    emulator = create(store,apps=['chrome','snapchat'])
+    queued = store.queue_operation(emulator['device_id'],'start','start')
+    run = store.get_run(queued['run_id'])
+    assert [step['id'] for step in store.get_workflow(run['workflow_id'],1)['steps']]==['runtime']
+    store.add_application(artifact(sha256='b'*64))
+    assert store.operation(run['executions'][0]['id'])['applications'][1]['sha256']==old['sha256']
+
+
+def test_new_power_start_preserves_legacy_immutable_workflow_and_replays_old_operation(store):
+    emulator = create(store)
+    device_id = emulator['device_id']
+    with store.connect() as connection:
+        apps = store._resolve(connection,['chrome'],required=True)
+        legacy_id = f'emulator-system-start-{emulator["id"].hex[:12]}-{fingerprint(apps)[:12]}'
+        runtime = {'id':'runtime','action':'screenshot','args':{},'assert':{'type':'package_installed','value':'com.android.chrome'}}
+        definition = WorkflowRegistration.model_validate({'workflow_id':legacy_id,'version':1,'steps':[runtime,{**runtime,'id':'app-1'}]})
+        store._register_workflow(connection,definition,internal=True)
+        # Simulate an operation accepted before power-only starts were introduced.
+        from app.emulator_store import _key
+        legacy = store._submit_run(connection,ordinary_submission(device_id,workflow_id=legacy_id,idempotency_key=_key(None,'legacy')),internal=True)
+        connection.execute("INSERT INTO emulator_operations(run_id,device_id,action,applications,service_actor) VALUES(%s,%s,'start',%s,true)",
+                           (legacy['id'],device_id,Jsonb(apps)))
+    assert store.queue_operation(device_id,'start','legacy')['run_id']==legacy['id']
+    ExecutionStore(store.dsn).cancel_run(legacy['id'])
+    queued = store.queue_operation(device_id,'start','new-mode')
+    run = store.get_run(queued['run_id'])
+    assert run['workflow_id']!=legacy_id
+    assert run['workflow_id'].endswith(fingerprint({'mode':'power-only','applications':apps})[:12])
+    assert [step['id'] for step in store.get_workflow(legacy_id,1)['steps']]==['runtime','app-1']
+    assert [step['id'] for step in store.get_workflow(run['workflow_id'],1)['steps']]==['runtime']
 
 
 def test_trusted_operation_is_atomic_hidden_from_normal_catalog_and_pins_artifact_versions(store):
@@ -234,16 +289,45 @@ def test_runtime_updates_are_fenced_and_terminal_errors_are_visible(store):
     assert record['state']=='failed' and record['last_error']=='APK installation failed'
 
 
+def test_running_state_is_fenced_and_cannot_admit_a_journey_before_preparation(store,workflow_payload):
+    emulator = create(store,apps=['snapchat'])
+    device_id = emulator['device_id']
+    run = store.get_run(store.queue_operation(device_id,'start','power-only')['run_id'])
+    execution_id = run['executions'][0]['id']
+    runtime = ExecutionStore(store.dsn)
+    grant = runtime.claim(execution_id,'worker',30)
+    assert not store.update_runtime(device_id,'running',execution_id=execution_id,owner_id='other',lease_epoch=grant['lease_epoch'])
+    assert store.update_runtime(device_id,'running',[],execution_id=execution_id,owner_id='worker',lease_epoch=grant['lease_epoch'])
+    assert runtime.finish(execution_id,'worker',grant['lease_epoch'],'succeeded')
+    assert store.managed_device(device_id)['state']=='running'
+    store.register_workflow(WorkflowRegistration.model_validate(workflow_payload))
+    with pytest.raises(HTTPException) as error:
+        store.submit_run(ordinary_submission(device_id))
+    assert error.value.status_code==409
+    assert not store.update_runtime(device_id,'ready',execution_id=execution_id,owner_id='worker',lease_epoch=grant['lease_epoch'])
+
+
 def test_changed_configuration_invalidates_readiness_without_claiming_a_running_emulator_is_uncreated(store,workflow_payload):
     emulator = create(store)
     device_id = emulator['device_id']
     with store.connect() as connection:
         connection.execute("UPDATE managed_emulators SET state='ready' WHERE device_id=%s",(device_id,))
-    assert store.configure(device_id,['chrome','instagram'])['state']=='unknown'
+    assert store.configure(device_id,['chrome','instagram'])['state']=='running'
     store.register_workflow(WorkflowRegistration.model_validate(workflow_payload))
     with pytest.raises(HTTPException) as error:
         store.submit_run(ordinary_submission(device_id))
     assert error.value.status_code==409
+
+
+@pytest.mark.parametrize('before,after',[
+    ('created','created'),('stopped','stopped'),('running','running'),('ready','running'),('unknown','unknown'),
+])
+def test_application_changes_preserve_known_power_state_and_invalidate_readiness(store,before,after):
+    emulator = create(store)
+    with store.connect() as connection:
+        connection.execute('UPDATE managed_emulators SET state=%s WHERE device_id=%s',(before,emulator['device_id']))
+    assert store.configure(emulator['device_id'],['chrome'])['state']==before
+    assert store.configure(emulator['device_id'],['chrome','instagram'])['state']==after
 
 
 def test_failed_lifecycle_operation_blocks_journeys_even_if_previous_runtime_state_was_ready(store,workflow_payload):

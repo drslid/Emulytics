@@ -20,7 +20,7 @@ PRESETS = {
     'instagram': ('Instagram','com.instagram.android','apk'),
     'tiktok': ('TikTok','com.zhiliaoapp.musically','apk'),
 }
-STATES = {'created','starting','ready','stopped','preparing','failed','unknown'}
+STATES = {'created','starting','running','ready','stopped','preparing','failed','unknown'}
 
 
 def _key(actor_id, key):
@@ -170,7 +170,7 @@ class EmulatorStore(RunStore):
             self._lock_device(connection,device_id)
             self._idle(connection,device_id)
             self._resolve(connection,application_ids)
-            connection.execute("UPDATE managed_emulators SET application_ids=%s,state=CASE WHEN application_ids=%s THEN state WHEN state IN ('created','stopped') THEN state ELSE 'unknown' END,last_error=NULL,updated_at=clock_timestamp() WHERE device_id=%s",
+            connection.execute("UPDATE managed_emulators SET application_ids=%s,state=CASE WHEN application_ids=%s THEN state WHEN state IN ('created','stopped','running') THEN state WHEN state='ready' THEN 'running' ELSE 'unknown' END,last_error=NULL,updated_at=clock_timestamp() WHERE device_id=%s",
                 (Jsonb(application_ids),Jsonb(application_ids),device_id))
             audit_event(connection,actor_id,'emulator.configured',device_id,category='automation')
             return self._record(connection,device_id)
@@ -191,11 +191,13 @@ class EmulatorStore(RunStore):
             emulator = self._record(connection,device_id)
             if emulator['host_id'] not in self._hosts(connection):
                 raise HTTPException(409,'The emulator management worker is unavailable')
-            applications = self._resolve(connection,emulator['application_ids'],required=True) if action!='stop' else []
-            suffix = fingerprint(applications)[:12]
+            applications = self._resolve(connection,emulator['application_ids'],required=action=='prepare') if action!='stop' else []
+            # Separate power-only starts from already published start-and-prepare definitions.
+            suffix = fingerprint({'mode':'power-only','applications':applications} if action=='start' else applications)[:12]
             workflow_id = f'emulator-system-{action}-{emulator["id"].hex[:12]}-{suffix}'
             steps = [{'id':'runtime','action':'screenshot','args':{},'assert':{'type':'package_installed','value':'com.android.chrome'}}]
-            steps += [{'id':f'app-{index+1}','action':'screenshot','args':{},'assert':{'type':'package_installed','value':'com.android.chrome'}} for index,_ in enumerate(applications)]
+            if action=='prepare':
+                steps += [{'id':f'app-{index+1}','action':'screenshot','args':{},'assert':{'type':'package_installed','value':'com.android.chrome'}} for index,_ in enumerate(applications)]
             workflow = WorkflowRegistration.model_validate({'workflow_id':workflow_id,'version':1,'steps':steps})
             self._register_workflow(connection,workflow,internal=True)
             connection.execute('INSERT INTO automation_publications(workflow_id,version,name,instructions) VALUES(%s,1,%s,%s) ON CONFLICT DO NOTHING',

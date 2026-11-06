@@ -187,10 +187,29 @@ def installed_digest(driver, package):
     return None
 
 
-def prepare_application(driver, application):
+def _application_package(application):
     package = application['package_name']
-    if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+', package):
+    if not isinstance(package,str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+', package):
         raise DriverError('Invalid application package')
+    return package
+
+
+def application_is_prepared(driver, application):
+    """Power-on verifies selected apps without ever installing or updating one."""
+    package = _application_package(application)
+    if application['source'] == 'system':
+        if package != 'com.android.chrome':
+            return False
+        observed = driver.command(['shell','pm','list','packages',package],effect=False)
+        return f'package:{package}' in observed.splitlines()
+    digest = application.get('sha256')
+    if not isinstance(digest,str) or not re.fullmatch(r'[a-f0-9]{64}',digest):
+        return False
+    return installed_digest(driver,package) == digest
+
+
+def prepare_application(driver, application):
+    package = _application_package(application)
     if application['source'] == 'system':
         if package != 'com.android.chrome' or not driver.command(
                 ['shell', 'pm', 'path', package], effect=False).strip().startswith('package:'):

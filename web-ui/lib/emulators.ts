@@ -1,7 +1,7 @@
 export type EmulatorApplication = { id: string; name: string; package_name: string; source: "system" | "apk"; size_bytes: number; available: boolean };
 export type ManagedEmulator = {
   id: string; device_id: string; display_name: string; host_id: string; serial: string;
-  state: "created" | "starting" | "ready" | "stopped" | "preparing" | "failed" | "unknown";
+  state: "created" | "starting" | "running" | "ready" | "stopped" | "preparing" | "failed" | "unknown";
   application_ids: string[]; installed_packages: string[]; last_error: string | null; last_run_id: string | null;
   operation_status: string | null; availability: "declared" | "busy" | "needs_review"; updated_at: string;
   device?: Device;
@@ -19,10 +19,11 @@ const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export function emulatorOperationActive(emulator: ManagedEmulator): boolean {
   return emulator.state === "starting" || emulator.state === "preparing" || active.has(emulator.operation_status ?? "");
 }
-export function emulatorCanManage(emulator: ManagedEmulator, action: EmulatorAction): boolean {
+export function emulatorCanManage(emulator: ManagedEmulator, action: EmulatorAction, applications: EmulatorApplication[] = []): boolean {
   if (emulator.availability !== "declared" || emulatorOperationActive(emulator)) return false;
   if (action === "stop") return !["created", "stopped"].includes(emulator.state);
-  return action === "prepare" ? emulator.state === "ready" : emulator.state !== "ready";
+  if (action === "start") return !["running", "ready"].includes(emulator.state);
+  return missingEmulatorApplications(emulator.application_ids, applications).length === 0;
 }
 export function emulatorCanLaunch(emulator: ManagedEmulator, deviceReady: boolean): boolean {
   return emulator.state === "ready" && !emulatorOperationActive(emulator) && emulator.availability !== "needs_review" && deviceReady;
