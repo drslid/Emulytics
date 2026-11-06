@@ -282,3 +282,9 @@ Le moteur reste le profil Chrome/Wikipédia et la saisie ASCII validés sur le b
 Le banc Android et `console-worker` sont désormais actifs. L'appareil réel à sélectionner est **Émulateur local** (`bench-host` / `emulator-5554`). Le premier run lancé depuis le site a terminé `succeeded` avec 11 étapes : Chrome, recherche de football dans Wikipédia, titre final vérifié et capture disponible dans Activité. Le run et les preuves restent dans la base courante, distincts de l'archive `/validation`.
 
 La déclaration `banc-de-test` sous `bench` / `moultiplate` et ses quatre soumissions en attente sont conservées ; elles ne correspondent pas à cette connexion Android. L'interface affiche désormais ce défaut de connexion et interdit une nouvelle confirmation immédiate sur un appareil non observé connecté. Les cinq états d'échec de connexion sont distincts de l'occupation et de la quarantaine. Le helper `scripts/start-console-android.sh` prépare un banc connecté sans réaffecter les anciennes demandes.
+
+### Écran actuel et reprise du backlog — 6 novembre 2026
+
+La page /ecrans, les appareils et le détail d'une exécution proposent désormais l'écran Android actuel en lecture seule, actualisé environ une fois par seconde. Le worker capture uniquement à la demande ; l'API sert une image privée vérifiée avec date et fraîcheur. Une image ancienne est signalée figée. Chaque lecture vérifie la session et les permissions. L'API n'a toujours aucun accès Docker/ADB.
+
+Les quatre anciennes demandes ont été reprises sur local-emulator, puis leurs sources annulées avec lien de provenance. Les quatre remplacements ont réussi leurs 11 étapes. Les lots d'origine restent immuables. La capacité courante est une exécution simultanée ; les quatre ont été observées en série sur le seul émulateur connecté. Tests : 268 API et 30 frontend. Direct, plein écran, mobile et expiration ont été observés dans le navigateur.

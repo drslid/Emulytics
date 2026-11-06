@@ -49,6 +49,7 @@ Cette commande révoque les sessions et les codes précédents et impose un nouv
 
 - **Tableau de bord** : synthèse du parc, activités récentes et situations à vérifier.
 - **Appareils** : ajout indépendant d'un téléphone physique ou d'un émulateur Android. Le nom accepte les espaces ; l'identifiant est préparé automatiquement. Une déclaration ne prouve aucune connexion.
+- **Écrans en direct** : véritable écran Android actualisé environ une fois par seconde, avec plein écran et indication d’image figée. Accessible aussi depuis Appareils et le détail d’une exécution.
 - **Parcours** : instructions, étapes visuelles ou JSON avancé, modèles, brouillons et versions publiées immuables.
 - **Exécutions** : lancement immédiat, lot explicite, résultats par appareil, journal et captures privées. Une demande d'arrêt reste distincte de son résultat confirmé.
 - **Planifications** : jour/semaine/mois ou CRON avancé, fuseau IANA, aperçu des cinq prochaines dates, pause/reprise. L'ordonnanceur démarre automatiquement ; un worker connecté reste nécessaire à l'exécution.
@@ -83,6 +84,14 @@ Dans **Appareils**, choisir cet émulateur, puis lancer **Recherche Wikipédia**
 Ce banc requiert `/dev/kvm` et l'image Android déjà présente localement `emulytix/android-runtime-check:0.8.1`. Il utilise Android 10 / Chrome 74, et ne représente pas la cible Android 14 du plan. Aucun port Android/ADB n'est publié. Après un arrêt de la console, réactivez ce profil avec le helper. Le démarrage normal de la console ne lance pas Android ; le helper active le profil facultatif `docker-compose.console-worker.yml`.
 
 L’[étude de l’interface](docs/design/control-console.md) décrit les choix élément par élément ; l’[audit MobileAgent](docs/design/mobileagent-audit.md) détaille les idées reprises et leurs limites.
+
+### Observer et exécuter plusieurs parcours
+
+Ouvrir **http://localhost:3100/ecrans** pour suivre un Android connecté. La vue en lecture seule observe l'écran actuel, indépendamment des captures conservées par le parcours. Une image ancienne est marquée figée. Fermer le panneau ou masquer l'onglet arrête les requêtes, puis la capture s'arrête à l'expiration de la consultation. Chaque image exige une session et des droits de consultation ; aucun port Android public n'est ajouté.
+
+Chaque processus worker exécute un parcours à la fois et un téléphone ne reçoit qu'une exécution active. Avec un émulateur et un worker, les demandes sont traitées en série. Plusieurs appareils et workers permettent davantage d'exécutions simultanées, selon les limites du lot et les ressources disponibles. Cent appareils par demande est une borne du contrat, pas un résultat de charge sur cette machine.
+
+Les quatre demandes initiales ont été reprises sur l'émulateur réel, avec des événements reliant les historiques. Le [script de reprise](docs/architecture/replaying-local-backlog.md) est spécifique à ces quatre demandes et utilise des clés stables.
 
 ### Arrêter ou relancer
 

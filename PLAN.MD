@@ -493,3 +493,23 @@ Preuve sur le site local : run `8773fd46-9dbf-4c45-bff9-c697d11dec24`, exécutio
 Vérifications : **244 tests API et 26 tests frontend réussis**, build de production et TypeScript réussis. Contrôles navigateur supplémentaires : ancien appareil non sélectionnable, appareil connecté sélectionnable, perte de connexion après récapitulatif bloquant la confirmation, aucun débordement à 320 px et aucune erreur JavaScript. Les deux comptes temporaires et leurs sessions ont été supprimés ; le run réussi, ses preuves et l'émulateur connecté sont conservés pour l'utilisateur. Dossier local : `storage/execution-fix/`.
 
 Limite du banc inchangée : Android 10 / Chrome 74 préinstallé, sans ports ADB publiés ; ce banc ne valide pas encore la cible Android 14 ni l'installation de Chrome sur un téléphone vierge.
+
+
+### Reprise des essais et écran Android en direct — 6 novembre 2026
+
+Demande : relancer les quatre anciens essais, expliquer le parallélisme et permettre l'observation réelle de l'écran pendant l'exécution. Les anciennes listes d'appareils restent immuables ; chaque reprise crée une demande liée à l'original sur `local-emulator`, avec clé stable pour éviter un doublon. L'original en attente est annulé seulement après confirmation de la nouvelle demande. Les états et preuves restent consultables.
+
+Capacité actuelle : un Android réellement connecté et un processus worker, donc une exécution à la fois. Plusieurs parcours sur le même téléphone sont sérialisés par les baux. Le parallélisme sur plusieurs appareils dépend du nombre de workers, des appareils disponibles et du plafond de concurrence du lot ; le plafond contractuel de 100 n'est pas une mesure de capacité de cette machine.
+
+La vue en direct affiche de vraies captures Android actualisées environ une fois par seconde, avec date de prise, indication de fraîcheur et plein écran. Elle est accessible depuis Appareils, les résultats d'exécution et une page Écrans en direct. Elle n'ajoute pas de commande tactile ni de vidéo 30 images/s. Les captures ne sont produites que pendant une consultation active, avec expiration de la demande ; les écrans cachés ou fermés arrêtent leur renouvellement. Une image ancienne est clairement marquée figée. Chaque requête reste authentifiée avec droits de consultation ; l'API ne reçoit ni socket Docker ni accès ADB.
+
+- [x] D01 — Capturer à la demande dans le worker, publier atomiquement, servir les images fraîches par route privée.
+- [x] D02 — Ajouter la vue responsive, le plein écran et les points d'entrée depuis appareils et exécutions ; traduire les libellés.
+- [x] D03 — Reprendre les quatre demandes avec provenance et sans modifier les lots d'origine ; observer les changements réels d'écran.
+- [x] D04 — Vérifier permissions, arrêt de capture, fraîcheur, erreurs et navigateur pendant les parcours réels.
+
+Preuves de reprise : les remplacements 696a9861-4d78-481d-acfe-1daad045c40b, 86c0e4f9-d970-432b-bb38-f28f78c123fa, 757d4dae-b75a-4e97-bb07-d7021b886ca1 et 92eb2148-7d0c-407d-80de-37c18202e766 ont terminé **succeeded**, avec **11 étapes chacun**. Les intervalles démarrage/fin ne se chevauchent pas : une exécution simultanée effectivement observée. Les sources annulées conservent leurs listes d'appareils et pointent vers les remplacements dans leurs événements.
+
+La vue réelle /ecrans a été observée pendant l'exécution, avec six images affichées distinctes sur neuf relevés du dernier parcours. La comparaison porte sur les pixels affichés, et non sur un simple identifiant. Plein écran, largeur 320 px, absence d'erreur JavaScript, perte de connexion marquée Image figée puis reprise vérifiés. La capture s'arrête après expiration d'une consultation terminée et le serveur refuse l'ancienne image. Les entrées Appareils et détail d'exécution ont été ouvertes réellement. Le journal long est maintenant accessible au clavier.
+
+Validation : **268 tests API et 30 tests frontend réussis**, build de production réussi. Preuves locales dans storage/live-screen-review/, notamment replayed-runs.jsonl, browser-display-checks.json, entry-checks.json et idle-capture-check.json. La migration 009 ne stocke que les demandes temporaires ; les images courantes sont publiées atomiquement dans le volume privé, sans historique vidéo ni nouveau port ADB.

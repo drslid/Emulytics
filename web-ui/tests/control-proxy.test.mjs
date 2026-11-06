@@ -96,3 +96,19 @@ test("monitor stream preserves streaming and aborts with the browser request, wi
   assert.equal(result.headers.get("content-type"),"text/event-stream");assert.equal(result.headers.get("x-accel-buffering"),"no");
   assert.match(await result.text(),/ready/);abort.abort();assert.equal(signal.aborted,true);
 });
+
+test("live device frames stay within the private proxy and preserve observation headers", async () => {
+  const response = await proxyControl(request("console/devices/local-emulator/screen"), ["console","devices","local-emulator","screen"], async (url, options) => {
+    assert.equal(url,"http://api.internal:8010/console/devices/local-emulator/screen?");
+    assert.equal(options.method,"GET");
+    return new Response(new Uint8Array([137,80,78,71]),{headers:{"Content-Type":"image/png","X-Screen-Captured-At":"2026-11-06T17:00:00Z","X-Screen-Age":"0.3","X-Screen-Frame-Id":"aabbcc"}});
+  });
+  assert.equal(response.headers.get("content-type"),"image/png");
+  assert.equal(response.headers.get("x-screen-age"),"0.3");assert.equal(response.headers.get("x-screen-frame-id"),"aabbcc");
+  assert.equal(response.headers.get("cache-control"),"private, no-store");
+  assert.equal((await response.arrayBuffer()).byteLength,4);
+  for (const path of ["console/devices/../screen", "console/devices/local-emulator/screen/../private", "console/devices/local-emulator/adb"]) {
+    assert.equal((await proxyControl(request(path),path.split("/"))).status,404);
+  }
+  assert.equal((await proxyControl(request("console/devices/local-emulator/screen",post()),["console","devices","local-emulator","screen"])).status,404);
+});
