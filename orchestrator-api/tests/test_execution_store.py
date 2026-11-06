@@ -213,7 +213,57 @@ def test_action_proof_is_write_once_and_belongs_to_the_execution(pending, databa
     assert rows(database_dsn, 'SELECT status, evidence FROM action_journal WHERE id = %s', (journal_id,)) == [('done', {'screen': 'first'})]
 
 
-@pytest.mark.parametrize('operation', ['renew', 'before_action', 'finish_action', 'finish'])
+def test_step_progress_publishes_evidence_without_finishing_or_releasing_the_lease(pending, database_dsn):
+    store, run = pending
+    execution_id = run['executions'][0]['id']
+    store.claim(execution_id, 'worker-1', 30)
+    original_lease = rows(database_dsn, 'SELECT owner_id, lease_epoch, execution_id, expires_at FROM device_leases')
+    evidence = {'steps': [{'step_id': 'home', 'screenshot': '/private/first.png', 'duration_ms': 23,
+                           'private_text': 'must not appear in events'}]}
+
+    assert store.save_progress(execution_id, 'worker-1', 1, evidence)
+    assert rows(database_dsn, 'SELECT status, evidence FROM executions') == [('running', evidence)]
+    assert rows(database_dsn, 'SELECT status FROM runs') == [('running',)]
+    assert rows(database_dsn, 'SELECT owner_id, lease_epoch, execution_id, expires_at FROM device_leases') == original_lease
+    assert rows(database_dsn, 'SELECT type, payload FROM run_events ORDER BY sequence DESC LIMIT 1') == [
+        ('execution.step_completed', {'execution_id': str(execution_id), 'lease_epoch': 1, 'step_id': 'home', 'index': 1}),
+    ]
+
+
+@pytest.mark.parametrize('invalid', ['owner', 'epoch', 'expired', 'quarantined', 'terminal'])
+def test_step_progress_rejects_a_stale_or_revoked_owner(pending, database_dsn, invalid):
+    store, run = pending
+    execution_id = run['executions'][0]['id']
+    store.claim(execution_id, 'worker-1', 30)
+    with psycopg.connect(database_dsn) as connection:
+        if invalid == 'expired':
+            connection.execute("UPDATE device_leases SET expires_at = clock_timestamp() - interval '1 second'")
+        elif invalid == 'quarantined':
+            connection.execute('UPDATE device_leases SET quarantined = true')
+        elif invalid == 'terminal':
+            connection.execute("UPDATE executions SET status = 'failed'")
+    events = rows(database_dsn, 'SELECT sequence, type FROM run_events ORDER BY sequence')
+
+    assert not store.save_progress(execution_id, 'other' if invalid == 'owner' else 'worker-1',
+                                   2 if invalid == 'epoch' else 1, {'steps': [{'step_id': 'home'}]})
+    assert rows(database_dsn, 'SELECT evidence FROM executions') == [({},)]
+    assert rows(database_dsn, 'SELECT sequence, type FROM run_events ORDER BY sequence') == events
+
+
+def test_step_progress_preserves_a_completed_proof_after_cancellation_is_requested(pending, database_dsn):
+    store, run = pending
+    execution_id = run['executions'][0]['id']
+    store.claim(execution_id, 'worker-1', 30)
+    store.cancel_run(run['id'])
+    evidence = {'steps': [{'step_id': 'home', 'skipped': True}]}
+
+    assert store.save_progress(execution_id, 'worker-1', 1, evidence)
+    assert store.state(execution_id, 'worker-1', 1)['cancel_requested']
+    assert rows(database_dsn, 'SELECT status, evidence FROM executions') == [('running', evidence)]
+    assert store.finish(execution_id, 'worker-1', 1, 'cancelled', evidence=evidence)
+
+
+@pytest.mark.parametrize('operation', ['renew', 'before_action', 'finish_action', 'save_progress', 'finish'])
 @pytest.mark.parametrize('delay', ['after_lock', 'during_write'])
 def test_owner_writes_rollback_if_lease_expires_during_transaction(pending, database_dsn, monkeypatch, operation, delay):
     store, run = pending
@@ -260,6 +310,8 @@ def test_owner_writes_rollback_if_lease_expires_during_transaction(pending, data
         accepted = store.before_action(execution_id, 'worker-1', 1, 'next', {}, False)
     elif operation == 'finish_action':
         accepted = store.finish_action(execution_id, 'worker-1', 1, journal_id, 'done', {'proof': 'screen'})
+    elif operation == 'save_progress':
+        accepted = store.save_progress(execution_id, 'worker-1', 1, {'steps': [{'step_id': 'home'}]})
     else:
         accepted = store.finish(execution_id, 'worker-1', 1, 'succeeded', evidence={'proof': 'screen'})
 

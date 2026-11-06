@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 import signal
@@ -182,6 +183,37 @@ def test_package_url_and_ui_assertions_produce_artifacts(tmp_path, fake_adb):
     assert evidence["assertion_passed"] is True
     assert Path(evidence["screenshot"]).read_bytes().startswith(b"\x89PNG")
     assert "football" in Path(evidence["ui_xml"]).read_text()
+
+
+def test_capture_timestamp_records_a_valid_png_before_the_xml_observation(tmp_path, fake_adb, monkeypatch):
+    from app import android_driver
+
+    observed = []
+    captured = datetime(2026, 11, 6, 19, 30, tzinfo=timezone.utc)
+    class CaptureClock:
+        @staticmethod
+        def now(tz):
+            assert tz is timezone.utc
+            observed.append('timestamp')
+            return captured
+
+    instance = driver(tmp_path, fake_adb)
+    monkeypatch.setattr(instance, 'check_assertion', lambda assertion: None)
+    def command(args, **kwargs):
+        assert args == ['exec-out', 'screencap', '-p']
+        observed.append('capture')
+        return b'\x89PNG\r\n\x1a\nexample'
+    def xml():
+        observed.append('xml')
+        return UI
+    monkeypatch.setattr(instance, 'command', command)
+    monkeypatch.setattr(instance, 'ui_xml', xml)
+    monkeypatch.setattr(android_driver, 'datetime', CaptureClock, raising=False)
+
+    evidence = instance.execute_step({'id': 'proof', 'action': 'screenshot', 'args': {},
+                                      'assert': {'type': 'package', 'value': 'com.android.chrome'}})
+    assert evidence['captured_at'] == captured.isoformat()
+    assert observed == ['capture', 'timestamp', 'xml']
 
 
 def test_adb_child_dies_when_worker_process_is_killed(tmp_path, fake_adb, monkeypatch):

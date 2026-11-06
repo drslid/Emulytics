@@ -270,6 +270,34 @@ class ExecutionStore(RunStore):
                 return False
             return True
 
+    def save_progress(self, execution_id, owner_id, epoch, evidence):
+        steps = evidence['steps']
+        if not steps:
+            raise ValueError('At least one completed step is required')
+        with self.connect() as connection:
+            locked = self._lock(connection, execution_id)
+            if not self._owns(locked, owner_id, epoch):
+                return False
+            # A cancellation request still permits publishing an already completed step.
+            updated = connection.execute(
+                'UPDATE executions e SET evidence = %s, updated_at = clock_timestamp() WHERE id = %s '
+                'AND EXISTS (SELECT 1 FROM device_leases l WHERE l.execution_id = e.id '
+                'AND l.owner_id = %s AND l.lease_epoch = %s AND l.expires_at > clock_timestamp() '
+                'AND NOT l.quarantined) RETURNING id',
+                (Jsonb(evidence), execution_id, owner_id, epoch),
+            ).fetchone()
+            if updated is None:
+                return False
+            connection.execute('UPDATE runs SET updated_at = clock_timestamp() WHERE id = %s', (locked[1]['id'],))
+            self._event(connection, locked[1]['id'], 'execution.step_completed', {
+                'execution_id': str(execution_id), 'lease_epoch': epoch,
+                'step_id': steps[-1]['step_id'], 'index': len(steps),
+            })
+            if not self._before_deadline(connection, locked[2]['expires_at']):
+                connection.rollback()
+                return False
+            return True
+
     def finish(self, execution_id, owner_id, epoch, status, error=None, evidence=None):
         if status not in TERMINAL:
             raise ValueError('Invalid execution result')

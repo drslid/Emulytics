@@ -194,8 +194,12 @@ class Worker:
                 for step in steps:
                     check(force=True)
                     current["step"] = step
+                    step_started = time.monotonic()
                     evidence = driver.execute_step(step)
-                    results.append({"step_id": step["id"], **evidence})
+                    results.append({"step_id": step["id"], **evidence,
+                                    "duration_ms": round((time.monotonic() - step_started) * 1000)})
+                    if not self.store.save_progress(execution_id, self.owner_id, epoch, {"steps": results}):
+                        raise LeaseLost("Step progress rejected")
                 check(force=True)
                 if not self.store.finish(execution_id, self.owner_id, epoch, "succeeded", evidence={"steps": results}):
                     raise LeaseLost("Execution completion rejected")

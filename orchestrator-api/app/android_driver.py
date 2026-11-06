@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import datetime, timezone
 import math
 import os
 from pathlib import Path
@@ -416,10 +417,12 @@ class AndroidDriver:
         image = self.command(["exec-out", "screencap", "-p"], effect=False, binary=True)
         if not image.startswith(b"\x89PNG\r\n\x1a\n"):
             raise DriverError("Android screenshot did not contain a PNG image")
+        captured_at = datetime.now(timezone.utc).isoformat()
         screenshot.write_bytes(image)
         xml_path = self.artifact_dir / (stem + ".xml")
         xml_path.write_text(self.ui_xml())
-        return {"assertion_passed": True, "skipped": skipped, "screenshot": str(screenshot), "ui_xml": str(xml_path),
+        return {"assertion_passed": True, "skipped": skipped, "captured_at": captured_at,
+                "screenshot": str(screenshot), "ui_xml": str(xml_path),
                 "screenshot_sha256": hashlib.sha256(screenshot.read_bytes()).hexdigest()}
 
     def _tap_alternative(self, selectors: list[dict]) -> None:
