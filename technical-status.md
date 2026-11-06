@@ -353,3 +353,9 @@ API et interface déployées ; quatre groupes navigateur et huit contrôles WCAG
 Le menu utilise désormais quatre palettes : Pilotage bleu, Automatisation violet, Supervision turquoise, Administration ambre. Les variables CSS du groupe pilotent titres, icônes, survol, sélection et focus ; les libellés ordinaires restent neutres. Les contrastes calculés des couleurs de texte dépassent 4,5:1 sur les trois surfaces utilisées. Le rôle courant, les permissions et les traductions restent gérés par les composants existants.
 
 Interface déployée ; 52 tests frontend, build, six groupes navigateur et trois contrôles WCAG passent, avec clavier, Admin/Viewer, mobile et arabe RTL. Les deux comptes de recette sont supprimés. Preuves : `storage/navigation-color-review/`.
+
+### Responsive et Tailwind — 6 novembre 2026
+
+Tailwind 4.3.5 et son plugin PostCSS sont intégrés avec un préfixe `tw:`, sans Preflight. Le cadre utilise ses utilitaires pour passer d’une colonne mobile aux deux colonnes du bureau. Le menu mobile est désormais ouvrable, avec toutes les rubriques autorisées, Échap, retour du focus et fermeture au passage au bureau. Les champs et actions tactiles sont agrandis ; une seule liste défile dans le sélecteur d’appareils au lancement.
+
+Interface déployée ; 52 tests frontend et build réussis. La recette couvre 80 configurations de dix pages, les formulaires, les captures historiques, Admin/Viewer et l’arabe : sept groupes et treize contrôles WCAG distincts passent sans débordement de page ni erreur JavaScript. Aucun parcours Android lancé. Les comptes de recette sont gardés temporairement pour la migration Go demandée dans la même session. Limites et preuves : [revue responsive](docs/responsive-review.md), `storage/responsive-review/`.

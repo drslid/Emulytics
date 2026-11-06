@@ -22,34 +22,8 @@ import { Users, Profile } from "./users";
 import { Screens } from "./screens";
 import { LiveScreen } from "./live-screen";
 import { connectionWorkerHosts } from "../../lib/device-readiness";
+import { ConsoleNavigation } from "./navigation";
 
-const navigation = [
-  {
-    id: "control", label: "Pilotage", items: [
-      { id: "overview", href: "/", label: "Tableau de bord", icon: "overview" as const },
-      { id: "devices", href: "/telephones", label: "Appareils", icon: "phone" as const },
-      { id: "screens", href: "/ecrans", label: "Écrans en direct", icon: "phone" as const }
-    ]
-  },
-  {
-    id: "automation", label: "Automatisation", items: [
-      { id: "workflows", href: "/automatisations", label: "Parcours", icon: "workflow" as const },
-      { id: "activity", href: "/activite", label: "Exécutions", icon: "activity" as const },
-      { id: "schedules", href: "/planifications", label: "Planifications", icon: "clock" as const }
-    ]
-  },
-  {
-    id: "supervision", label: "Supervision", items: [
-      { id: "monitor", href: "/monitoring", label: "Monitoring", icon: "activity" as const },
-      { id: "logs", href: "/journal", label: "Journal", icon: "archive" as const }
-    ]
-  },
-  {
-    id: "administration", label: "Administration", items: [
-      { id: "users", href: "/utilisateurs", label: "Utilisateurs", icon: "users" as const }
-    ]
-  }
-];
 const titles: Record<View, { title: string; subtitle: string }> = {
   overview: { title: "Tableau de bord", subtitle: "Votre flotte et vos automatisations, au même endroit." },
   devices: { title: "Appareils", subtitle: "Sélectionnez les appareils que vous souhaitez piloter." },
@@ -116,24 +90,14 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
     setNotice(t("Exécution enregistrée. Le worker la prendra en charge sur les téléphones ciblés.")); void load();
   }
   const title = titles[view];
-  return <div className="app-shell">
+  return <div className="app-shell tw:block tw:min-h-dvh tw:min-w-0 tw:min-[901px]:grid tw:min-[901px]:grid-cols-[214px_minmax(0,1fr)] tw:min-[1201px]:grid-cols-[236px_minmax(0,1fr)]">
     <a className="skip-link" href="#main-content">{t("Aller au contenu")}</a>
     <aside className="app-sidebar">
       <a className="app-brand" href="/" aria-label={t("Emulytix, tableau de bord")}><BrandMark /><span>Emulytix<span className="brand-caption">{t("Console opérateur")}</span></span></a>
-      <nav className="main-navigation" aria-label={t("Navigation principale")}>
-        {navigation.map((group) => {
-          const items = group.items.filter(item => item.id !== "users" && item.id !== "logs" || can(item.id === "users" ? "users.manage" : "logs.read"));
-          if (!items.length) return null;
-          const labelId = `nav-${group.id}`;
-          return <div key={group.id} className="nav-section" data-theme={group.id} role="group" aria-labelledby={labelId}>
-            <p className="nav-section-title" id={labelId}>{t(group.label)}</p>
-            <div className="nav-section-items">{items.map((item) => <a key={item.id} href={item.href} aria-current={view === item.id ? "page" : undefined} className={view === item.id ? "nav-item nav-item--active" : "nav-item"}><Icon name={item.icon} /><span>{t(item.label)}</span>{item.id === "activity" && !!data?.summary.runs_needs_review && <span className="nav-count">{data.summary.runs_needs_review}</span>}</a>)}</div>
-          </div>;
-        })}
-      </nav>
+      <ConsoleNavigation user={user} view={view} needsReviewCount={data?.summary.runs_needs_review ?? 0} />
       <div className="sidebar-bottom"><a href="/profil" className={view === "profile" ? "nav-item nav-item--active" : "nav-item"} aria-current={view === "profile" ? "page" : undefined}><Icon name="users" /><span>{t("Mon profil")}</span></a><div className="sidebar-account"><span className="avatar">{Array.from(user.display_name || user.username)[0]?.toLocaleUpperCase(locale)}</span><div><strong title={user.display_name || user.username}>{user.display_name || user.username}</strong><span>{t({admin:"Admin",builder:"Builder",operator:"Operator",viewer:"Viewer",auditor:"Auditor"}[user.role])}</span></div><button className="icon-button" onClick={() => void logout()} aria-label={t("Se déconnecter")}><Icon name="logout" size={18} /></button></div></div>
     </aside>
-    <div className="app-main"><header className="topbar"><div><span className="workspace-indicator" />{t("Espace de travail")}<span className="topbar-separator">/</span><strong>{t(title.title)}</strong></div><LanguageSelector /></header>
+    <div className="app-main tw:min-w-0"><header className="topbar"><div><span className="workspace-indicator" />{t("Espace de travail")}<span className="topbar-separator">/</span><strong>{t(title.title)}</strong></div><LanguageSelector /></header>
       <main id="main-content" className="console-content" tabIndex={-1}>
         <div className="page-heading"><div><h1>{t(title.title)}</h1><p>{t(title.subtitle)}</p></div>{dataView && view !== "devices" && view !== "workflows" && view !== "schedules" && view !== "screens" && can("runs.execute") && <button className="button button--primary" disabled={!data} onClick={() => setLaunching({ ids: [] })}><Icon name="plus" size={19} />{t("Lancer une automatisation")}</button>}</div>
         {dataView && <div className="refresh-line"><span className={`connection-dot ${error ? "connection-dot--offline" : ""}`} /><span>{error ? t("Actualisation interrompue · dernières données conservées") : updatedAt ? t("Mis à jour à {time}", { time: new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(updatedAt) }) : t("Connexion au service…")}</span><button className="text-button" disabled={refreshing} onClick={() => void load()}><Icon name="refresh" size={15} />{refreshing ? t("Actualisation…") : t("Actualiser")}</button></div>}

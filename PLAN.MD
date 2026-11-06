@@ -628,3 +628,22 @@ Après déploiement API/interface, quatre groupes de recette navigateur et huit 
 - [x] Vérifier les contrastes calculés, tous supérieurs à 4,5:1, les quatre états sélectionnés, la navigation au clavier, le filtrage Admin/Viewer et les dispositions mobile/RTL.
 
 Interface déployée localement. Validation : 52 tests frontend et build réussis ; six groupes navigateur et trois contrôles WCAG passent en français et arabe, sans erreur JavaScript ni débordement aux largeurs 320/768/1024/1440 px. Les deux comptes temporaires sont supprimés. Preuves : `storage/navigation-color-review/`.
+
+### Responsive et adoption progressive de Tailwind — 6 novembre 2026
+
+- [x] Auditer les pages réelles et distinguer les débordements de page du défilement local des tableaux : 63 configurations initiales sans débordement, avec défauts de lisibilité et d’accès tactile.
+- [x] Intégrer Tailwind 4.3.5 au projet React/Next.js existant, sans reset Preflight, avec classes préfixées et migration du cadre responsive.
+- [x] Remplacer le menu horizontal sous 901 px par un menu ouvrable regroupant toutes les rubriques autorisées, avec Échap, retour du focus, fermeture au redimensionnement et couleurs par thème.
+- [x] Agrandir les actions tactiles à 44 px et les champs à 16 px, conserver la présentation OTP et supprimer le double défilement dans la sélection des appareils au lancement.
+- [x] Vérifier dix pages dans huit configurations, soit 80 relevés, les formulaires, les rôles Admin/Viewer et l’arabe RTL. Sept groupes navigateur et treize contrôles WCAG distincts passent, sans erreur JavaScript ni nouvelle exécution Android soumise. Les contrôles ont fait corriger une grille de menu mobile héritée à quatre colonnes.
+
+Les 52 tests frontend et le build passent pour cette tranche. Les styles non migrés restent en CSS. La recette utilise Chromium avec viewport et tactile simulés ; Safari et un iPhone physique restent à vérifier. Détails et limites : [revue responsive](docs/responsive-review.md). Les comptes temporaires restent disponibles pour la recette de la migration Go engagée dans la même session, puis seront supprimés ensemble.
+
+### Première tranche de migration API vers Go — engagée le 6 novembre 2026
+
+Choix utilisateur : commencer la migration maintenant. Première tranche : lectures du résumé et de la flotte, puis agrégats des graphiques du tableau de bord. L’authentification existante reste l’autorité de session et de droits pendant cette transition ; les lectures métier sont implémentées en Go sur les mêmes données PostgreSQL. Les mutations, le moteur Android et les baux ne sont pas réécrits dans cette tranche.
+
+- [ ] Implémenter les trois lectures Go, leurs contrôles d’accès, contrats JSON, limites et tests.
+- [ ] Brancher le proxy Next.js et le service interne Compose, avec diagnostic et retour vers les lectures Python par configuration pour les deux routes existantes.
+- [ ] Ajouter les graphiques d’activité, résultats et capacité à partir des données réelles.
+- [ ] Comparer les contrats Go/Python, vérifier la révocation et les erreurs puis déployer et retirer les données de recette.

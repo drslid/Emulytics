@@ -1,0 +1,9 @@
+/* No Preflight: preserve the existing controls and layout during migration.
+   https://tailwindcss.com/docs/preflight#disabling-preflight */
+@import "tailwindcss/theme.css" layer(theme) prefix(tw);
+/* Unlayered utilities can override unlayered legacy rules when imported last. */
+@import "tailwindcss/utilities.css" prefix(tw) source(none);
+
+@source ".";
+@source "../components";
+@source "../lib";

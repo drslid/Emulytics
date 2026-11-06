@@ -1,0 +1,17 @@
+/* Keep the fieldset and its search visible; only the device list scrolls. */
+.dialog-form .device-picker:has(> .device-picker-list) { max-height:none; overflow:visible; }
+
+@media(max-width:900px) {
+  .app-sidebar { position:relative; }
+  .app-brand { min-height:44px; padding-block:0; padding-inline-start:8px; padding-inline-end:64px; margin-block-end:8px; }
+  .sidebar-account { padding-block-start:0; margin-block-start:0; }
+}
+
+@media(pointer:coarse) {
+  .app-shell :is(button,a.button,summary),.login-page :is(button,a.button,summary) { min-height:44px; min-width:44px; }
+  .app-shell .nav-item { min-height:44px; }
+  .app-shell :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]):not(.otp-input),
+  .login-page :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]):not(.otp-input) { font-size:16px; }
+  .app-shell .code-editor { font-size:16px!important; }
+  .app-shell .checkbox-label,.login-page .checkbox-label { min-height:44px; }
+}

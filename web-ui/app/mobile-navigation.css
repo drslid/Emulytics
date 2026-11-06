@@ -1,0 +1,13 @@
+.mobile-navigation-trigger { display:none; }
+.console-dialog--navigation { width:min(420px,calc(100vw - 24px)); max-height:calc(100dvh - 24px); }
+.console-dialog--navigation .dialog-header { position:sticky; top:0; z-index:1; background:var(--surface); align-items:center; }
+.console-dialog--navigation .dialog-header .icon-button { width:44px; height:44px; min-width:44px; min-height:44px; }
+.console-dialog--navigation .mobile-navigation-links { overflow:visible; }
+.console-dialog--navigation .nav-section-title { margin:0 16px 8px; font-size:11px; }
+.console-dialog--navigation .nav-section-items { display:grid; gap:4px; }
+.console-dialog--navigation .nav-item { min-height:44px; flex-direction:row; justify-content:flex-start; padding:12px 16px; font-size:14px; border-radius:28px; }
+.console-dialog--navigation .nav-count { display:inline-flex; margin-inline-start:auto; }
+@media(max-width:900px) {
+  .app-sidebar .desktop-navigation { display:none; }
+  .mobile-navigation-trigger { display:inline-flex; position:absolute; top:16px; inset-inline-end:16px; width:44px; height:44px; min-width:44px; min-height:44px; color:var(--text); background:var(--surface); border:1px solid var(--line); }
+}
