@@ -66,7 +66,18 @@ export type Execution = {
   status: string;
   attempt: number;
   error: string | null;
-  evidence: { steps?: { step_id: string; [key: string]: unknown }[] };
+  evidence: {
+    steps?: {
+      step_id: string;
+      assertion_passed?: boolean;
+      skipped?: boolean;
+      screenshot?: string;
+      captured_at?: string;
+      duration_ms?: number;
+      [key: string]: unknown;
+    }[];
+    failed_step?: string | null;
+  };
   lease_epoch: number | null;
 };
 export type RunDetail = Run & { run_id: string; executions: Execution[] };

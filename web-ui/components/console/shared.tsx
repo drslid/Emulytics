@@ -28,7 +28,7 @@ export function date(value: string, locale: Locale = "en", timeZone?: string) {
 export function Empty({ icon = "phone", title, children, action }: { icon?: "phone" | "activity" | "workflow" | "search"; title: string; children: ReactNode; action?: ReactNode }) {
   return <div className="empty-state"><span className="empty-icon"><Icon name={icon} size={28} /></span><h3>{title}</h3><p>{children}</p>{action}</div>;
 }
-export function Dialog({ title, description, children, onClose, wide = false }: { title: string; description?: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
+export function Dialog({ title, description, children, onClose, wide = false, className = "" }: { title: string; description?: string; children: ReactNode; onClose: () => void; wide?: boolean; className?: string }) {
   const t = useT();
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -39,7 +39,7 @@ export function Dialog({ title, description, children, onClose, wide = false }: 
     dialog?.querySelector<HTMLElement>("input:not([type=checkbox]), select, textarea")?.focus();
     return () => { dialog?.close(); trigger?.focus(); };
   }, []);
-  return <dialog ref={ref} className={`console-dialog ${wide ? "console-dialog--wide" : ""}`} aria-labelledby={titleId} onCancel={(event) => { event.preventDefault(); onClose(); }}>
+  return <dialog ref={ref} className={`console-dialog ${wide ? "console-dialog--wide" : ""} ${className}`} aria-labelledby={titleId} onCancel={(event) => { event.preventDefault(); onClose(); }}>
     <div className="dialog-header"><div><h2 id={titleId}>{title}</h2>{description && <p>{description}</p>}</div><button type="button" className="icon-button" aria-label={t("Fermer")} onClick={onClose}><Icon name="close" /></button></div>
     {children}
   </dialog>;
