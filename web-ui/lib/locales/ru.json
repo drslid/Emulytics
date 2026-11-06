@@ -811,5 +811,20 @@
   "Aucun worker actif sur cet hôte": "На этом хосте нет активного рабочего процесса",
   "Aucun signal de worker reçu pour l’hôte {host}.": "От рабочего процесса на хосте {host} не поступало сигналов.",
   "Dernier signal de l’hôte {host} : {time}.": "Последний сигнал от хоста {host}: {time}.",
-  "Les hôtes proposés correspondent aux workers actuellement actifs.": "На предложенных хостах сейчас есть активные рабочие процессы."
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "На предложенных хостах сейчас есть активные рабочие процессы.",
+  "API Go": "API Go",
+  "Activité quotidienne": "Активность по дням",
+  "Aucune exécution terminée sur ces sept jours.": "За эти семь дней нет завершённых запусков.",
+  "Capacité actuelle": "Текущая мощность",
+  "Chargement des graphiques…": "Загрузка графиков…",
+  "Exécutions terminées par jour": "Завершённые запуски по дням",
+  "Fuseau : {timezone}": "Часовой пояс: {timezone}",
+  "Les graphiques comptent les exécutions par appareil ; les indicateurs ci-dessus comptent les lancements.": "Графики учитывают запуски на каждом устройстве; показатели выше учитывают задания.",
+  "Période : {start} – {end}": "Период: {start} – {end}",
+  "Répartition des résultats": "Распределение результатов",
+  "Sept jours calendaires, journée en cours incluse.": "Семь календарных дней, включая текущий день.",
+  "Tendances de votre flotte": "Динамика парка устройств",
+  "Terminées": "Завершено",
+  "Voir les données": "Показать данные",
+  "Workers libres": "Свободные обработчики"
 }

@@ -811,5 +811,20 @@
   "Aucun worker actif sur cet hôte": "Kein aktiver Worker auf diesem Host",
   "Aucun signal de worker reçu pour l’hôte {host}.": "Kein Worker-Signal für Host {host} empfangen.",
   "Dernier signal de l’hôte {host} : {time}.": "Letztes Signal von Host {host}: {time}.",
-  "Les hôtes proposés correspondent aux workers actuellement actifs.": "Auf den vorgeschlagenen Hosts sind derzeit Worker aktiv."
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "Auf den vorgeschlagenen Hosts sind derzeit Worker aktiv.",
+  "API Go": "API Go",
+  "Activité quotidienne": "Tägliche Aktivität",
+  "Aucune exécution terminée sur ces sept jours.": "In diesen sieben Tagen wurden keine Ausführungen abgeschlossen.",
+  "Capacité actuelle": "Aktuelle Kapazität",
+  "Chargement des graphiques…": "Diagramme werden geladen…",
+  "Exécutions terminées par jour": "Abgeschlossene Ausführungen pro Tag",
+  "Fuseau : {timezone}": "Zeitzone: {timezone}",
+  "Les graphiques comptent les exécutions par appareil ; les indicateurs ci-dessus comptent les lancements.": "Die Diagramme zählen Ausführungen pro Gerät; die Kennzahlen darüber zählen gestartete Aufträge.",
+  "Période : {start} – {end}": "Zeitraum: {start} – {end}",
+  "Répartition des résultats": "Ergebnisverteilung",
+  "Sept jours calendaires, journée en cours incluse.": "Sieben Kalendertage einschließlich des laufenden Tages.",
+  "Tendances de votre flotte": "Entwicklung Ihrer Geräteflotte",
+  "Terminées": "Abgeschlossen",
+  "Voir les données": "Daten anzeigen",
+  "Workers libres": "Freie Worker"
 }

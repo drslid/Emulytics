@@ -5,7 +5,7 @@ import { currentSignals, signalIsFresh, streamIsFresh, type MonitorSnapshot, typ
 import { ErrorNotice } from "./shared";
 import { Icon } from "./icons";
 
-const labels = { api: "API de contrôle", scheduler: "Ordonnanceur", worker: "Worker Android" };
+const labels = { api: "API de contrôle", "api-go": "API Go", scheduler: "Ordonnanceur", worker: "Worker Android" };
 const periods = [{ value: "1h", label: "1 heure" }, { value: "24h", label: "24 heures" }, { value: "7d", label: "7 jours" }] as const;
 const outcomes = [
   { key: "succeeded", label: "Réussies", color: "success" }, { key: "failed", label: "Échouées", color: "failure" },

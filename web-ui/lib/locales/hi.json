@@ -811,5 +811,20 @@
   "Aucun worker actif sur cet hôte": "इस होस्ट पर कोई सक्रिय वर्कर नहीं है",
   "Aucun signal de worker reçu pour l’hôte {host}.": "होस्ट {host} से वर्कर का कोई हार्टबीट नहीं मिला।",
   "Dernier signal de l’hôte {host} : {time}.": "होस्ट {host} का आखिरी हार्टबीट: {time}।",
-  "Les hôtes proposés correspondent aux workers actuellement actifs.": "सुझाए गए होस्ट पर अभी सक्रिय वर्कर हैं।"
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "सुझाए गए होस्ट पर अभी सक्रिय वर्कर हैं।",
+  "API Go": "API Go",
+  "Activité quotidienne": "दैनिक गतिविधि",
+  "Aucune exécution terminée sur ces sept jours.": "इन सात दिनों में कोई निष्पादन पूरा नहीं हुआ।",
+  "Capacité actuelle": "वर्तमान क्षमता",
+  "Chargement des graphiques…": "चार्ट लोड हो रहे हैं…",
+  "Exécutions terminées par jour": "हर दिन पूरे हुए निष्पादन",
+  "Fuseau : {timezone}": "समय क्षेत्र: {timezone}",
+  "Les graphiques comptent les exécutions par appareil ; les indicateurs ci-dessus comptent les lancements.": "चार्ट हर डिवाइस के निष्पादन गिनते हैं; ऊपर के संकेतक रन गिनते हैं।",
+  "Période : {start} – {end}": "अवधि: {start} – {end}",
+  "Répartition des résultats": "परिणामों का वितरण",
+  "Sept jours calendaires, journée en cours incluse.": "आज सहित सात कैलेंडर दिन।",
+  "Tendances de votre flotte": "आपके डिवाइस समूह के रुझान",
+  "Terminées": "पूरे हुए",
+  "Voir les données": "डेटा देखें",
+  "Workers libres": "खाली वर्कर"
 }

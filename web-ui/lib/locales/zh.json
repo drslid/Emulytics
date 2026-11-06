@@ -811,5 +811,20 @@
   "Aucun worker actif sur cet hôte": "此主机上没有运行中的工作进程",
   "Aucun signal de worker reçu pour l’hôte {host}.": "尚未收到主机 {host} 上工作进程的心跳信号。",
   "Dernier signal de l’hôte {host} : {time}.": "主机 {host} 的最近心跳：{time}。",
-  "Les hôtes proposés correspondent aux workers actuellement actifs.": "建议的主机均有当前运行中的工作进程。"
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "建议的主机均有当前运行中的工作进程。",
+  "API Go": "API Go",
+  "Activité quotidienne": "每日活动",
+  "Aucune exécution terminée sur ces sept jours.": "这七天内没有已完成的运行。",
+  "Capacité actuelle": "当前容量",
+  "Chargement des graphiques…": "正在加载图表…",
+  "Exécutions terminées par jour": "每日完成的运行次数",
+  "Fuseau : {timezone}": "时区：{timezone}",
+  "Les graphiques comptent les exécutions par appareil ; les indicateurs ci-dessus comptent les lancements.": "图表按设备统计运行次数；上方指标按运行批次统计。",
+  "Période : {start} – {end}": "时间范围：{start} – {end}",
+  "Répartition des résultats": "结果分布",
+  "Sept jours calendaires, journée en cours incluse.": "七个日历日，包含尚未结束的今天。",
+  "Tendances de votre flotte": "设备群趋势",
+  "Terminées": "已完成",
+  "Voir les données": "查看数据",
+  "Workers libres": "空闲工作进程"
 }

@@ -811,5 +811,20 @@
   "Aucun worker actif sur cet hôte": "No active worker on this host",
   "Aucun signal de worker reçu pour l’hôte {host}.": "No worker heartbeat received for host {host}.",
   "Dernier signal de l’hôte {host} : {time}.": "Last heartbeat from host {host}: {time}.",
-  "Les hôtes proposés correspondent aux workers actuellement actifs.": "Suggested hosts have active workers."
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "Suggested hosts have active workers.",
+  "API Go": "API Go",
+  "Activité quotidienne": "Daily activity",
+  "Aucune exécution terminée sur ces sept jours.": "No executions finished during these seven days.",
+  "Capacité actuelle": "Current capacity",
+  "Chargement des graphiques…": "Loading charts…",
+  "Exécutions terminées par jour": "Finished executions per day",
+  "Fuseau : {timezone}": "Time zone: {timezone}",
+  "Les graphiques comptent les exécutions par appareil ; les indicateurs ci-dessus comptent les lancements.": "Charts count per-device executions; the indicators above count runs.",
+  "Période : {start} – {end}": "Period: {start} – {end}",
+  "Répartition des résultats": "Outcome breakdown",
+  "Sept jours calendaires, journée en cours incluse.": "Seven calendar days, including today.",
+  "Tendances de votre flotte": "Fleet trends",
+  "Terminées": "Finished",
+  "Voir les données": "View data",
+  "Workers libres": "Idle workers"
 }

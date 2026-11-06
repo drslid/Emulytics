@@ -1,7 +1,7 @@
 /* Keep the fieldset and its search visible; only the device list scrolls. */
 .dialog-form .device-picker:has(> .device-picker-list) { max-height:none; overflow:visible; }
 
-@media(max-width:900px) {
+@media(width < 901px) {
   .app-sidebar { position:relative; }
   .app-brand { min-height:44px; padding-block:0; padding-inline-start:8px; padding-inline-end:64px; margin-block-end:8px; }
   .sidebar-account { padding-block-start:0; margin-block-start:0; }

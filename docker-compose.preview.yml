@@ -7,6 +7,7 @@ services:
     environment:
       EMULYTIX_VALIDATION_DIR: /validation-evidence
       EMULYTIX_API_INTERNAL_URL: http://console-api:8010
+      EMULYTIX_GO_API_INTERNAL_URL: ${EMULYTIX_GO_API_INTERNAL_URL-http://console-go-api:8020}
       EMULYTIX_PUBLIC_ORIGIN: ${EMULYTIX_PUBLIC_ORIGIN:-http://localhost:3100}
       NEXT_TELEMETRY_DISABLED: "1"
     ports:
@@ -15,6 +16,8 @@ services:
       - ./storage/wf01-worker:/validation-evidence:ro
     depends_on:
       console-api:
+        condition: service_healthy
+      console-go-api:
         condition: service_healthy
 
   console-postgres:
@@ -58,6 +61,29 @@ services:
       timeout: 3s
       retries: 20
     depends_on:
+      console-postgres:
+        condition: service_healthy
+
+  console-go-api:
+    build:
+      context: ./console-api-go
+    restart: unless-stopped
+    environment:
+      EMULYTIX_DATABASE_URL: ${EMULYTIX_DATABASE_URL:?Run scripts/start-console.sh first}
+      EMULYTIX_AUTH_INTERNAL_URL: http://console-api:8010
+      EMULYTIX_PUBLIC_ORIGIN: ${EMULYTIX_PUBLIC_ORIGIN:-http://localhost:3100}
+      EMULYTIX_TELEMETRY_ENABLED: "true"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ["CMD", "/console-api-go", "--healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    depends_on:
+      console-api:
+        condition: service_healthy
       console-postgres:
         condition: service_healthy
 

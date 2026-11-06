@@ -13,6 +13,123 @@ function post(body = "{}", origin = "http://localhost:3100") {
   return { method: "POST", body, headers: { Origin: origin, "Content-Type": "application/json", "X-Emulytix-Client": "console" } };
 }
 
+async function withGoBackend(base, run) {
+  const previous = process.env.EMULYTIX_GO_API_INTERNAL_URL;
+  if (base === undefined) delete process.env.EMULYTIX_GO_API_INTERNAL_URL;
+  else process.env.EMULYTIX_GO_API_INTERNAL_URL = base;
+  try { await run(); }
+  finally {
+    if (previous === undefined) delete process.env.EMULYTIX_GO_API_INTERNAL_URL;
+    else process.env.EMULYTIX_GO_API_INTERNAL_URL = previous;
+  }
+}
+
+test("only exact migrated dashboard reads use the optional Go backend with restricted credentials and queries", async () => {
+  await withGoBackend("http://go.internal:8020/", async () => {
+    for (const endpoint of ["summary", "fleet", "dashboard"]) {
+      const result = await proxyControl(request(`console/${endpoint}?limit=10&offset=20&secret=discard`, { headers: {
+        Cookie:"other=private; emulytix_session=session_value; emulytix_challenge=challenge_value",
+        Authorization:"Bearer must-not-forward", "X-User":"admin", "X-Emulytix-Backend":"go"
+      } }), ["console",endpoint], async (url, options) => {
+        assert.equal(url, `http://go.internal:8020/console/${endpoint}?limit=10&offset=20`);
+        assert.equal(options.method,"GET");
+        assert.equal(options.headers.get("cookie"),"emulytix_session=session_value; emulytix_challenge=challenge_value");
+        for (const header of ["Authorization","X-User","X-Emulytix-Backend"]) assert.equal(options.headers.get(header),null);
+        assert.equal(options.redirect,"error");
+        return Response.json({ok:true},{headers:{"X-Emulytix-Backend":"go"}});
+      });
+      assert.equal(result.status,200);
+      assert.equal(result.headers.get("X-Emulytix-Backend"),"go");
+      assert.equal(result.headers.get("cache-control"),"private, no-store");
+    }
+  });
+});
+
+test("migrated dashboard reads retain the Python backend when Go is not configured", async () => {
+  await withGoBackend(undefined, async () => {
+    for (const endpoint of ["summary","fleet","dashboard"]) {
+      const result=await proxyControl(request(`console/${endpoint}`),["console",endpoint],async(url)=>{
+        assert.equal(url,`http://api.internal:8010/console/${endpoint}?`);
+        return Response.json({ok:true},{headers:{"X-Emulytix-Backend":"go"}});
+      });
+      assert.equal(result.status,200);
+      assert.equal(result.headers.get("X-Emulytix-Backend"),null);
+    }
+  });
+});
+
+test("a configured Go failure returns the existing sanitized error without falling back to Python", async () => {
+  await withGoBackend("http://go.internal:8020", async () => {
+    for (const path of ["console/fleet","console/summary","console/dashboard"]) {
+      for(const fail of [()=>new Response("private database configuration",{status:503,headers:{"X-Emulytix-Backend":"go"}}),()=>{throw new Error("private internal address");}]) {
+        const calls=[];
+        const result=await proxyControl(request(path),path.split("/"),async(url)=>{calls.push(url);return fail();});
+        assert.deepEqual(calls,[`http://go.internal:8020/${path}?`]);
+        assert.equal(result.status,503);
+        assert.equal(result.headers.get("X-Emulytix-Backend"),null);
+        assert.doesNotMatch(await result.text(),/private|database|internal/);
+      }
+    }
+  });
+});
+
+test("all other reads and authorized mutations stay on Python and cannot claim the Go response marker", async () => {
+  await withGoBackend("http://go.internal:8020", async () => {
+    for(const [path,options] of [["auth/me",{}],["devices",{}],["console/monitor",{}],["console/recipes",{}],["console/recipes/from-workflow",post()],["devices",post()]]) {
+      const result=await proxyControl(request(path,options),path.split("/"),async(url,upstream)=>{
+        assert.equal(url,`http://api.internal:8010/${path}?`);
+        assert.equal(upstream.method,options.method??"GET");
+        return Response.json({ok:true},{headers:{"X-Emulytix-Backend":"go"}});
+      });
+      assert.equal(result.status,200);
+      assert.equal(result.headers.get("X-Emulytix-Backend"),null);
+    }
+  });
+});
+
+test("Go routing cannot widen the method, segment or mutation-origin allowlists", async () => {
+  await withGoBackend("http://go.internal:8020", async () => {
+    const never=async()=>{assert.fail("Rejected requests must not contact any backend");};
+    for(const [path,options,segments] of [
+      ["console/fleet/extra",{},["console","fleet","extra"]],
+      ["console/summary",{},["console/summary"]],
+      ["console/summary",post(),["console","summary"]],
+      ["console/fleet",{method:"HEAD"},["console","fleet"]],
+      ["console/fleet",{...post(),method:"PATCH"},["console","fleet"]],
+      ["console/dashboard/extra",{},["console","dashboard","extra"]],
+      ["console/dashboard",post(),["console","dashboard"]]
+    ]) assert.equal((await proxyControl(request(path,options),segments,never)).status,404);
+    assert.equal((await proxyControl(request("devices",post("{}","https://invalid.test")),["devices"],never)).status,403);
+  });
+});
+
+test("the dashboard timezone is forwarded only on its exact read route", async () => {
+  await withGoBackend("http://go.internal:8020",async()=>{
+    for(const path of ["console/dashboard","console/summary","console/fleet","console/monitor"]){
+      const result=await proxyControl(request(path+"?timezone=Europe%2FParis&window=7d&secret=discard"),path.split("/"),async(url)=>{
+        const upstream=new URL(url);
+        assert.equal(upstream.origin,path==="console/monitor"?"http://api.internal:8010":"http://go.internal:8020");
+        assert.equal(upstream.searchParams.get("timezone"),path==="console/dashboard"?"Europe/Paris":null);
+        assert.equal(upstream.searchParams.get("window"),"7d");
+        assert.equal(upstream.searchParams.has("secret"),false);
+        return Response.json({ok:true});
+      });assert.equal(result.status,200);
+    }
+  });
+});
+
+test("the Go response marker is accepted only as the exact upstream value on a migrated route", async () => {
+  await withGoBackend("http://go.internal:8020", async () => {
+    for(const marker of [null,"Go","go, python","python"]) {
+      const result=await proxyControl(request("console/fleet"),["console","fleet"],async()=>Response.json({}, {headers:marker?{"X-Emulytix-Backend":marker}:{}}));
+      assert.equal(result.headers.get("X-Emulytix-Backend"),null);
+    }
+    const unauthorized=await proxyControl(request("console/summary"),["console","summary"],async()=>Response.json({detail:"Authentication required"},{status:401,headers:{"X-Emulytix-Backend":"go"}}));
+    assert.equal(unauthorized.status,401);
+    assert.equal(unauthorized.headers.get("X-Emulytix-Backend"),"go");
+  });
+});
+
 test("browser proxy cannot become a general backend or URL proxy", async () => {
   for (const path of ["sessions", "auth/admin", "../health", "https://evil.test", "runs/no-such-run", "devices/anything"]) {
     const response = await proxyControl(request(path), path.split("/"), () => { throw new Error("must not send"); });

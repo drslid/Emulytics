@@ -94,7 +94,10 @@ L'acceptation S1 couvre le démarrage, les tâches de fond et les fallbacks : in
 
 ```mermaid
 flowchart LR
-    UI[Console opérateur Next.js] --> API[API FastAPI et événements SSE]
+    UI[Console React / Next.js / Tailwind] --> GoAPI[API Go : migration progressive]
+    UI --> API[FastAPI : domaines restants et SSE]
+    GoAPI -->|Sessions et droits pendant la transition| API
+    GoAPI --> DB[(PostgreSQL)]
     API --> DB[(PostgreSQL)]
     Scheduler[Scheduler] --> DB
     Scheduler --> Worker[Worker par exécution active]
@@ -118,7 +121,7 @@ flowchart LR
 | Passerelle vision | Détenir les identifiants providers, réguler les appels, imposer les budgets et normaliser les réponses |
 | Stockage et supervision | Protéger les artefacts, appliquer la rétention, corréler logs et métriques |
 
-Réutiliser FastAPI, Next.js, les fonctions APK et le viewport configurable. Introduire progressivement les composants nécessaires. Le choix de la file PostgreSQL évite d'ajouter un broker avant qu'un besoin mesuré le justifie.
+Conserver Next.js/React et adopter Tailwind par composant. Migrer progressivement les contrats HTTP vers Go ; FastAPI conserve les domaines non transférés et l’autorité d’authentification pendant la transition. Les fonctions APK et le viewport configurable restent réutilisés. La file PostgreSQL évite d’ajouter un broker avant qu’un besoin mesuré le justifie.
 
 Topologie initiale : le scheduler est central et déclenche les workers sur l'hôte propriétaire du device. Le watchdog supervise ainsi des processus locaux et leurs descendants. L'agent hôte reste l'autorité finale d'envoi. Un éventuel worker distant doit déléguer à un exécutant local soumis aux mêmes règles ; son arrêt distant ne prouve pas la neutralisation du device.
 
@@ -637,13 +640,29 @@ Interface déployée localement. Validation : 52 tests frontend et build réussi
 - [x] Agrandir les actions tactiles à 44 px et les champs à 16 px, conserver la présentation OTP et supprimer le double défilement dans la sélection des appareils au lancement.
 - [x] Vérifier dix pages dans huit configurations, soit 80 relevés, les formulaires, les rôles Admin/Viewer et l’arabe RTL. Sept groupes navigateur et treize contrôles WCAG distincts passent, sans erreur JavaScript ni nouvelle exécution Android soumise. Les contrôles ont fait corriger une grille de menu mobile héritée à quatre colonnes.
 
-Les 52 tests frontend et le build passent pour cette tranche. Les styles non migrés restent en CSS. La recette utilise Chromium avec viewport et tactile simulés ; Safari et un iPhone physique restent à vérifier. Détails et limites : [revue responsive](docs/responsive-review.md). Les comptes temporaires restent disponibles pour la recette de la migration Go engagée dans la même session, puis seront supprimés ensemble.
+Les 52 tests frontend et le build passent pour cette tranche. Les styles non migrés restent en CSS. La recette utilise Chromium avec viewport et tactile simulés ; un contrôle WebKit vérifie aussi les graphiques, le menu et les champs. Un iPhone physique reste à vérifier. Détails et limites : [revue responsive](docs/responsive-review.md). Les deux comptes temporaires et leurs sessions ont été retirés après la recette Go et graphiques de la même session.
 
-### Première tranche de migration API vers Go — engagée le 6 novembre 2026
+### Première tranche de migration API vers Go — livrée le 6 novembre 2026
 
 Choix utilisateur : commencer la migration maintenant. Première tranche : lectures du résumé et de la flotte, puis agrégats des graphiques du tableau de bord. L’authentification existante reste l’autorité de session et de droits pendant cette transition ; les lectures métier sont implémentées en Go sur les mêmes données PostgreSQL. Les mutations, le moteur Android et les baux ne sont pas réécrits dans cette tranche.
 
-- [ ] Implémenter les trois lectures Go, leurs contrôles d’accès, contrats JSON, limites et tests.
-- [ ] Brancher le proxy Next.js et le service interne Compose, avec diagnostic et retour vers les lectures Python par configuration pour les deux routes existantes.
-- [ ] Ajouter les graphiques d’activité, résultats et capacité à partir des données réelles.
-- [ ] Comparer les contrats Go/Python, vérifier la révocation et les erreurs puis déployer et retirer les données de recette.
+- [x] Implémenter les trois lectures Go, leurs contrôles d’accès, contrats JSON, limites et tests.
+- [x] Brancher le proxy Next.js et le service interne Compose, avec diagnostic et retour vers les lectures Python par configuration pour les deux routes existantes.
+- [x] Ajouter les graphiques d’activité, résultats et capacité à partir des données réelles.
+- [x] Comparer les contrats Go/Python, vérifier la révocation et les erreurs puis déployer et retirer les données de recette.
+
+Routes Go actives : `GET /console/summary`, `GET /console/fleet`, `GET /console/dashboard?timezone=…`. Le service lit PostgreSQL directement, conserve les tableaux vides/champs nuls/timestamps du contrat observé et vérifie chaque session et permission via l’autorité existante. Il n’accepte pas le Bearer de contrôle comme identité de navigateur. Il reste privé, non privilégié et sans clé 2FA ; son heartbeat apparaît dans Monitoring.
+
+Validation : **19 tests Go principaux**, dont les sous-cas HTTP, `go test -race`, `go vet`, **64 tests frontend**, TypeScript et builds réussis. Cinq groupes de comparaison réelle couvrent les accès, la pagination, la flotte, le résumé et les agrégats SQL dans cinq fuseaux. Une révocation de session devient immédiatement effective sur les trois lectures. La revue indépendante a reproduit puis fait corriger le cas des transitions à minuit ; les régressions couvrent Santiago, La Havane, Apia et les transitions américaines. Aucune donnée historique ni protection de bail n’est réécrite. Détails : [revue de stack](docs/architecture-stack-review.md). Preuves : `storage/go-api-review/`.
+
+### Graphiques du tableau de bord — 6 novembre 2026
+
+- [x] Afficher l’activité quotidienne sur sept dates civiles dans le fuseau du navigateur, avec les jours vides, totaux et tableau accessible ; compter toutes les fins connues, sans échantillon limité aux cent derniers lancements.
+- [x] Afficher la répartition des réussites, échecs, annulations et cas à vérifier ; ne pas transformer cette répartition en taux de réussite trompeur.
+- [x] Montrer séparément les emplacements workers occupés/libres et les appareils prêts/connectés/déclarés ; signaler les connexions non confirmées.
+- [x] Actualiser toutes les dix secondes en premier plan, suspendre en arrière-plan, conserver les valeurs périmées en cas d’erreur et permettre une nouvelle tentative. Distinguer vraie absence d’activité, chargement et mesure inconnue.
+- [x] Vérifier les nombres réels et le marqueur du backend Go, les erreurs simulées uniquement dans le navigateur, le retour au premier plan, les données nulles/vides, le mobile et les langues française, allemande et arabe.
+
+Sept groupes navigateur et six contrôles WCAG passent, sans erreur JavaScript ni débordement. Le contrôle WebKit inclut également le tableau de bord. Les deux comptes de recette, cookies et sessions ont été retirés ; les dix états d’exécution préexistants restent inchangés. Aucun nouveau parcours Android lancé. Preuves : `storage/dashboard-review/`.
+
+Lors de cette recette, le banc Android a été trouvé arrêté avec le code 255 après un redémarrage des services, sans règle de redémarrage Docker. Le conteneur existant identifié `wf01` a été relancé après vérification qu’aucune exécution n’était en attente ou active. Android est démarré et connecté ; `unless-stopped` est appliqué au banc courant et aux créations futures pour conserver la reprise après redémarrage Docker. Aucun appareil déclaré n’est réaffecté.

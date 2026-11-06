@@ -811,5 +811,20 @@
   "Aucun worker actif sur cet hôte": "No hay ningún worker activo en este host",
   "Aucun signal de worker reçu pour l’hôte {host}.": "No se ha recibido ninguna señal del worker del host {host}.",
   "Dernier signal de l’hôte {host} : {time}.": "Última señal del host {host}: {time}.",
-  "Les hôtes proposés correspondent aux workers actuellement actifs.": "Los hosts sugeridos tienen workers activos actualmente."
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "Los hosts sugeridos tienen workers activos actualmente.",
+  "API Go": "API Go",
+  "Activité quotidienne": "Actividad diaria",
+  "Aucune exécution terminée sur ces sept jours.": "No se completó ninguna ejecución durante estos siete días.",
+  "Capacité actuelle": "Capacidad actual",
+  "Chargement des graphiques…": "Cargando gráficos…",
+  "Exécutions terminées par jour": "Ejecuciones finalizadas por día",
+  "Fuseau : {timezone}": "Zona horaria: {timezone}",
+  "Les graphiques comptent les exécutions par appareil ; les indicateurs ci-dessus comptent les lancements.": "Los gráficos cuentan las ejecuciones por dispositivo; los indicadores superiores cuentan los lanzamientos.",
+  "Période : {start} – {end}": "Período: {start} – {end}",
+  "Répartition des résultats": "Distribución de resultados",
+  "Sept jours calendaires, journée en cours incluse.": "Siete días naturales, incluido el día en curso.",
+  "Tendances de votre flotte": "Tendencias de tu flota",
+  "Terminées": "Finalizadas",
+  "Voir les données": "Ver datos",
+  "Workers libres": "Workers libres"
 }

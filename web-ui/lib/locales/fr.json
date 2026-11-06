@@ -811,5 +811,20 @@
   "Aucun worker actif sur cet hôte": "Aucun worker actif sur cet hôte",
   "Aucun signal de worker reçu pour l’hôte {host}.": "Aucun signal de worker reçu pour l’hôte {host}.",
   "Dernier signal de l’hôte {host} : {time}.": "Dernier signal de l’hôte {host} : {time}.",
-  "Les hôtes proposés correspondent aux workers actuellement actifs.": "Les hôtes proposés correspondent aux workers actuellement actifs."
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "Les hôtes proposés correspondent aux workers actuellement actifs.",
+  "API Go": "API Go",
+  "Activité quotidienne": "Activité quotidienne",
+  "Aucune exécution terminée sur ces sept jours.": "Aucune exécution terminée sur ces sept jours.",
+  "Capacité actuelle": "Capacité actuelle",
+  "Chargement des graphiques…": "Chargement des graphiques…",
+  "Exécutions terminées par jour": "Exécutions terminées par jour",
+  "Fuseau : {timezone}": "Fuseau : {timezone}",
+  "Les graphiques comptent les exécutions par appareil ; les indicateurs ci-dessus comptent les lancements.": "Les graphiques comptent les exécutions par appareil ; les indicateurs ci-dessus comptent les lancements.",
+  "Période : {start} – {end}": "Période : {start} – {end}",
+  "Répartition des résultats": "Répartition des résultats",
+  "Sept jours calendaires, journée en cours incluse.": "Sept jours calendaires, journée en cours incluse.",
+  "Tendances de votre flotte": "Tendances de votre flotte",
+  "Terminées": "Terminées",
+  "Voir les données": "Voir les données",
+  "Workers libres": "Workers libres"
 }

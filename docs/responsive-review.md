@@ -29,4 +29,4 @@ Tailwind 4 cible les navigateurs récents : Chrome 111+, Safari 16.4+ et Firefox
 
 Les preuves locales sont conservées dans `storage/responsive-review/` : relevés initiaux, captures avant/après, recette des pages et formulaires, navigation mobile et contrôles WCAG automatisés. La recette utilise des comptes temporaires, les parcours et captures déjà présents ; elle ne soumet aucune nouvelle exécution Android.
 
-Les essais Chromium utilisent de vraies pages et sessions avec simulation de viewport, de tactile et de pointeur. Ils ne remplacent pas une recette sur un iPhone physique et Safari. La préparation de l’API Go et l’analyse de la file PostgreSQL sont séparées dans [la revue de stack](architecture-stack-review.md).
+Les essais Chromium utilisent de vraies pages et sessions avec simulation de viewport, de tactile et de pointeur. Un contrôle WebKit vérifie également les graphiques, le menu, le retour du focus et la taille des champs. Ils ne remplacent pas une recette sur un iPhone physique et Safari. La migration de l’API Go et l’analyse de la file PostgreSQL sont séparées dans [la revue de stack](architecture-stack-review.md).

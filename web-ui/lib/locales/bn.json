@@ -811,5 +811,20 @@
   "Aucun worker actif sur cet hôte": "এই হোস্টে কোনো সক্রিয় ওয়ার্কার নেই",
   "Aucun signal de worker reçu pour l’hôte {host}.": "হোস্ট {host} থেকে ওয়ার্কারের কোনো হার্টবিট পাওয়া যায়নি।",
   "Dernier signal de l’hôte {host} : {time}.": "হোস্ট {host} থেকে শেষ হার্টবিট: {time}।",
-  "Les hôtes proposés correspondent aux workers actuellement actifs.": "প্রস্তাবিত হোস্টগুলোতে বর্তমানে সক্রিয় ওয়ার্কার রয়েছে।"
+  "Les hôtes proposés correspondent aux workers actuellement actifs.": "প্রস্তাবিত হোস্টগুলোতে বর্তমানে সক্রিয় ওয়ার্কার রয়েছে।",
+  "API Go": "API Go",
+  "Activité quotidienne": "দৈনিক কার্যকলাপ",
+  "Aucune exécution terminée sur ces sept jours.": "এই সাত দিনে কোনো চালনা সম্পন্ন হয়নি।",
+  "Capacité actuelle": "বর্তমান সক্ষমতা",
+  "Chargement des graphiques…": "চার্ট লোড হচ্ছে…",
+  "Exécutions terminées par jour": "প্রতিদিন সম্পন্ন চালনা",
+  "Fuseau : {timezone}": "সময় অঞ্চল: {timezone}",
+  "Les graphiques comptent les exécutions par appareil ; les indicateurs ci-dessus comptent les lancements.": "চার্টে প্রতিটি ডিভাইসের চালনা গণনা করা হয়; উপরের সূচকে চালনার অনুরোধ গণনা করা হয়।",
+  "Période : {start} – {end}": "সময়কাল: {start} – {end}",
+  "Répartition des résultats": "ফলাফলের বণ্টন",
+  "Sept jours calendaires, journée en cours incluse.": "চলতি দিনসহ সাতটি ক্যালেন্ডার দিন।",
+  "Tendances de votre flotte": "আপনার ডিভাইস বহরের প্রবণতা",
+  "Terminées": "সম্পন্ন",
+  "Voir les données": "ডেটা দেখুন",
+  "Workers libres": "খালি ওয়ার্কার"
 }

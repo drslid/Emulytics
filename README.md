@@ -8,7 +8,7 @@ Console de pilotage d’une flotte d’appareils mobiles : téléphones, automat
 scripts/start-console.sh
 ```
 
-Ouvrir **http://localhost:3100**. Le script crée `.env.console` avec des secrets aléatoires si ce fichier n’existe pas, démarre PostgreSQL privé, applique les migrations, construit l’API, l’ordonnanceur et le frontend, puis publie WF01 dans le catalogue. Sur une installation vierge, il prépare aussi le compte `admin` et un mot de passe temporaire unique. Les secrets de configuration et le mot de passe initial ne sont pas régénérés lors d’un redémarrage.
+Ouvrir **http://localhost:3100**. Le script crée `.env.console` avec des secrets aléatoires si ce fichier n’existe pas, démarre PostgreSQL privé, applique les migrations, construit les services API Python/Go, l’ordonnanceur et le frontend, puis publie WF01 dans le catalogue. Sur une installation vierge, il prépare aussi le compte `admin` et un mot de passe temporaire unique. Les secrets de configuration et le mot de passe initial ne sont pas régénérés lors d’un redémarrage.
 
 La stack utilise le projet Compose `emulytix-preview`, ses propres conteneurs et son volume PostgreSQL. Aucun service MobileAgent sur les ports 8080/8443 n’est modifié. Seul le frontend publie un port, limité à `127.0.0.1:3100` ; API et base restent privées. Aucun socket Docker ni accès direct ADB n’est donné à l’API de la console.
 
@@ -47,7 +47,7 @@ Cette commande révoque les sessions et les codes précédents et impose un nouv
 
 ### Utiliser la console
 
-- **Tableau de bord** : synthèse du parc, activités récentes et situations à vérifier.
+- **Tableau de bord** : synthèse du parc, histogramme d’activité quotidienne sur sept jours calendaires dans le fuseau du navigateur, répartition des résultats et capacité actuelle. Les graphiques comptent les exécutions par appareil ; les indicateurs du haut comptent les lancements. Les effectifs et le tableau de données restent accessibles, avec signalement des mesures périmées et des connexions non confirmées.
 - **Appareils** : ajout indépendant d'un téléphone physique ou d'un émulateur Android. Le nom accepte les espaces ; l'identifiant est préparé automatiquement. Une déclaration ne prouve aucune connexion.
 - **Écrans en direct** : véritable écran Android actualisé environ une fois par seconde, avec plein écran et indication d’image figée. Accessible aussi depuis Appareils et le détail d’une exécution.
 - **Parcours** : instructions, étapes visuelles ou JSON avancé, modèles, brouillons et versions publiées immuables. « Modifier les étapes » ouvre le brouillon courant, y compris pour le parcours Wikipédia fourni : modifier les paramètres et vérifications, ajouter, dupliquer, déplacer ou supprimer une étape, puis « Enregistrer le brouillon » et « Publier » pour créer la version suivante. Les anciennes exécutions et planifications conservent leur version.
@@ -141,9 +141,12 @@ Le navigateur passe par `/api/control/*`, sans jeton Bearer de service. Les page
 
 - `web-ui` : console Next.js, formulaires de connexion/2FA et BFF de même origine.
 - `orchestrator-api` : API FastAPI, authentification, catalogue, stockage PostgreSQL et worker Android.
+- `console-api-go` : premières lectures HTTP migrées vers Go : résumé, flotte et agrégats du tableau de bord ; authentification déléguée à l’autorité de session existante.
 - `workflows` : versions exécutables des parcours déterministes.
 - `android-runtime` : banc émulateur et wrapper de runtime.
 - `agent-service` : ancien planificateur conversationnel, non requis par la console déterministe.
+
+La [revue de stack](docs/architecture-stack-review.md) décrit cette migration et la file PostgreSQL existante. Les formulaires et mutations restent sur leurs services actuels ; la migration Go ne modifie pas les comptes, versions de parcours ou baux du worker. La [revue responsive](docs/responsive-review.md) décrit l’adoption progressive de Tailwind et la compatibilité navigateur.
 
 ## Développement et vérification
 

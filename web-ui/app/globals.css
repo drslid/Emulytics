@@ -283,7 +283,7 @@ hr { border:0; border-top:1px solid var(--line); margin:28px 0; }
  .app-sidebar { padding-left:10px; padding-right:10px; } .console-content { padding:28px; } .topbar { padding-left:28px; padding-right:28px; }
  .metric { padding:20px 16px; } .metric-label { font-size:11px; } .page-heading { align-items:flex-start; } .page-heading>.button { max-width:190px; flex-shrink:0; } .login-card { gap:40px; padding:40px; }
 }
-@media(max-width:900px) {
+@media(width < 901px) {
  .app-sidebar { position:static; height:auto; padding:16px 16px 8px; border-bottom:1px solid var(--line); } .app-brand { padding:0 8px 20px; font-size:21px; } .brand-caption { font-size:10px; }
  .main-navigation { grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; } .nav-item { justify-content:center; padding:10px 8px; font-size:12px; gap:8px; } .nav-count { display:none; }
  .sidebar-bottom { padding:8px 0 0; display:flex; align-items:center; gap:8px; } .sidebar-bottom>.nav-item { padding:8px; min-height:36px; font-size:10px; } .sidebar-bottom>.nav-item svg { width:15px; }
@@ -377,5 +377,5 @@ hr { border:0; border-top:1px solid var(--line); margin:28px 0; }
 .role-card { padding:16px; border:1px solid var(--line); border-radius:10px; }
 .role-card p { font-size:12px; color:var(--muted); line-height:1.6; margin-bottom:0; }
 @media(max-width:1100px) { .recipe-row,.workflow-row { flex-wrap:wrap; } }
-@media(max-width:900px) { .app-sidebar { overflow:visible; height:auto; } .main-navigation { display:flex; overflow-x:auto; gap:16px; padding-block:4px 8px; } .nav-section { flex:0 0 auto; } .nav-section-title { margin-inline:8px; font-size:10px; } .nav-section-items { display:flex; gap:4px; } .nav-item { flex-shrink:0; } .sidebar-bottom { padding-top:0; } .architecture-branches { gap:12px; } }
+@media(width < 901px) { .app-sidebar { overflow:visible; height:auto; } .main-navigation { display:flex; overflow-x:auto; gap:16px; padding-block:4px 8px; } .nav-section { flex:0 0 auto; } .nav-section-title { margin-inline:8px; font-size:10px; } .nav-section-items { display:flex; gap:4px; } .nav-item { flex-shrink:0; } .sidebar-bottom { padding-top:0; } .architecture-branches { gap:12px; } }
 @media(max-width:620px) { .process-strip { gap:6px; } .process-strip > span,.process-strip > a { padding:7px 9px; font-size:11px; } .recipe-row { padding:18px; } .form-grid,.profile-grid { grid-template-columns:1fr; } .architecture-board { padding:18px; } .architecture-branches { grid-template-columns:1fr; } .monitor-metrics { gap:8px; } .metric-card { padding:14px; } .metric-card strong { font-size:24px; } .metric-card svg { display:none; } .monitor-metrics .metric-card > span { font-size:11px; } .topbar { gap:8px; } .topbar > div { flex-wrap:wrap; } .table-heading { flex-wrap:wrap; } .step-editor { padding:14px; } .step-toolbar { flex-wrap:wrap; } }

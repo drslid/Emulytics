@@ -1,6 +1,6 @@
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const identifier = "[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}";
-const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events)?|console/(summary|fleet|account/(profile|security|two-factor/enrollment(/qr)?)|devices/${identifier}/screen|monitor(/stream)?|logs|users(/${UUID})?|recipes|schedules|executions/${UUID}/captures/${identifier}))$`);
+const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events)?|console/(summary|fleet|dashboard|account/(profile|security|two-factor/enrollment(/qr)?)|devices/${identifier}/screen|monitor(/stream)?|logs|users(/${UUID})?|recipes|schedules|executions/${UUID}/captures/${identifier}))$`);
 const userPath = `console/users/${UUID}`;
 const recipePath = `console/recipes/${UUID}`;
 const schedulePath = `console/schedules/${UUID}`;
@@ -24,7 +24,9 @@ export async function proxyControl(request: Request, segments: string[], fetcher
   const endpoint = segments.join("/");
   const allowed = request.method === "GET" ? reads.test(endpoint) : changes[request.method as keyof typeof changes]?.test(endpoint);
   if (!allowed || segments.some((part) => !part || part.includes("/"))) return error(404, "Route indisponible.");
-  const base = process.env.EMULYTIX_API_INTERNAL_URL;
+  const goBase = request.method === "GET" && (endpoint === "console/summary" || endpoint === "console/fleet" || endpoint === "console/dashboard")
+    ? process.env.EMULYTIX_GO_API_INTERNAL_URL : undefined;
+  const base = goBase || process.env.EMULYTIX_API_INTERNAL_URL;
   const origin = process.env.EMULYTIX_PUBLIC_ORIGIN;
   if (!base || !origin) return error(503, "La console n’est pas encore configurée.");
   const headers = new Headers({ Accept: "application/json", Cookie: sessionCookies(request.headers.get("cookie")) });
@@ -64,6 +66,8 @@ export async function proxyControl(request: Request, segments: string[], fetcher
     const value = search.get(key);
     if (value !== null) query.set(key, value);
   }
+  const timezone = endpoint === "console/dashboard" ? search.get("timezone") : null;
+  if (timezone !== null) query.set("timezone", timezone);
   try {
     const streaming = endpoint === "console/monitor/stream";
     const controller = new AbortController();
@@ -76,6 +80,7 @@ export async function proxyControl(request: Request, segments: string[], fetcher
       "Content-Type": upstream.headers.get("content-type") ?? "application/json",
       "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"
     });
+    if (goBase && upstream.headers.get("X-Emulytix-Backend") === "go") responseHeaders.set("X-Emulytix-Backend", "go");
     for (const cookie of upstream.headers.getSetCookie()) {
       if (/^(emulytix_session|emulytix_challenge)=/.test(cookie)) responseHeaders.append("Set-Cookie", cookie);
     }

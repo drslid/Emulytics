@@ -7,6 +7,7 @@ import "./execution-gallery.css";
 import "./workflow-editor.css";
 import "./responsive.css";
 import "./mobile-navigation.css";
+import "./dashboard-charts.css";
 import "./tailwind.css";
 import { LocaleProvider } from "../lib/i18n";
 import { resolveLocale, serverT } from "../lib/i18n-server";

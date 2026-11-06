@@ -29,7 +29,7 @@ PY
 console=(docker compose --env-file .env.console -p emulytix-preview -f docker-compose.preview.yml)
 "${console[@]}" up -d console-postgres
 "${console[@]}" run --build --rm console-migrate
-"${console[@]}" up -d --build console-api console-scheduler validation-ui
+"${console[@]}" up -d --build console-api console-go-api console-scheduler validation-ui
 python3 scripts/bootstrap-console.py
 "${console[@]}" exec -T console-api python -c '
 import json, os
