@@ -712,3 +712,23 @@ Les dix-neuf états d’exécution préexistants et le profil d’émulateur con
 - [x] Déployer la migration 015 et tester un cycle réel depuis les boutons, avec les quatre APK sociaux absents, puis remettre l’émulateur à l’arrêt en conservant son volume.
 
 **507 tests API, 89 tests frontend, TypeScript et build réussis.** Les deux opérations réelles réussissent sans installation et restent dans l’historique. Vingt-quatre contrôles WCAG finaux couvrent cartes et fiches Admin/Viewer en français, allemand et arabe à 320/1440 px, plus deux contrôles des états réels. Les vingt et un états antérieurs et la configuration sont préservés ; les deux comptes QA et leurs sessions/cookies sont retirés. Preuves : `storage/emulator-power-review/`.
+
+### Demandes recensées — reprise du 8 novembre 2026
+
+La demande d’audit, de tests et de corrections du 8 novembre reprend le travail. Les chantiers ci-dessous restent ouverts ; ils ne sont pas considérés comme réalisés par les corrections de fiabilité.
+
+- [ ] Permettre l’installation complète de la solution en un clic (« one-click »).
+- [ ] Identifier et supprimer les fichiers devenus inutiles dans le dépôt, en préparation d’une version à publier sur GitHub.
+- [ ] Simplifier la création des parcours pour que l’utilisateur saisisse uniquement des instructions en langage naturel, sans étapes techniques ni JSON obligatoires. Examiner le parcours test lors de la reprise pour vérifier cette expérience.
+- [ ] Configurer le matériel d’un émulateur depuis sa fiche : écran, résolution, densité, mémoire vive, CPU et stockage, avec preuve des valeurs appliquées et conservation des données.
+
+### Audit complet et correction des défauts — 8 novembre 2026
+
+- [x] Vérifier les tests API, frontend et Go, les builds, les rôles et les vues responsive dans le navigateur.
+- [x] Corriger les reprises de planification après réponse perdue, l’équité de l’ordonnanceur et la pagination des parcours au-delà de cent brouillons.
+- [x] Terminer et vérifier la page Configuration et les frontières de la connexion ChatGPT personnelle ; demander puis annuler un code réel sans autoriser de compte.
+- [x] Nettoyer les APK d’un import définitivement refusé, en conservant le fichier lorsque le résultat du commit reste incertain.
+- [x] Verrouiller les dépendances Python de production avec leurs empreintes et mettre à jour l’outil d’installation des images.
+- [x] Étudier sept projets GitHub et produire un tableau de priorités, notes, efforts et références.
+
+Résultats et périmètre : [audit complet](docs/full-audit-2026-11-08.md). Priorités : [comparaison GitHub](docs/github-comparison-2026-11-08.md). Conditions de diffusion : [préparation GitHub](docs/release-readiness-2026-11-08.md). Les parcours en langage naturel, l’installation vierge complète et les réglages matériels restent à implémenter ; la connexion ChatGPT ne les réalise pas à elle seule.

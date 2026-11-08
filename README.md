@@ -55,6 +55,7 @@ Cette commande révoque les sessions et les codes précédents et impose un nouv
 - **Monitoring** : carte de huit composants cliquables, flèches animées selon l’activité observée, détails actualisés et pause des mouvements. La file reste représentée dans PostgreSQL ; le direct des mesures, les traitements confirmés et les événements récents sont distingués. La page conserve attente, capacité, résultats sur 1 h/24 h/7 jours, durées médiane/p95, ressources des processus et instances actuelles/anciennes. Le flux expire côté navigateur après dix secondes sans message et les heartbeats après vingt secondes. Détails : [carte interactive](docs/monitoring-architecture-map.md), [définitions des mesures](docs/monitoring-study.md).
 - **Journal** : événements d'exécution et d'administration, pagination, recherche, catégories et niveaux, sans secrets ni corps des requêtes.
 - **Utilisateurs** : annuaire avec recherche, filtres et fiche détaillée ; nom, prénom, e-mail de contact, rôle, activation et actions de sécurité. Réservé à Admin ; les nouveaux comptes changent leur mot de passe et activent TOTP.
+- **Configuration** : connexion ChatGPT personnelle par code d’appareil et accès aux réglages existants. Le code expire, une demande peut être annulée et chaque utilisateur peut retirer sa connexion. Cette connexion n’ajoute pas encore de génération de parcours ni d’inférence au moteur Android. [Périmètre et configuration](docs/configuration-chatgpt.md).
 - **Mon profil** : modification de son identité et de son e-mail de contact, rôle, langue et section Sécurité du compte intégrée, avec mot de passe, second facteur, session et déconnexion. Petits drapeaux, dix langues détectées depuis le navigateur et arabe RTL.
 - **Banc de validation** : les deux réussites WF01 archivées restent disponibles sur `/validation`.
 
@@ -283,7 +284,7 @@ Préparer l'environnement Python et l'image utilisée par les tests d'intégrati
 ```bash
 uv venv .venv
 uv pip install --python .venv/bin/python \
-  -r orchestrator-api/requirements.txt \
+  -r orchestrator-api/requirements.lock \
   -r orchestrator-api/requirements-dev.txt
 docker pull postgres:17-alpine
 .venv/bin/python -m pytest orchestrator-api/tests
@@ -291,7 +292,11 @@ docker pull postgres:17-alpine
 
 Les tests PostgreSQL utilisent Docker et une base éphémère avec des schémas isolés ; aucune URL de base applicative n'est nécessaire. Les cas couverts et les limites restantes sont suivis dans `PLAN.MD`.
 
-Un [rapport Graphify local](graphify-out/GRAPH_REPORT.md) et un [graphe HTML](graphify-out/graph.html) décrivent les dépendances des sources analysées, avec leur portée et leurs limites. Ces artefacts locaux sont rafraîchis après les changements de code.
+Les images de l’API, de l’ordonnanceur et du worker installent les dépendances depuis `orchestrator-api/requirements.lock` avec vérification des empreintes. Ce verrou fixe les versions de production validées sur Python 3.12/Linux ; `requirements.txt` conserve les dépendances directes à maintenir. La commande de régénération sans mise à jour des versions figure en tête du verrou. Une mise à jour volontaire nécessite de régénérer les empreintes, de tester les composants et de reconstruire les images.
+
+Audit du 8 novembre 2026 : [résultats et corrections](docs/full-audit-2026-11-08.md), [comparaison GitHub et priorités produit](docs/github-comparison-2026-11-08.md), [préparation de la publication](docs/release-readiness-2026-11-08.md).
+
+Les artefacts Graphify sont générés localement dans `graphify-out/` et ignorés par Git. Leur rapport précise les sources analysées et leurs limites ; régénérer le graphe avant de l’utiliser pour une nouvelle analyse d’architecture.
 
 ## Worker local et parcours Chrome/Wikipédia
 
