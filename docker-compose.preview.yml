@@ -48,8 +48,6 @@ services:
       EMULYTIX_COOKIE_SECURE: ${EMULYTIX_COOKIE_SECURE:-true}
       EMULYTIX_UI_INTERNAL_URL: http://validation-ui:3000/connexion
       EMULYTIX_TELEMETRY_ENABLED: "true"
-      EMULYTIX_LEGACY_CONTROL_ENABLED: "false"
-      ALLOW_DOCKER_CONTROL: "false"
       EMULYTIX_STORAGE_ROOT: /storage
       EMULYTIX_ARTIFACT_ROOT: /storage/runs
       EMULYTIX_APK_ROOT: /apks

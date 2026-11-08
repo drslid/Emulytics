@@ -20,6 +20,12 @@ sys.path.insert(0, str(API_ROOT))
 CONTROL_TOKEN = "emulytix-integration-test-token"
 
 
+@pytest.fixture(autouse=True)
+def explicit_development_authentication(monkeypatch):
+    # Most control-plane tests use the isolated service-token mode; auth fixtures opt in.
+    monkeypatch.setenv("EMULYTIX_AUTH_ENABLED", "false")
+
+
 @pytest.fixture(scope="session")
 def postgres_dsn():
     """Own one disposable PostgreSQL container; never connect to a configured DB."""

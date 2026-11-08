@@ -30,7 +30,8 @@ _DUMMY_HASH = PASSWORD_HASHER.hash(secrets.token_urlsafe(32))
 
 
 def auth_enabled() -> bool:
-    return os.getenv("EMULYTIX_AUTH_ENABLED", "false").lower() == "true"
+    # Only an explicit development opt-out disables authentication.
+    return os.getenv("EMULYTIX_AUTH_ENABLED", "true").strip().lower() != "false"
 
 
 def digest(value: str) -> str:

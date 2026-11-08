@@ -51,26 +51,23 @@ def test_control_routes_reject_an_incorrect_token(client):
     assert response.status_code == 401
 
 
-def test_database_configuration_is_required_without_breaking_legacy_sessions(client):
+def test_database_configuration_is_required_and_health_remains_available(client):
     response = client.get("/runs", headers={"Authorization": f"Bearer {CONTROL_TOKEN}"})
     assert response.status_code == 503
-    created = client.post("/sessions", json={"name": "Legacy compatibility"})
-    assert created.status_code == 200
-    response = client.get(f"/sessions/{created.json()['id']}")
-    assert response.status_code == 200
-    assert response.json()["name"] == "Legacy compatibility"
+    assert client.get("/health").json() == {"status": "ok"}
+    assert client.post("/sessions", json={"name": "Removed legacy endpoint"}).status_code == 404
 
 
-def test_openapi_documents_new_and_legacy_routes(client):
+def test_openapi_documents_only_supported_control_routes(client):
     response = client.get("/openapi.json")
     assert response.status_code == 200
     paths = response.json()["paths"]
     for path in [
         "/devices", "/workflows", "/workflows/{workflow_id}/versions/{version}",
         "/runs", "/runs/{run_id}", "/runs/{run_id}/cancel", "/runs/{run_id}/events",
-        "/sessions", "/sessions/{session_id}",
     ]:
         assert path in paths
+    assert not any(path.startswith(("/sessions", "/android", "/ai")) for path in paths)
 
 
 def test_openapi_describes_required_run_response_fields_and_states(client):

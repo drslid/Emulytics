@@ -5,7 +5,6 @@ import json
 import psycopg
 from psycopg.types.json import Jsonb
 import pytest
-from fastapi import HTTPException
 
 
 def test_active_cancellation_is_acknowledged_then_completed_by_owner(registered, run_payload, database_dsn):
@@ -42,12 +41,9 @@ def test_execution_action_journal_is_available_to_authenticated_operator(registe
     assert registered.get(f"/executions/{execution_id}/actions?offset=1").json()["items"] == []
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_worker_mode_refuses_legacy_runtime_commands(app_module, monkeypatch, binary):
-    monkeypatch.setenv("EMULYTIX_LEGACY_CONTROL_ENABLED", "false")
-    with pytest.raises(HTTPException) as error:
-        (app_module.runtime_exec_binary if binary else app_module.runtime_exec)("adb shell input keyevent 3")
-    assert error.value.status_code == 409
+@pytest.mark.parametrize("path", ["/android/status", "/runtime-capabilities"])
+def test_direct_runtime_control_routes_are_removed(client, path):
+    assert client.get(path).status_code == 404
 
 
 def test_workflow_from_previous_schema_remains_idempotent(control_client, workflow_payload, database_dsn):
