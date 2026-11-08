@@ -16,7 +16,7 @@ Ce moteur n’est pas un agent universel pour toutes les applications : il autor
 
 `scripts/install.sh --accept-android-license` contrôle les prérequis, crée une configuration privée uniquement si elle manque, construit l’image Android vérifiée et démarre console et worker. Le runtime Android 10/API29 est construit depuis une base identifiée par digest et quatre archives Google avec SHA-256 ; Chrome est inclus dans l’image système. Les deux workflows GitHub vérifient l’application et permettent une construction Android manuelle sans publier d’image Google.
 
-La construction et le démarrage KVM de cette image ont été vérifiés localement dans des ressources éphémères. L’installation complète d’un clone vierge et la CI exécutée sur GitHub restent des recettes séparées. Les paquets APT et les bases applicatives non fixées par digest empêchent de promettre une identité binaire de toutes les images. La licence finale du projet appartient au propriétaire. [Guide d’installation](installation-console.md).
+La construction et le démarrage KVM de cette image ont été vérifiés localement dans des ressources éphémères. L’installation complète d’un clone vierge et la CI exécutée sur GitHub restent des recettes séparées. Les paquets APT et les bases applicatives non fixées par digest empêchent de promettre une identité binaire de toutes les images. Le propriétaire a choisi [Apache-2.0](../LICENSE), avec maintien des licences tierces. [Guide d’installation](installation-console.md).
 
 ## Matériel et groupes d’appareils
 
@@ -61,4 +61,4 @@ Les **25 états d’exécution antérieurs**, les empreintes des **cinq versions
 
 Les preuves techniques privées restent dans `storage/product-delivery-2026-11-08/`, exclu de Git ; aucun mot de passe, cookie, code 2FA ou clé personnelle n’est destiné au dépôt. Les recettes Android complémentaires sont dans `storage/hardware-review-2026-11-08/` et `storage/install-build-cache/`. Les contrôles d’accessibilité automatiques ne remplacent pas une étude d’usage ou un essai avec lecteur d’écran. Aucun test de charge multi-appareils, téléphone physique, iOS, APK social ou restauration complète n’est ajouté à ces preuves.
 
-Les fonctionnalités sont enregistrées en commits séparés. Aucune publication GitHub n’a été effectuée. Le choix entre licence permissive et obligation de partage reste ouvert ; les demandes d’explication ne valent pas choix de licence.
+Les fonctionnalités sont enregistrées en commits séparés. Aucune publication GitHub n’a été effectuée. Après explication des options, le propriétaire a explicitement choisi Apache-2.0 ; le texte officiel, les métadonnées npm et la documentation sont alignés. Les licences et conditions tierces sont conservées.

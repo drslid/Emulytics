@@ -2,6 +2,8 @@
 
 Console de pilotage d’une flotte d’appareils mobiles : téléphones, automatisations versionnées, exécutions et preuves. Interface claire inspirée des outils Google, avec connexion par mot de passe et second facteur obligatoire. Le moteur actuel pilote Android ; l’intégration iOS est prévue.
 
+Le code original d’Emulytix est distribué sous [Apache-2.0](LICENSE). Les composants et ressources tiers conservent leurs licences et notices respectives ; voir [NOTICE](NOTICE).
+
 ## Installer la console et Android en une commande
 
 Sur Linux x86_64 avec Docker/Compose, Python 3 et KVM :

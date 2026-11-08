@@ -6,5 +6,6 @@
   "packageManager": "npm@10.9.4",
   "dependencies": {
     "@openai/codex": "0.157.1"
-  }
+  },
+  "license": "Apache-2.0"
 }

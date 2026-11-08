@@ -1,0 +1,14 @@
+Emulytix
+
+The original Emulytix code is licensed under the Apache License, Version 2.0.
+See LICENSE for the complete terms.
+
+Third-party components and assets retain their respective licenses and notices:
+
+- Flag icons: MIT License, Copyright (c) 2013 Panayiotis Lipiridis.
+  See web-ui/public/flags/LICENSE.
+- Noto fonts: SIL Open Font License, Version 1.1.
+  See web-ui/public/fonts/OFL-arabic.txt, OFL-bengali.txt and OFL-devanagari.txt.
+- Software dependencies and separately downloaded Android SDK tools, system
+  images, Google Chrome and Codex remain subject to their upstream licenses
+  and terms. The Emulytix license does not replace those terms.
