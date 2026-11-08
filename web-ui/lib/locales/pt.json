@@ -1061,5 +1061,11 @@
   "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "Este objetivo excede as capacidades atuais. Experimente uma pesquisa na Wikipédia, abrir uma aplicação ou consultar a versão do Android.",
   "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "O motor suporta Chrome, Wikipédia, abertura de aplicações e leitura da versão do Android nas definições.",
   "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "Os exemplos da Wikipédia e da versão do Android funcionam sem uma conta externa. Para outro objetivo, ligue o ChatGPT em Configuração. As capacidades não suportadas são indicadas.",
-  "Utiliser l’exemple version Android": "Usar o exemplo da versão do Android"
+  "Utiliser l’exemple version Android": "Usar o exemplo da versão do Android",
+  "Supprimer cette version ?": "Eliminar esta versão?",
+  "Cette version ne sera plus proposée pour les nouveaux lancements. Le brouillon, les résultats et les captures des anciennes exécutions seront conservés.": "Esta versão deixará de estar disponível para novas execuções. O rascunho, os resultados e as capturas das execuções anteriores serão mantidos.",
+  "La version {version} de {name} a été supprimée.": "A versão {version} de {name} foi eliminada.",
+  "Supprimez d’abord les planifications qui utilisent cette version, même celles en pause.": "Elimine primeiro os agendamentos que utilizam esta versão, incluindo os que estão em pausa.",
+  "Cette version est utilisée par une exécution en attente ou en cours. Attendez sa fin avant de la supprimer.": "Uma execução em espera ou em curso utiliza esta versão. Aguarde a sua conclusão antes de eliminar a versão.",
+  "Cette version a été supprimée. Choisissez une autre version publiée.": "Esta versão foi eliminada. Escolha outra versão publicada."
 }

@@ -89,3 +89,18 @@ def test_mcp_stdio_has_only_json_rpc_on_stdout_and_no_secret():
 def test_mcp_configuration_rejects_unsafe_urls(url):
     with pytest.raises(ValueError):
         mcp.API(url, 'emk_'+'A'*43)
+
+
+def test_mcp_reports_removed_version_without_retrying_or_relaying_backend_body(monkeypatch):
+    from io import BytesIO
+    from urllib.error import HTTPError
+
+    api = mcp.API('http://localhost:3100', 'emk_'+'A'*43)
+    attempts = []
+    def removed(request, **kwargs):
+        attempts.append(request.full_url)
+        raise HTTPError(request.full_url, 410, 'Gone', {}, BytesIO(b'private backend diagnostics'))
+    monkeypatch.setattr(api.opener, 'open', removed)
+    with pytest.raises(ValueError, match='Workflow version was removed; choose another published version'):
+        api.call('POST', '/runs', {'workflow_version': 1})
+    assert len(attempts) == 1

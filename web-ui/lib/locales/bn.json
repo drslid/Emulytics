@@ -1061,5 +1061,11 @@
   "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "এই লক্ষ্যটি বর্তমান সক্ষমতার বাইরে। উইকিপিডিয়ায় অনুসন্ধান, অ্যাপ খোলা বা Android সংস্করণ পড়ার চেষ্টা করুন।",
   "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "ইঞ্জিন Chrome, উইকিপিডিয়া, অ্যাপ খোলা এবং সেটিংসে Android সংস্করণ পড়া সমর্থন করে।",
   "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "উইকিপিডিয়া এবং Android সংস্করণের উদাহরণগুলো বাইরের অ্যাকাউন্ট ছাড়াই কাজ করে। অন্য লক্ষ্যের জন্য কনফিগারেশনে ChatGPT সংযুক্ত করুন। অসমর্থিত সক্ষমতাগুলো জানানো হবে।",
-  "Utiliser l’exemple version Android": "Android সংস্করণের উদাহরণ ব্যবহার করুন"
+  "Utiliser l’exemple version Android": "Android সংস্করণের উদাহরণ ব্যবহার করুন",
+  "Supprimer cette version ?": "এই সংস্করণ মুছবেন?",
+  "Cette version ne sera plus proposée pour les nouveaux lancements. Le brouillon, les résultats et les captures des anciennes exécutions seront conservés.": "এই সংস্করণ আর নতুন রানের জন্য দেখানো হবে না। খসড়া এবং আগের রানগুলোর ফলাফল ও স্ক্রিনশট সংরক্ষিত থাকবে।",
+  "La version {version} de {name} a été supprimée.": "{name}-এর সংস্করণ {version} মুছে ফেলা হয়েছে।",
+  "Supprimez d’abord les planifications qui utilisent cette version, même celles en pause.": "প্রথমে এই সংস্করণ ব্যবহার করে এমন সময়সূচিগুলো মুছুন, স্থগিত সময়সূচিসহ।",
+  "Cette version est utilisée par une exécution en attente ou en cours. Attendez sa fin avant de la supprimer.": "অপেক্ষমাণ বা চলমান রান এই সংস্করণ ব্যবহার করছে। সংস্করণটি মুছে ফেলার আগে রান শেষ হওয়া পর্যন্ত অপেক্ষা করুন।",
+  "Cette version a été supprimée. Choisissez une autre version publiée.": "এই সংস্করণ মুছে ফেলা হয়েছে। অন্য একটি প্রকাশিত সংস্করণ বেছে নিন।"
 }

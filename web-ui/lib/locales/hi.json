@@ -1061,5 +1061,11 @@
   "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "यह लक्ष्य मौजूदा क्षमताओं से बाहर है। विकिपीडिया खोजने, ऐप खोलने या Android संस्करण पढ़ने का प्रयास करें।",
   "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "इंजन Chrome, विकिपीडिया, ऐप खोलने और सेटिंग में Android संस्करण पढ़ने का समर्थन करता है।",
   "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "विकिपीडिया और Android संस्करण के उदाहरण बाहरी खाते के बिना काम करते हैं। अन्य लक्ष्य के लिए कॉन्फ़िगरेशन में ChatGPT जोड़ें। असमर्थित क्षमताओं की जानकारी दी जाती है।",
-  "Utiliser l’exemple version Android": "Android संस्करण का उदाहरण इस्तेमाल करें"
+  "Utiliser l’exemple version Android": "Android संस्करण का उदाहरण इस्तेमाल करें",
+  "Supprimer cette version ?": "यह संस्करण हटाएँ?",
+  "Cette version ne sera plus proposée pour les nouveaux lancements. Le brouillon, les résultats et les captures des anciennes exécutions seront conservés.": "यह संस्करण नए रन के लिए उपलब्ध नहीं होगा। ड्राफ़्ट और पिछले रन के परिणाम और स्क्रीनशॉट सुरक्षित रहेंगे।",
+  "La version {version} de {name} a été supprimée.": "{name} का संस्करण {version} हटा दिया गया है।",
+  "Supprimez d’abord les planifications qui utilisent cette version, même celles en pause.": "पहले इस संस्करण का उपयोग करने वाले शेड्यूल हटाएँ, जिनमें रोके गए शेड्यूल भी शामिल हैं।",
+  "Cette version est utilisée par une exécution en attente ou en cours. Attendez sa fin avant de la supprimer.": "कतार में या चालू रन इस संस्करण का उपयोग कर रहा है। संस्करण हटाने से पहले उसके समाप्त होने की प्रतीक्षा करें।",
+  "Cette version a été supprimée. Choisissez une autre version publiée.": "यह संस्करण हटा दिया गया है। कोई अन्य प्रकाशित संस्करण चुनें।"
 }

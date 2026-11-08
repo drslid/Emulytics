@@ -220,8 +220,10 @@ export function ScheduleEditor({
     [previewError, setPreviewError] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [attempted, setAttempted] = useState(false);
+    [attempted, setAttempted] = useState(false),
+    [deletedKeys, setDeletedKeys] = useState<Set<string>>(() => new Set());
   const intent = useRef<ScheduleSubmission | null>(null), sending = useRef(false);
+  const availableWorkflows = workflows.filter(workflow => !deletedKeys.has(`${workflow.workflow_id}:${workflow.version}`));
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(scheduleDraftKey(userId));
@@ -268,7 +270,7 @@ export function ScheduleEditor({
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (sending.current) return;
-    const workflow = workflows.find((w) => `${w.workflow_id}:${w.version}` === key);
+    const workflow = availableWorkflows.find((w) => `${w.workflow_id}:${w.version}` === key);
     const request = intent.current ?? (workflow ? parseScheduleDraft({
       request_id: crypto.randomUUID(), name: name.trim(), workflow_id: workflow.workflow_id,
       workflow_version: workflow.version, device_ids: selected, max_concurrency: Math.min(selected.length, concurrency),
@@ -286,9 +288,13 @@ export function ScheduleEditor({
       intent.current = null;
       onSaved();
     } catch (failure) {
-      if (!sent || failure instanceof ApiError && [401, 403, 404, 409, 422].includes(failure.status)) {
+      if (!sent || failure instanceof ApiError && [401, 403, 404, 409, 410, 422].includes(failure.status)) {
         try { sessionStorage.removeItem(scheduleDraftKey(userId)); } catch {}
         intent.current = null; setAttempted(false);
+        if (failure instanceof ApiError && failure.status === 410) {
+          setDeletedKeys(current => new Set([...current, `${request.workflow_id}:${request.workflow_version}`]));
+          setKey("");
+        }
       }
       setError(!sent ? t("Autorisez le stockage de session du navigateur pour sécuriser cette demande.") : (failure as Error).message);
     } finally {
@@ -325,8 +331,8 @@ export function ScheduleEditor({
           {t("Parcours publié")}
           <select required value={key} onChange={(e) => setKey(e.target.value)}>
             <option value="">{t("Choisir un parcours")}</option>
-            {intent.current && !workflows.some(w => `${w.workflow_id}:${w.version}` === key) && <option value={key}>{intent.current.workflow_id} · v{intent.current.workflow_version}</option>}
-            {workflows.map((w) => (
+            {intent.current && !deletedKeys.has(key) && !availableWorkflows.some(w => `${w.workflow_id}:${w.version}` === key) && <option value={key}>{intent.current.workflow_id} · v{intent.current.workflow_version}</option>}
+            {availableWorkflows.map((w) => (
               <option
                 key={`${w.workflow_id}:${w.version}`}
                 value={`${w.workflow_id}:${w.version}`}

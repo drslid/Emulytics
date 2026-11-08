@@ -48,6 +48,7 @@ class API:
             # Never relay arbitrary upstream bodies, redirects or authentication material.
             raise ValueError({401: 'Personal key expired or revoked', 403: 'Scope or role does not allow this action',
                               404: 'Resource not found', 409: 'Conflict: inspect the existing run before retrying',
+                              410: 'Workflow version was removed; choose another published version',
                               422: 'Invalid tool arguments', 429: 'API rate limit reached; retry later'}.get(exc.code, 'Emulytix API unavailable')) from None
         except (URLError, TimeoutError, OSError, json.JSONDecodeError):
             raise ValueError('Emulytix API unavailable') from None

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../lib/client-api";
 import { useT } from "../../lib/i18n";
 import type { Page, Recipe, Workflow } from "../../lib/console-types";
-import { Empty, ErrorNotice, workflowName } from "./shared";
+import { Dialog, Empty, ErrorNotice, workflowName } from "./shared";
 import { Icon } from "./icons";
 import { RecipeEditor } from "./recipe-editor";
 
@@ -25,12 +25,19 @@ export function Workflows({
   const t = useT();
   const [page, setPage] = useState<Page<Recipe> | null>(null),
     [editing, setEditing] = useState<Recipe | "new" | null>(null),
+    [deleting, setDeleting] = useState<Workflow | null>(null),
+    [deleteError, setDeleteError] = useState(""),
+    [deleted, setDeleted] = useState<Set<string>>(() => new Set()),
+    [success, setSuccess] = useState(""),
     [error, setError] = useState(""),
     [loadError, setLoadError] = useState(""),
     [loading, setLoading] = useState(canBuild),
     [busy, setBusy] = useState(false);
   const sequence = useRef(0), mounted = useRef(false), requestedOffset = useRef(0);
+  const removing = useRef(false);
+  const publishedHeading = useRef<HTMLHeadingElement>(null);
   const recipes = page?.items ?? [], total = page?.total ?? recipes.length, offset = page?.offset ?? 0;
+  const published = workflows.filter(workflow => !deleted.has(`${workflow.workflow_id}:${workflow.version}`));
   const load = useCallback(async (pageOffset = 0) => {
     if (!canBuild) return;
     const request = ++sequence.current;
@@ -48,6 +55,7 @@ export function Workflows({
     void load();
     return () => { mounted.current = false; sequence.current++; };
   }, [load]);
+  useEffect(() => { if (success) publishedHeading.current?.focus(); }, [success]);
   function publishedName(workflow: Workflow) {
     return workflow.name || recipes.find(recipe => recipe.workflow_id === workflow.workflow_id)?.name || t(workflowName(workflow.workflow_id));
   }
@@ -83,6 +91,20 @@ export function Workflows({
     } finally {
       setBusy(false);
     }
+  }
+  async function removePublished() {
+    if (!deleting || removing.current) return;
+    const target = deleting;
+    removing.current = true; setBusy(true); setDeleteError("");
+    try {
+      await api(`workflows/${encodeURIComponent(target.workflow_id)}/versions/${target.version}`, undefined, "DELETE");
+      setDeleted(current => new Set([...current, `${target.workflow_id}:${target.version}`]));
+      setDeleting(null);
+      setSuccess(t("La version {version} de {name} a été supprimée.", {version: target.version, name: publishedName(target)}));
+      onChanged();
+      await load(requestedOffset.current);
+    } catch (failure) { setDeleteError((failure as Error).message); }
+    finally { removing.current = false; setBusy(false); }
   }
   return (
     <>
@@ -120,6 +142,7 @@ export function Workflows({
         )}
       </div>
       {error && <ErrorNotice message={error} />}
+      {success && <div className="notice notice--success" role="status"><Icon name="check" /><span>{success}</span></div>}
       {canBuild && (
         <section className="surface recipe-list" aria-busy={loading}>
           {(loading || loadError) && <div className="recipe-list-status">{loading && <p className="small-copy" role="status">{t("Chargement…")}</p>}{loadError && <><ErrorNotice message={loadError} /><button type="button" className="button button--secondary" disabled={loading || busy} onClick={() => void load(requestedOffset.current)}>{t("Réessayer")}</button></>}</div>}
@@ -157,7 +180,7 @@ export function Workflows({
       )}
       <div className="section-heading">
         <div>
-          <h2>{t("Versions publiées")}</h2>
+          <h2 ref={publishedHeading} tabIndex={-1}>{t("Versions publiées")}</h2>
           <p>
             {t(
               "Une version publiée conserve ses étapes à l’identique pour chaque exécution.",
@@ -166,7 +189,7 @@ export function Workflows({
           {canBuild && <p>{t("Modifiez le brouillon courant, puis publiez une nouvelle version pour appliquer vos changements.")}</p>}
         </div>
       </div>
-      {!workflows.length ? (
+      {!published.length ? (
         <section className="surface">
           <Empty icon="workflow" title={t("Aucun parcours publié")}>
             {t("Créez votre premier parcours, puis publiez-le pour le lancer.")}
@@ -174,7 +197,7 @@ export function Workflows({
         </section>
       ) : (
         <section className="surface workflow-list">
-          {workflows.map((workflow) => (
+          {published.map((workflow) => (
             <article
               className="workflow-row"
               key={`${workflow.workflow_id}:${workflow.version}`}
@@ -223,6 +246,7 @@ export function Workflows({
               {(canBuild || canLaunch) && (
                 <div className="row-actions">
                   {canBuild && <button className="button button--secondary" disabled={busy} onClick={() => void editPublished(workflow)}>{t("Modifier les étapes")}</button>}
+                  {canBuild && <button type="button" className="button button--danger-outline" disabled={busy} onClick={() => {setDeleting(workflow); setDeleteError(""); setSuccess("");}}>{t("Supprimer")}</button>}
                   {canLaunch && <>
                   <button
                     className="button button--primary"
@@ -245,6 +269,13 @@ export function Workflows({
           ))}
         </section>
       )}
+      {canBuild && deleting && <Dialog title={t("Supprimer cette version ?")} description={t("Cette version ne sera plus proposée pour les nouveaux lancements. Le brouillon, les résultats et les captures des anciennes exécutions seront conservés.")} onClose={() => {if (!removing.current) setDeleting(null);}}>
+        <div className="dialog-form" aria-busy={busy}>
+          <div className="review-section"><h3>{publishedName(deleting)}</h3><p>{t("Version {n}", {n: deleting.version})}</p></div>
+          {deleteError && <ErrorNotice message={deleteError} />}
+          <div className="dialog-footer"><button type="button" className="button button--secondary" disabled={busy} autoFocus onClick={() => setDeleting(null)}>{t("Annuler")}</button><button type="button" className="button button--danger" disabled={busy} onClick={() => void removePublished()}>{t(busy ? "Demande en cours…" : "Supprimer")}</button></div>
+        </div>
+      </Dialog>}
       {editing && (
         <RecipeEditor
           key={editing === "new" ? "new" : editing.id}

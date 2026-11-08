@@ -139,6 +139,7 @@ class DeviceView(DeviceRegistration):
 
 class WorkflowView(WorkflowRegistration):
     created_at: datetime
+    deleted_at: datetime | None = None
     name: str | None = None
     instructions: str | None = None
 

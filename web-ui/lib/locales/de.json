@@ -1061,5 +1061,11 @@
   "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "Dieses Ziel überschreitet die aktuellen Möglichkeiten. Versuche eine Wikipedia-Suche, das Öffnen einer App oder das Auslesen der Android-Version.",
   "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "Die Engine unterstützt Chrome, Wikipedia, das Öffnen von Apps und das Auslesen der Android-Version in den Einstellungen.",
   "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "Die Beispiele für Wikipedia und die Android-Version funktionieren ohne externes Konto. Verbinde für ein anderes Ziel ChatGPT in der Konfiguration. Nicht unterstützte Funktionen werden angezeigt.",
-  "Utiliser l’exemple version Android": "Beispiel zur Android-Version verwenden"
+  "Utiliser l’exemple version Android": "Beispiel zur Android-Version verwenden",
+  "Supprimer cette version ?": "Diese Version löschen?",
+  "Cette version ne sera plus proposée pour les nouveaux lancements. Le brouillon, les résultats et les captures des anciennes exécutions seront conservés.": "Diese Version wird für neue Ausführungen nicht mehr angeboten. Der Entwurf sowie Ergebnisse und Bildschirmaufnahmen früherer Ausführungen bleiben erhalten.",
+  "La version {version} de {name} a été supprimée.": "Version {version} von {name} wurde gelöscht.",
+  "Supprimez d’abord les planifications qui utilisent cette version, même celles en pause.": "Lösche zuerst die Zeitpläne, die diese Version verwenden, einschließlich pausierter Zeitpläne.",
+  "Cette version est utilisée par une exécution en attente ou en cours. Attendez sa fin avant de la supprimer.": "Eine wartende oder laufende Ausführung verwendet diese Version. Warte auf ihren Abschluss, bevor du die Version löschst.",
+  "Cette version a été supprimée. Choisissez une autre version publiée.": "Diese Version wurde gelöscht. Wähle eine andere veröffentlichte Version."
 }

@@ -24,6 +24,8 @@ Les cases ci-dessus indiquent une implémentation disponible, avec la portée de
 
 ## 1. Besoin compris
 
+Ajout livré le 8 novembre 2026 : suppression confirmée d’une version publiée par Admin/Builder, retrait du catalogue et des nouveaux lancements, conservation du brouillon et des preuves historiques, protection des versions utilisées par un planning ou une exécution active. La republication conserve une numérotation croissante. Contrat et concurrence : [parcours et planifications](docs/architecture/automations-and-schedules.md#suppression-dune-version-publiée).
+
 Faire évoluer Emulytix vers une plateforme permettant à un opérateur de sélectionner des appareils Android physiques ou émulés, lancer un workflow sur un lot, suivre chaque exécution, arrêter le traitement et reprendre les échecs sans répéter un effet métier incertain.
 
 La livraison cible couvre **trois workflows courts et déterministes**, chacun comportant moins de quinze étapes. Le chemin nominal utilise des scripts et des assertions. La vision LLM servira à récupérer une situation inattendue, avec un budget limité par étape et par exécution. Le catalogue et les runs persistants sont livrés ; une deuxième tranche exécute maintenant WF01 sur un émulateur avec vérification du résultat métier.

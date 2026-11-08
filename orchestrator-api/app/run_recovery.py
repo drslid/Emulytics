@@ -56,9 +56,9 @@ class RecoveryStore(RunStore):
     def diagnosis(self, run_id):
         with self.connect() as connection:
             run = self._read_run(connection, run_id)
-            definition = connection.execute('SELECT definition FROM workflows WHERE workflow_id=%s AND version=%s',
-                (run['workflow_id'], run['workflow_version'])).fetchone()['definition']
-            steps = definition['steps']
+            workflow = connection.execute('SELECT definition,deleted_at FROM workflows WHERE workflow_id=%s AND version=%s',
+                (run['workflow_id'], run['workflow_version'])).fetchone()
+            steps = workflow['definition']['steps']
             internal = run['workflow_id'].startswith('emulator-system-')
             active = any(e['status'] in ('queued', *ACTIVE) for e in run['executions'])
             child = connection.execute('SELECT r.id FROM run_retries rr JOIN runs r ON r.id=rr.retry_run_id '
@@ -66,7 +66,7 @@ class RecoveryStore(RunStore):
             items = []
             for execution in run['executions']:
                 actions = connection.execute('SELECT status,non_idempotent FROM action_journal WHERE execution_id=%s', (execution['id'],)).fetchall()
-                block = 'managed_operation' if internal else 'source_active' if active else 'retry_active' if child else self._retry_block(connection, execution, steps)
+                block = 'managed_operation' if internal else 'workflow_version_deleted' if workflow['deleted_at'] is not None else 'source_active' if active else 'retry_active' if child else self._retry_block(connection, execution, steps)
                 evidence = execution.get('evidence') or {}
                 captures = evidence.get('steps', [])
                 items.append({'execution_id': execution['id'], 'device_id': execution['device_id'],
@@ -102,8 +102,7 @@ class RecoveryStore(RunStore):
             if connection.execute('SELECT 1 FROM run_retries rr JOIN runs r ON r.id=rr.retry_run_id '
                     "WHERE rr.source_run_id=%s AND r.status IN ('queued','running','waiting_auth')", (run_id,)).fetchone():
                 raise HTTPException(409, 'Une relance de cette exécution est déjà en cours')
-            steps = connection.execute('SELECT definition FROM workflows WHERE workflow_id=%s AND version=%s',
-                (source['workflow_id'], source['workflow_version'])).fetchone()['definition']['steps']
+            steps = self._available_workflow(connection, source['workflow_id'], source['workflow_version'])['definition']['steps']
             # Same device locking order as submission/allocation prevents competing work passing this check.
             connection.execute('SELECT device_id FROM devices WHERE device_id=ANY(%s) ORDER BY device_id FOR UPDATE', (payload.device_ids,)).fetchall()
             executions = connection.execute('SELECT * FROM executions WHERE run_id=%s ORDER BY attempt DESC', (run_id,)).fetchall()

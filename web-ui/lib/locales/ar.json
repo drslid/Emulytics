@@ -1061,5 +1061,11 @@
   "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "يتجاوز هذا الهدف الإمكانات الحالية. جرّب البحث في ويكيبيديا أو فتح تطبيق أو قراءة إصدار Android.",
   "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "يدعم المحرك Chrome وويكيبيديا وفتح التطبيقات وقراءة إصدار Android في الإعدادات.",
   "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "يعمل مثالا ويكيبيديا وإصدار Android دون حساب خارجي. لهدف آخر، اربط ChatGPT في الإعدادات. يتم توضيح الإمكانات غير المدعومة.",
-  "Utiliser l’exemple version Android": "استخدام مثال إصدار Android"
+  "Utiliser l’exemple version Android": "استخدام مثال إصدار Android",
+  "Supprimer cette version ?": "حذف هذا الإصدار؟",
+  "Cette version ne sera plus proposée pour les nouveaux lancements. Le brouillon, les résultats et les captures des anciennes exécutions seront conservés.": "لن يُتاح هذا الإصدار لعمليات التشغيل الجديدة. ستُحفظ المسودة ونتائج عمليات التشغيل السابقة ولقطات الشاشة.",
+  "La version {version} de {name} a été supprimée.": "تم حذف الإصدار {version} من {name}.",
+  "Supprimez d’abord les planifications qui utilisent cette version, même celles en pause.": "احذف أولاً الجداول التي تستخدم هذا الإصدار، بما فيها الجداول المتوقفة مؤقتاً.",
+  "Cette version est utilisée par une exécution en attente ou en cours. Attendez sa fin avant de la supprimer.": "تستخدم عملية تشغيل قيد الانتظار أو جارية هذا الإصدار. انتظر حتى تنتهي قبل حذف الإصدار.",
+  "Cette version a été supprimée. Choisissez une autre version publiée.": "تم حذف هذا الإصدار. اختر إصداراً منشوراً آخر."
 }

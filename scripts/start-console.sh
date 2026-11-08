@@ -34,10 +34,17 @@ python3 scripts/bootstrap-console.py
 "${console[@]}" exec -T console-api python -c '
 import json, os
 from pathlib import Path
+from fastapi import HTTPException
 from app.run_models import WorkflowRegistration
 from app.run_store import RunStore
 workflow = WorkflowRegistration.model_validate_json(Path("/workflows/chrome-wikipedia-football.v1.json").read_text())
-RunStore(os.environ["EMULYTIX_DATABASE_URL"]).register_workflow(workflow)
-print("WF01 disponible dans le catalogue.")
+try:
+    RunStore(os.environ["EMULYTIX_DATABASE_URL"]).register_workflow(workflow)
+except HTTPException as error:
+    if error.status_code != 410 or error.detail != {"code": "workflow_version_deleted"}:
+        raise
+    print("WF01 reste supprimé du catalogue, conformément à votre choix.")
+else:
+    print("WF01 disponible dans le catalogue.")
 '
 printf '%s\n' 'Console : http://localhost:3100' 'Accès initial : scripts/account.sh initial-access'

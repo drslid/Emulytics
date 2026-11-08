@@ -361,3 +361,24 @@ test("published workflow editing creates only a protected draft through the exac
   assert.equal((await proxyControl(request(path),path.split("/"))).status,404);
   assert.equal((await proxyControl(request(path+"/publish",post()),["console","recipes","from-workflow","publish"])).status,404);
 });
+
+test("published-version deletion forwards only the exact protected version route", async () => {
+  const path = 'workflows/android-version/versions/2';
+  const options = {...post(),method:'DELETE',headers:{...post().headers,Cookie:'other=discard; emulytix_session=builder',Authorization:'Bearer forbidden'}};
+  const response = await proxyControl(request(path,options),path.split('/'),async (url,upstream)=>{
+    assert.equal(url,'http://api.internal:8010/'+path+'?');
+    assert.equal(upstream.method,'DELETE');
+    assert.equal(upstream.headers.get('cookie'),'emulytix_session=builder');
+    assert.equal(upstream.headers.get('authorization'),null);
+    return new Response(null,{status:204});
+  });
+  assert.equal(response.status,204);
+  const denied=()=>assert.fail('Invalid deletion must not reach the backend');
+  for(const endpoint of ['workflows','workflows/android-version','workflows/android-version/versions','workflows/android-version/versions/2/extra','workflows/android-version/versions/-1']) {
+    assert.equal((await proxyControl(request(endpoint,options),endpoint.split('/'),denied)).status,404);
+  }
+  assert.equal((await proxyControl(request(path,{...options,headers:{...options.headers,Origin:'https://other.test'}}),path.split('/'),denied)).status,403);
+  const conflict=await proxyControl(request(path,options),path.split('/'),async()=>Response.json({detail:{code:'workflow_version_has_schedules'}},{status:409}));
+  assert.equal(conflict.status,409);
+  assert.deepEqual(await conflict.json(),{detail:{code:'workflow_version_has_schedules'}});
+});

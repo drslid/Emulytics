@@ -192,8 +192,7 @@ class AutomationStore(RunStore):
             if not self._authorized_owner(connection, actor_id):
                 raise HTTPException(403, "An active authenticated execution owner is required")
             next_run = next_occurrences(schedule.cron, schedule.timezone, count=1)[0]
-            if not connection.execute("SELECT 1 FROM workflows WHERE workflow_id=%s AND version=%s", (schedule.workflow_id, schedule.workflow_version)).fetchone():
-                raise HTTPException(404, "Workflow version not found")
+            self._available_workflow(connection, schedule.workflow_id, schedule.workflow_version)
             found = connection.execute("SELECT device_id FROM devices WHERE device_id=ANY(%s)", (schedule.device_ids,)).fetchall()
             if len(found) != len(schedule.device_ids):
                 raise HTTPException(404, "One or more devices are not registered")
@@ -221,6 +220,8 @@ class AutomationStore(RunStore):
                 raise HTTPException(404, "Schedule not found")
             if enabled and not self._authorized_owner(connection, row["created_by"]):
                 raise HTTPException(409, "Schedule owner no longer has permission to execute")
+            if enabled:
+                self._available_workflow(connection, row['workflow_id'], row['workflow_version'])
             # Resume starts at the next future occurrence; paused slots are never replayed.
             next_run = next_occurrences(row["cron"], row["timezone"], count=1)[0] if enabled and not row["enabled"] else row["next_run_at"]
             updated = connection.execute(

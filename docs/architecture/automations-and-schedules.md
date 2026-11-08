@@ -10,6 +10,18 @@ Les trois opérations sont distinctes : déclarer un appareil, rédiger et publi
 
 Le profil d'exécution courant ouvre Chrome et les pages HTTPS de Wikipédia, avec saisie ASCII et assertions explicites. Les actions de récupération qui exigeraient un provider sont refusées à la publication. Ces limites sont celles du moteur existant ; l'éditeur ne les présente pas comme des capacités générales Android ou iOS.
 
+## Suppression d’une version publiée
+
+Admin et Builder disposent de « Supprimer » dans **Parcours → Versions publiées**. La confirmation identifie le parcours et son numéro. `DELETE /workflows/{workflow_id}/versions/{version}` retire cette version du catalogue exécutable, sans effacer sa définition, son empreinte, ses publications ou les preuves historiques. Le stockage conserve une date `deleted_at` ; les consultations historiques restent autorisées. Les compteurs Python et Go ne comptent plus les versions supprimées.
+
+Le serveur refuse la suppression tant qu’une planification référence la version, même en pause (`409 workflow_version_has_schedules`), ou qu’un lot ou une exécution est en attente ou actif (`409 workflow_version_in_use`). Les versions internes de gestion des émulateurs restent protégées. Le verrou exclusif de suppression et les verrous partagés des nouvelles soumissions/plannings empêchent qu’un lancement passe entre vérification et retrait. Les tests observent de vrais blocages PostgreSQL, conformément aux [verrous de lignes](https://www.postgresql.org/docs/17/explicit-locking.html#LOCKING-ROWS).
+
+Une suppression confirmée peut être répétée sans effet supplémentaire ni nouvel événement métier (`204`), ce qui permet de récupérer une réponse perdue. Une version inconnue renvoie `404`. Les nouvelles soumissions, planifications, inscriptions de la même version et nouvelles relances d’une version retirée renvoient `410 workflow_version_deleted`. Une demande déjà acceptée conserve son résultat idempotent, même après suppression. Le journal garde l’acteur et le numéro de version.
+
+Le brouillon reste modifiable. Supprimer sa dernière publication le remet à l’état brouillon ; publier à nouveau alloue un nouveau numéro, sans réutiliser ceux supprimés. Le redémarrage de la console respecte également le retrait du modèle Wikipédia fourni et ne le recrée pas.
+
+Les fenêtres de lancement et de planification déjà ouvertes libèrent leur demande après un refus définitif `410` et permettent de choisir une autre version. Le diagnostic bloque la relance d’une version retirée et indique la raison. Les clés personnelles et le MCP suivent les mêmes contrôles de disponibilité ; aucun outil de suppression distant n’est ajouté.
+
 ## CRON persistant
 
 `POST /console/schedules` accepte un `request_id` UUID optionnel : une tentative identique du même utilisateur retrouve la planification, y compris après réponse perdue ; un contenu différent reçoit `409`. La fenêtre de création conserve ce `request_id` pendant ses tentatives.

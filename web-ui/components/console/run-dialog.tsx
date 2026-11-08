@@ -16,7 +16,9 @@ export function RunDialog({ userId, devices, workflows, initialDeviceIds, initia
   onClose: () => void; onLaunched: (run: RunDetail) => void;
 }) {
   const { t, locale } = useLocale();
-  const availableWorkflows = initialWorkflow && !workflows.some(item => item.workflow_id === initialWorkflow.workflow_id && item.version === initialWorkflow.version) ? [initialWorkflow, ...workflows] : workflows;
+  const [deletedKeys, setDeletedKeys] = useState<Set<string>>(() => new Set());
+  const availableWorkflows = (initialWorkflow && !workflows.some(item => item.workflow_id === initialWorkflow.workflow_id && item.version === initialWorkflow.version) ? [initialWorkflow, ...workflows] : workflows)
+    .filter(item => !deletedKeys.has(`${item.workflow_id}:${item.version}`));
   const [workflowKey, setWorkflowKey] = useState(initialWorkflow ? `${initialWorkflow.workflow_id}:${initialWorkflow.version}` : "");
   const [ids, setIds] = useState(initialDeviceIds);
   const [concurrency, setConcurrency] = useState(1);
@@ -55,9 +57,13 @@ export function RunDialog({ userId, devices, workflows, initialDeviceIds, initia
       try { sessionStorage.removeItem(draftKey(userId)); } catch { /* The same key still safely replays the recorded result. */ }
       onLaunched(run);
     } catch (failure) {
-      if (failure instanceof ApiError && [401, 403, 404, 422].includes(failure.status)) {
+      if (failure instanceof ApiError && [401, 403, 404, 410, 422].includes(failure.status)) {
         try { sessionStorage.removeItem(draftKey(userId)); } catch { /* No request was accepted. */ }
         attempted.current = false;
+        if (failure.status === 410) {
+          setDeletedKeys(current => new Set([...current, `${review.workflow_id}:${review.workflow_version}`]));
+          setWorkflowKey(""); setReview(null);
+        }
       }
       setError(attempted.current ? (failure as Error).message + t(" La demande est conservée : réessayez pour vérifier son résultat sans créer de doublon.") : failure instanceof ApiError ? failure.message : t("Votre navigateur empêche de conserver la demande. Aucun lancement n’a été envoyé. Autorisez le stockage de session pour continuer."));
     }
@@ -76,7 +82,7 @@ export function RunDialog({ userId, devices, workflows, initialDeviceIds, initia
     </div> : <form className="dialog-form" onSubmit={prepare}>
       <label>{t("1. Choisir l’automatisation")}<select required value={workflowKey} onChange={(event) => setWorkflowKey(event.target.value)}><option value="" disabled>{t("Sélectionner un parcours")}</option>{availableWorkflows.map((item) => <option key={`${item.workflow_id}:${item.version}`} value={`${item.workflow_id}:${item.version}`}>{item.name || t(workflowName(item.workflow_id))} · v{item.version}</option>)}</select></label>
       {unavailable.length > 0 && <div className="notice notice--warning"><span>{t("Connexion Android requise pour lancer un parcours.")} {t("Appareils indisponibles : {names}.", { names: unavailable.map(device => device.display_name || device.device_id).join(", ") })}</span><a href="/monitoring">{t("Vérifier le monitoring")}</a></div>}
-      {!workflows.length && <div className="notice notice--info">{t("Aucun parcours n’a encore été publié.")}</div>}
+      {!availableWorkflows.length && <div className="notice notice--info">{t("Aucun parcours publié")}</div>}
       <fieldset className="device-picker"><legend>{t("2. Cibler les téléphones")} <span>{t("{count} sélectionné(s)", {count: ids.length})}</span></legend><input type="search" aria-label={t("Filtrer les téléphones proposés")} placeholder={t("Rechercher dans les téléphones chargés…")} value={search} onChange={(event) => setSearch(event.target.value)} /><div className="device-picker-list">{visible.length ? visible.map((device) => <label key={device.device_id} className="device-picker-row"><input type="checkbox" checked={ids.includes(device.device_id)} disabled={!isDeviceReady(device) || (!ids.includes(device.device_id) && ids.length >= 100)} onChange={() => setIds((current) => current.includes(device.device_id) ? current.filter((id) => id !== device.device_id) : [...current, device.device_id])} /><span><strong>{device.display_name || device.device_id}</strong><small>{device.host_id} · {device.serial} · {device.kind === "emulator" ? t("Émulateur") : t("Physique")}</small></span><>{device.availability === "needs_review" ? <Badge status="needs_review" /> : <DeviceConnection device={device} />}</></label>) : <p className="picker-empty">{t("Aucun téléphone à proposer. Ajoutez un appareil dans Téléphones.")}</p>}</div></fieldset>
       <label>{t("Téléphones exécutés en parallèle")}<input type="number" required min={1} max={Math.max(1, ids.length)} value={concurrency} onChange={(event) => setConcurrency(Number(event.target.value))} /><span>{t("De 1 à {count}, dans la limite de votre sélection.", {count: Math.max(1, ids.length)})}</span></label>
       <div className="dialog-footer"><button type="button" className="button button--secondary" onClick={onClose}>{t("Annuler")}</button><button className="button button--primary" disabled={!workflow || !canSubmitDevices(ids, devices) || concurrency < 1 || concurrency > ids.length}>{t("Vérifier le lancement")}<Icon name="arrow" size={18} /></button></div>

@@ -1061,5 +1061,11 @@
   "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "Эта цель выходит за рамки текущих возможностей. Попробуйте поиск в Википедии, открытие приложения или чтение версии Android.",
   "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "Движок поддерживает Chrome, Википедию, открытие приложений и чтение версии Android в настройках.",
   "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "Примеры с Википедией и версией Android работают без внешнего аккаунта. Для другой цели подключите ChatGPT в настройках. Неподдерживаемые возможности будут указаны.",
-  "Utiliser l’exemple version Android": "Использовать пример с версией Android"
+  "Utiliser l’exemple version Android": "Использовать пример с версией Android",
+  "Supprimer cette version ?": "Удалить эту версию?",
+  "Cette version ne sera plus proposée pour les nouveaux lancements. Le brouillon, les résultats et les captures des anciennes exécutions seront conservés.": "Эта версия больше не будет доступна для новых запусков. Черновик, результаты и снимки экрана предыдущих запусков сохранятся.",
+  "La version {version} de {name} a été supprimée.": "Версия {version} сценария {name} удалена.",
+  "Supprimez d’abord les planifications qui utilisent cette version, même celles en pause.": "Сначала удалите расписания, использующие эту версию, включая приостановленные.",
+  "Cette version est utilisée par une exécution en attente ou en cours. Attendez sa fin avant de la supprimer.": "Эта версия используется ожидающим или активным запуском. Дождитесь его завершения перед удалением версии.",
+  "Cette version a été supprimée. Choisissez une autre version publiée.": "Эта версия удалена. Выберите другую опубликованную версию."
 }

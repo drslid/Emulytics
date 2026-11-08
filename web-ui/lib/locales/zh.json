@@ -1061,5 +1061,11 @@
   "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "此目标超出了当前能力范围。请尝试搜索维基百科、打开应用或读取 Android 版本。",
   "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "引擎支持 Chrome、维基百科、打开应用以及读取设置中的 Android 版本。",
   "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "维基百科和 Android 版本示例无需外部账户。其他目标请在配置中连接 ChatGPT。不支持的功能会明确提示。",
-  "Utiliser l’exemple version Android": "使用 Android 版本示例"
+  "Utiliser l’exemple version Android": "使用 Android 版本示例",
+  "Supprimer cette version ?": "删除此版本？",
+  "Cette version ne sera plus proposée pour les nouveaux lancements. Le brouillon, les résultats et les captures des anciennes exécutions seront conservés.": "此版本将不再用于新的运行。草稿以及历史运行的结果和截图将被保留。",
+  "La version {version} de {name} a été supprimée.": "已删除 {name} 的版本 {version}。",
+  "Supprimez d’abord les planifications qui utilisent cette version, même celles en pause.": "请先删除使用此版本的计划，包括已暂停的计划。",
+  "Cette version est utilisée par une exécution en attente ou en cours. Attendez sa fin avant de la supprimer.": "正在排队或运行的任务正在使用此版本。请等待任务结束后再删除该版本。",
+  "Cette version a été supprimée. Choisissez une autre version publiée.": "此版本已被删除。请选择其他已发布的版本。"
 }

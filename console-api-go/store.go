@@ -87,7 +87,7 @@ func nullableStamp(value *time.Time) *string {
 func (p *postgresStore) Ping(ctx context.Context) error { return p.pool.Ping(ctx) }
 func (p *postgresStore) Summary(ctx context.Context) (Summary, error) {
 	var value Summary
-	err := p.pool.QueryRow(ctx, `SELECT (SELECT COUNT(*) FROM devices),(SELECT COUNT(*) FROM workflows WHERE workflow_id NOT LIKE 'emulator-system-%'),
+	err := p.pool.QueryRow(ctx, `SELECT (SELECT COUNT(*) FROM devices),(SELECT COUNT(*) FROM workflows WHERE deleted_at IS NULL AND workflow_id NOT LIKE 'emulator-system-%'),
 COUNT(*),COUNT(*) FILTER(WHERE status IN ('queued','running')),
 COUNT(*) FILTER(WHERE status='needs_review'),COUNT(*) FILTER(WHERE status='succeeded') FROM runs`).Scan(
 		&value.DevicesTotal, &value.WorkflowsTotal, &value.RunsTotal, &value.RunsActive, &value.RunsNeedsReview, &value.RunsSucceeded)

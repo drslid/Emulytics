@@ -98,6 +98,13 @@ def get_workflow(workflow_id: Identifier, version: Annotated[int, Path(ge=1, le=
     return store.get_workflow(workflow_id, version)
 
 
+@router.delete("/workflows/{workflow_id}/versions/{version}", status_code=204)
+def delete_workflow(workflow_id: Identifier, version: Annotated[int, Path(ge=1, le=2_147_483_647)], request: Request, store: Store) -> Response:
+    user = getattr(request.state, 'auth_user', None)
+    store.delete_workflow(workflow_id, version, UUID(str(user['id'])) if user else None)
+    return Response(status_code=204)
+
+
 @router.post("/runs", status_code=202, response_model=RunDetail)
 def submit_run(payload: RunSubmission, store: Store) -> dict:
     return store.submit_run(payload)

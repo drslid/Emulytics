@@ -22,6 +22,12 @@ def test_workflow_catalog_and_fleet_summary(registered, database_dsn):
     }
 
 
+def test_summary_counts_only_versions_still_available_to_launch(registered):
+    assert registered.get('/console/summary').json()['workflows_total'] == 1
+    assert registered.delete('/workflows/go-home/versions/1').status_code == 204
+    assert registered.get('/console/summary').json()['workflows_total'] == 0
+
+
 def test_fleet_exposes_busy_expired_and_quarantined_without_online_claim(registered, database_dsn, run_payload):
     run = registered.post("/runs", json=run_payload).json()
     execution = run["executions"][0]["id"]

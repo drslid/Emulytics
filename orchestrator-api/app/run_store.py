@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from .access import audit_event
 from .run_models import DeviceRegistration, RunSubmission, WorkflowRegistration
 
 INTERNAL_WORKFLOW_PREFIX = 'emulator-system-'
@@ -70,10 +71,7 @@ class RunStore:
             "ON CONFLICT DO NOTHING RETURNING *",
             (workflow.workflow_id, workflow.version, Jsonb(definition), content_hash),
         ).fetchone()
-        record = inserted or connection.execute(
-            "SELECT * FROM workflows WHERE workflow_id = %s AND version = %s",
-            (workflow.workflow_id, workflow.version),
-        ).fetchone()
+        record = inserted or self._available_workflow(connection, workflow.workflow_id, workflow.version)
         if record["content_hash"] != content_hash:
             raise HTTPException(409, "Workflow version is immutable; publish a new version")
         return {**record["definition"], "created_at": record["created_at"]}, inserted is not None
@@ -81,21 +79,63 @@ class RunStore:
     def get_workflow(self, workflow_id: str, version: int) -> dict:
         with self.connect() as connection:
             record = connection.execute(
-                "SELECT w.definition,w.created_at,p.name,p.instructions FROM workflows w "
+                "SELECT w.definition,w.created_at,w.deleted_at,p.name,p.instructions FROM workflows w "
                 "LEFT JOIN automation_publications p ON p.workflow_id=w.workflow_id AND p.version=w.version "
                 "WHERE w.workflow_id = %s AND w.version = %s",
                 (workflow_id, version),
             ).fetchone()
             if record is None:
                 raise HTTPException(404, "Workflow version not found")
-            return {**record["definition"], "created_at": record["created_at"], "name": record["name"], "instructions": record["instructions"]}
+            return {**record["definition"], "created_at": record["created_at"], "deleted_at": record["deleted_at"], "name": record["name"], "instructions": record["instructions"]}
+
+    @staticmethod
+    def _available_workflow(connection, workflow_id: str, version: int) -> dict:
+        # Share the version lock through creation so deletion cannot overtake this check.
+        record = connection.execute(
+            'SELECT * FROM workflows WHERE workflow_id=%s AND version=%s FOR SHARE', (workflow_id, version),
+        ).fetchone()
+        if record is None:
+            raise HTTPException(404, 'Workflow version not found')
+        if record['deleted_at'] is not None:
+            raise HTTPException(410, {'code': 'workflow_version_deleted'})
+        return record
+
+    def delete_workflow(self, workflow_id: str, version: int, actor_id: UUID | None) -> None:
+        if workflow_id.startswith(INTERNAL_WORKFLOW_PREFIX):
+            raise HTTPException(403, 'Managed emulator workflows are reserved')
+        with self.connect() as connection:
+            record = connection.execute(
+                'SELECT deleted_at FROM workflows WHERE workflow_id=%s AND version=%s FOR UPDATE', (workflow_id, version),
+            ).fetchone()
+            if record is None:
+                raise HTTPException(404, 'Workflow version not found')
+            if record['deleted_at'] is not None:
+                return
+            if connection.execute(
+                'SELECT 1 FROM automation_schedules WHERE workflow_id=%s AND workflow_version=%s LIMIT 1', (workflow_id, version),
+            ).fetchone():
+                raise HTTPException(409, {'code': 'workflow_version_has_schedules'})
+            if connection.execute(
+                "SELECT 1 FROM runs r WHERE r.workflow_id=%s AND r.workflow_version=%s "
+                "AND (r.status IN ('queued','running','waiting_auth') OR EXISTS(SELECT 1 FROM executions e "
+                "WHERE e.run_id=r.id AND e.status IN ('queued','leased','running','recovering','verifying_state','waiting_auth'))) LIMIT 1",
+                (workflow_id, version),
+            ).fetchone():
+                raise HTTPException(409, {'code': 'workflow_version_in_use'})
+            connection.execute('UPDATE workflows SET deleted_at=clock_timestamp() WHERE workflow_id=%s AND version=%s', (workflow_id, version))
+            connection.execute(
+                'UPDATE automation_recipes SET published_revision=NULL,updated_at=clock_timestamp() '
+                'WHERE workflow_id=%s AND latest_version=%s', (workflow_id, version),
+            )
+            audit_event(connection, actor_id, 'workflow.version_deleted', f'{workflow_id}:{version}',
+                        {'workflow_id': workflow_id, 'workflow_version': version}, category='automation')
 
     def list_workflows(self, limit: int, offset: int) -> list[dict]:
         with self.connect() as connection:
             rows = connection.execute(
                 "SELECT w.definition,w.created_at,p.name,p.instructions FROM workflows w "
                 "LEFT JOIN automation_publications p ON p.workflow_id=w.workflow_id AND p.version=w.version "
-                "WHERE w.workflow_id NOT LIKE %s ORDER BY w.workflow_id,w.version DESC LIMIT %s OFFSET %s",
+                "WHERE w.deleted_at IS NULL AND w.workflow_id NOT LIKE %s ORDER BY w.workflow_id,w.version DESC LIMIT %s OFFSET %s",
                 (INTERNAL_WORKFLOW_PREFIX+'%',limit, offset),
             ).fetchall()
             return [{**row["definition"], "created_at": row["created_at"], "name": row["name"], "instructions": row["instructions"]} for row in rows]
@@ -136,8 +176,7 @@ class RunStore:
         replay = self._replay_run(connection,submission.idempotency_key,request_hash)
         if replay is not None:
             return replay
-        if not connection.execute('SELECT 1 FROM workflows WHERE workflow_id=%s AND version=%s',(submission.workflow_id,submission.workflow_version)).fetchone():
-            raise HTTPException(404,'Workflow version not found')
+        self._available_workflow(connection, submission.workflow_id, submission.workflow_version)
         devices = connection.execute('SELECT device_id FROM devices WHERE device_id=ANY(%s) ORDER BY device_id FOR UPDATE',(submission.device_ids,)).fetchall()
         if len(devices)!=len(submission.device_ids):
             raise HTTPException(404,'One or more devices are not registered')

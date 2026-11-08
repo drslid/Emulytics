@@ -1061,5 +1061,11 @@
   "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "This goal exceeds the current capabilities. Try a Wikipedia search, opening an app, or reading the Android version.",
   "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "The engine supports Chrome, Wikipedia, opening apps, and reading the Android version in Settings.",
   "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "The Wikipedia and Android version examples work without an external account. For another goal, connect ChatGPT in Settings. Unsupported capabilities are reported.",
-  "Utiliser l’exemple version Android": "Use the Android version example"
+  "Utiliser l’exemple version Android": "Use the Android version example",
+  "Supprimer cette version ?": "Delete this version?",
+  "Cette version ne sera plus proposée pour les nouveaux lancements. Le brouillon, les résultats et les captures des anciennes exécutions seront conservés.": "This version will no longer be offered for new runs. The draft, results and screenshots from previous runs will be kept.",
+  "La version {version} de {name} a été supprimée.": "Version {version} of {name} has been deleted.",
+  "Supprimez d’abord les planifications qui utilisent cette version, même celles en pause.": "First delete the schedules using this version, including paused schedules.",
+  "Cette version est utilisée par une exécution en attente ou en cours. Attendez sa fin avant de la supprimer.": "A queued or active run is using this version. Wait for it to finish before deleting the version.",
+  "Cette version a été supprimée. Choisissez une autre version publiée.": "This version has been deleted. Choose another published version."
 }
