@@ -1,0 +1,79 @@
+---
+title: Emulytics
+description: Prepare Android devices, publish natural-language journeys and inspect real execution evidence on your own infrastructure.
+template: splash
+hero:
+  tagline: Your devices. Your journeys. A clear view of every execution, from the first instruction to the final screenshot.
+  actions:
+    - text: Install Emulytics
+      link: /Emulytics/getting-started/install/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/drslid/Emulytics
+      icon: external
+      variant: minimal
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<p className="hero-mark"><span aria-hidden="true" />Self-hosted · Apache-2.0 · Android orchestration</p>
+
+<figure className="architecture-figure">
+  <img src="/Emulytics/brand/architecture.svg" width="1120" height="440" alt="The web console connects to control APIs and PostgreSQL. A scheduler submits work, and a worker drives Android devices and saves private execution evidence." loading="eager" />
+  <figcaption>A shared control plane with private device access and persistent execution evidence.</figcaption>
+</figure>
+
+<section className="home-section home-summary">
+  <div>
+    <p className="section-kicker">THE PRODUCT</p>
+    <h2>One place to prepare, launch and understand</h2>
+    <p className="section-copy">Emulytics separates device preparation, journey creation and execution. Describe an objective, review a published version, choose the devices and follow what actually happens.</p>
+    <a className="inline-action" href="/Emulytics/getting-started/overview/">Explore the product <span aria-hidden="true">→</span></a>
+  </div>
+  <dl className="fact-grid">
+    <div><dt>Deployment</dt><dd>Your Linux host and Docker stack</dd></div>
+    <div><dt>Devices</dt><dd>Persistent emulators and connected Android phones</dd></div>
+    <div><dt>Evidence</dt><dd>Live screens, screenshots and observed results</dd></div>
+    <div><dt>Access</dt><dd>Five roles, passwords and mandatory TOTP</dd></div>
+  </dl>
+</section>
+
+<section className="home-section">
+  <p className="section-kicker">FROM INSTALLATION TO FIRST RESULT</p>
+  <h2>A guided path in four stages</h2>
+  <div className="process-grid">
+    <div style={{'--step-color':'var(--docs-step-blue)'}}><span className="step-number">01</span><h3>Prepare</h3><p>Check Docker and KVM, run the installer and secure the first account.</p></div>
+    <div style={{'--step-color':'var(--docs-step-purple)'}}><span className="step-number">02</span><h3>Describe</h3><p>Write the objective. Review the supported steps and publish a version.</p></div>
+    <div style={{'--step-color':'var(--docs-step-green)'}}><span className="step-number">03</span><h3>Execute</h3><p>Select ready devices, confirm a launch or choose a timezone-aware schedule.</p></div>
+    <div style={{'--step-color':'var(--docs-step-orange)'}}><span className="step-number">04</span><h3>Understand</h3><p>Follow the active screen, inspect captures and diagnose the outcome.</p></div>
+  </div>
+  <div className="install-preview">
+    <p>Clone the project, then install the complete local stack</p>
+
+```bash
+git clone https://github.com/drslid/Emulytics.git
+cd Emulytics
+./scripts/install.sh --accept-android-license
+```
+
+    <p>Requires Linux x86_64, local Docker Engine/Compose, KVM, 8 GiB RAM and 25 GiB free storage. Review Android SDK terms before accepting the license option.</p>
+    <a className="inline-action" href="/Emulytics/getting-started/install/">Read the installation guide <span aria-hidden="true">→</span></a>
+  </div>
+</section>
+
+<section className="home-section">
+  <p className="section-kicker">DOCUMENTATION</p>
+  <h2>From your first journey to daily operations</h2>
+  <CardGrid>
+    <LinkCard title="Get your first result" description="Run a reference objective and review actual Android evidence." href="/Emulytics/getting-started/first-journey/" />
+    <LinkCard title="Prepare your fleet" description="Configure emulator resources, applications and selected device groups." href="/Emulytics/guides/devices/" />
+    <LinkCard title="Follow an execution" description="Use live screens, step captures, diagnostics and controlled retries." href="/Emulytics/guides/executions/" />
+    <LinkCard title="Connect API and MCP clients" description="Create scoped personal keys and preserve request identities." href="/Emulytics/reference/api-mcp/" />
+  </CardGrid>
+</section>
+
+<section className="scope-band">
+  <div><p className="section-kicker">CURRENT SCOPE</p><h2>Clear capabilities, visible limits</h2><p>The reproducible runtime is Android 10 / API 29 on Linux x86_64. Reference natural-language journeys are available; iOS and universal third-party application automation are not part of this release.</p></div>
+  <a href="/Emulytics/project/status/">Read status and scope <span aria-hidden="true">→</span></a>
+</section>

@@ -1,0 +1,86 @@
+:root, :root[data-theme='light'] {
+  --docs-step-blue: #1967d2;
+  --docs-step-purple: #7c4dba;
+  --docs-step-green: #188558;
+  --docs-step-orange: #b35713;
+  --sl-color-accent-low: #dbe9ff;
+  --sl-color-accent: #1967d2;
+  --sl-color-accent-high: #163f75;
+  --sl-color-white: #172b43;
+  --sl-color-gray-1: #243b53;
+  --sl-color-gray-2: #486176;
+  --sl-color-gray-3: #526b80;
+  --sl-color-gray-4: #9aabb8;
+  --sl-color-gray-5: #dbe3ea;
+  --sl-color-gray-6: #f2f6fa;
+  --sl-color-black: #fff;
+  --sl-content-width: 68rem;
+  --sl-content-pad-x: clamp(1rem, 3vw, 2rem);
+  --sl-text-h1: clamp(2.35rem, 5vw, 3.55rem);
+  --sl-text-h2: clamp(1.6rem, 3vw, 2rem);
+}
+:root[data-theme='dark'] {
+  --docs-step-blue: #8ab4f8;
+  --docs-step-purple: #c5a3f6;
+  --docs-step-green: #7bd7ab;
+  --docs-step-orange: #ffbd86;
+  --sl-color-accent-low: #112e50;
+  --sl-color-accent: #8ab4f8;
+  --sl-color-accent-high: #cde1ff;
+  --sl-color-white: #f2f6fc;
+  --sl-color-gray-1: #d7e3f2;
+  --sl-color-gray-2: #b0c2d5;
+  --sl-color-gray-3: #7f98b1;
+  --sl-color-gray-4: #47617a;
+  --sl-color-gray-5: #2a4057;
+  --sl-color-gray-6: #172a3c;
+  --sl-color-black: #0d1b2a;
+}
+body {font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+.site-title {font-weight:750;gap:.65rem;}
+.site-title img {width:2.15rem;height:2.15rem;object-fit:contain;}
+.hero {padding-block:clamp(2.25rem,7vw,4.5rem) 2.5rem;}
+.hero h1 {color:var(--sl-color-white);font-weight:760;letter-spacing:-.025em;line-height:1.08;}
+.hero .tagline {max-width:43rem;color:var(--sl-color-gray-2);font-size:clamp(1.1rem,2vw,1.3rem);line-height:1.7;}
+.hero .actions a {border-radius:.5rem;font-weight:700;}
+.hero-mark {display:flex;align-items:center;gap:.75rem;margin:0 0 1.5rem;color:var(--sl-color-accent);font-weight:750;font-size:.85rem;}
+.hero-mark span {height:.5rem;width:.5rem;background:#188558;border-radius:50%;box-shadow:0 0 0 4px #18855818;}
+.architecture-figure {margin:0 auto 3rem;}
+.architecture-figure img {display:block;width:100%;height:auto;border:1px solid var(--sl-color-gray-5);border-radius:.75rem;background:#fff;}
+.architecture-figure figcaption {margin-top:.75rem;color:var(--sl-color-gray-3);font-size:.85rem;text-align:center;}
+.home-section {margin-top:4rem;padding-top:3.5rem;border-top:1px solid var(--sl-color-gray-5);}
+.home-summary {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:3.5rem;align-items:start;}
+.section-kicker {margin:0;color:var(--sl-color-accent);font-size:.78rem;font-weight:800;letter-spacing:.05em;}
+.home-section h2 {color:var(--sl-color-white);margin-block:.6rem 1rem;letter-spacing:-.015em;}
+.section-copy {max-width:48rem;color:var(--sl-color-gray-2);font-size:1.05rem;line-height:1.75;}
+.fact-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;border-top:1px solid var(--sl-color-gray-5);border-left:1px solid var(--sl-color-gray-5);}
+.fact-grid>div {min-height:7.4rem;padding:1.2rem;border-right:1px solid var(--sl-color-gray-5);border-bottom:1px solid var(--sl-color-gray-5);}
+.fact-grid dt {color:var(--sl-color-gray-3);font-size:.78rem;font-weight:700;}
+.fact-grid dd {margin:.5rem 0 0;color:var(--sl-color-white);font-weight:720;line-height:1.45;}
+.process-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:1.8rem;border-top:2px solid var(--sl-color-white);}
+.process-grid>div {padding:1.2rem;border-right:1px solid var(--sl-color-gray-5);}
+.process-grid>div:first-child {padding-left:0;}
+.process-grid>div:last-child {border-right:0;}
+.process-grid .step-number {color:var(--step-color,var(--sl-color-accent));font-weight:800;font-size:.8rem;}
+.process-grid h3 {font-size:1.05rem;color:var(--sl-color-white);margin-block:1.1rem .5rem;}
+.process-grid p {color:var(--sl-color-gray-2);font-size:.94rem;line-height:1.65;margin:0;}
+.install-preview {margin-top:2rem;padding:1.5rem;border:1px solid var(--sl-color-gray-5);background:var(--sl-color-gray-6);border-radius:.75rem;}
+.install-preview p:first-child {margin-top:0;font-weight:700;}
+.inline-action {display:inline-flex;align-items:center;gap:.5rem;color:var(--sl-color-accent-high);font-weight:700;text-decoration:none;}
+.inline-action:hover {text-decoration:underline;}
+.card,.sl-link-card {border-radius:.6rem;border-color:var(--sl-color-gray-5);box-shadow:none;}
+.sl-link-card:hover {border-color:var(--sl-color-accent);}
+.scope-band {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2.5rem;margin-block:4rem 2rem;padding:1.75rem 2rem;background:#172b43;color:#dbe7f5;border-radius:.75rem;}
+.scope-band h2 {color:#fff;margin-block:.4rem .75rem;font-size:1.65rem;}
+.scope-band p {max-width:45rem;margin-bottom:0;line-height:1.7;}
+.scope-band .section-kicker {color:#8ab4f8;}
+.scope-band a {color:#d4e5ff;border:1px solid #8ab4f8;padding:.7rem 1rem;border-radius:.5rem;text-decoration:none;font-weight:700;}
+@media(max-width:60rem){.home-summary{gap:2rem;}.process-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.process-grid>div:nth-child(2){border-right:0;}.process-grid>div:nth-child(n+3){border-top:1px solid var(--sl-color-gray-5);}.process-grid>div:nth-child(3){padding-left:0;}}
+@media(max-width:42rem){.home-summary{grid-template-columns:1fr;}.home-section{margin-top:3rem;padding-top:2.5rem;}.process-grid{grid-template-columns:1fr;}.process-grid>div{padding:1.2rem 0;border-right:0;border-top:1px solid var(--sl-color-gray-5);}.process-grid>div:first-child{border-top:0;}.process-grid h3{margin-top:.6rem;}.scope-band{grid-template-columns:1fr;gap:1.5rem;padding:1.5rem;}.scope-band a{justify-self:start;}.install-preview{padding:1rem;}.fact-grid>div{padding:1rem;min-height:7rem;}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;}}
+
+@media(max-width:42rem){
+  .sl-markdown-content table{display:table;table-layout:fixed;width:100%;}
+  .sl-markdown-content th,.sl-markdown-content td{overflow-wrap:anywhere;}
+  .sl-markdown-content th code,.sl-markdown-content td code{white-space:normal;overflow-wrap:anywhere;}
+}
