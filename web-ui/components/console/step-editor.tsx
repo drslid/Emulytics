@@ -14,6 +14,7 @@ function selectorSummary(selector: Record<string, unknown>) {
 }
 
 export function stepPreview(step: Step): string {
+  if (["open_settings", "read_device_info"].includes(step.action)) return "";
   const field = editorArgumentField(step.action);
   if (field) return String(step.args?.[field.key] ?? "");
   if (step.action === "tap") return editorStepTargets(step).map(selectorSummary).join(" / ") || `${step.args?.x ?? "—"}, ${step.args?.y ?? "—"}`;
@@ -102,6 +103,8 @@ export function StepEditor({ step, onChange }: { step: Step; onChange: (step: St
       </select>
     </label>
     {field && <label>{t(field.label)}<input required dir="ltr" maxLength={field.key === "text" ? 16384 : 4096} value={String(step.args?.[field.key] ?? (step.action === "ensure_package" ? "com.android.chrome" : ""))} onChange={event => onChange(patchEditorArgument(step, field.key, event.target.value))} /></label>}
+    {step.action === "open_settings" && <label>{t("Page des paramètres")}<select value={String(step.args?.section ?? "main")} onChange={event => onChange(patchEditorArgument(step, "section", event.target.value))}><option value="main">{t("Paramètres du téléphone")}</option><option value="about">{t("À propos du téléphone")}</option></select></label>}
+    {step.action === "read_device_info" && <p className="editor-help">{t("La version sera relevée sur l’appareil pendant l’exécution.")}</p>}
     {step.action === "type_text" && <label className="checkbox-label"><input type="checkbox" checked={step.args?.clear === true} onChange={event => onChange(patchEditorArgument(step, "clear", event.target.checked))} />{t("Effacer le texte avant la saisie")}</label>}
     {numericKeys.length > 0 && <div className="step-coordinate-grid">{numericKeys.map(key => <label key={key}>{key === "duration_ms" ? t("Durée (ms)") : key.toUpperCase()}
       <input type="number" min={key === "duration_ms" ? 1 : 0} max={key === "duration_ms" ? 10000 : 100000} required value={typeof step.args?.[key] === "number" ? step.args[key] as number : ""} onChange={event => onChange(patchEditorArgument(step, key, event.target.value === "" ? undefined : Number(event.target.value)))} />

@@ -1049,5 +1049,17 @@
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "Verbinden Sie ChatGPT unter Konfiguration, um dieses frei formulierte Ziel vorzubereiten.",
   "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "Dieses Ziel wird noch nicht unterstützt. Versuchen Sie ein Ziel für Chrome oder Wikipedia.",
   "Sélectionner cette page": "Diese Seite auswählen",
-  "Désélectionner cette page": "Auswahl dieser Seite aufheben"
+  "Désélectionner cette page": "Auswahl dieser Seite aufheben",
+  "Ouvrir les paramètres du téléphone": "Telefoneinstellungen öffnen",
+  "Lire la version Android": "Android-Version auslesen",
+  "Page des paramètres": "Einstellungsseite",
+  "À propos du téléphone": "Über das Telefon",
+  "Paramètres du téléphone": "Telefoneinstellungen",
+  "La version sera relevée sur l’appareil pendant l’exécution.": "Die Version wird während der Ausführung vom Gerät ausgelesen.",
+  "Version Android : {version}": "Android-Version: {version}",
+  "Relevée sur l’appareil": "Vom Gerät ausgelesen",
+  "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "Dieses Ziel überschreitet die aktuellen Möglichkeiten. Versuche eine Wikipedia-Suche, das Öffnen einer App oder das Auslesen der Android-Version.",
+  "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "Die Engine unterstützt Chrome, Wikipedia, das Öffnen von Apps und das Auslesen der Android-Version in den Einstellungen.",
+  "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "Die Beispiele für Wikipedia und die Android-Version funktionieren ohne externes Konto. Verbinde für ein anderes Ziel ChatGPT in der Konfiguration. Nicht unterstützte Funktionen werden angezeigt.",
+  "Utiliser l’exemple version Android": "Beispiel zur Android-Version verwenden"
 }

@@ -67,3 +67,36 @@ test("new and duplicated steps have distinct stable identities and independent n
   duplicate.args.package_name = "changed";
   assert.equal(step.args.package_name,"com.android.chrome");
 });
+
+test("system information steps use bounded fields and keep their settings assertion", () => {
+  for (const action of ["open_settings", "read_device_info"]) {
+    const fresh = freshEditorStep(action);
+    assert.deepEqual(fresh.args, action === "open_settings" ? {section:"main"} : {field:"android_version"});
+    assert.deepEqual(fresh.assert, {type:"package",value:"com.android.settings"});
+    assert.deepEqual(parseEditorSteps(JSON.stringify([fresh])), [fresh]);
+    assert.notEqual(editorActionLabel(action), action);
+    assert.equal(editorArgumentField(action), undefined, "system commands never become free text");
+    const original = {...step, when:{type:"ui",selector:{text:"Ready"}}, timeout_ms:9000};
+    assert.deepEqual(changeEditorAction(original, action), {...original,action,args:fresh.args,selectors:[],assert:fresh.assert});
+    const custom = {...original,assert:{type:"ui",selector:{text:"Android"}}};
+    assert.deepEqual(changeEditorAction(custom, action).assert, custom.assert);
+  }
+});
+
+test("switching into or out of system actions updates only unchanged default assertions", () => {
+  for (const systemAction of ["open_settings", "read_device_info"]) {
+    for (const otherAction of ["open_app", "open_url", "ensure_package"]) {
+      const system = {...freshEditorStep(systemAction),timeout_ms:9000,when:{type:"ui",selector:{text:"Ready"}}};
+      const other = freshEditorStep(otherAction);
+      const entered = changeEditorAction(other, systemAction);
+      assert.deepEqual(entered.assert, system.assert, `entering ${systemAction} from ${otherAction}`);
+      const left = changeEditorAction(system, otherAction);
+      assert.deepEqual(left, {...system,action:otherAction,args:other.args,selectors:other.selectors,assert:other.assert}, `leaving ${systemAction} for ${otherAction}`);
+      for (const [source, target] of [[system, otherAction], [other, systemAction]]) {
+        for (const assertion of [{type:"package",value:"com.example.custom"}, {type:"ui",selector:{text:"Custom"}}, {...source.assert,description:"Custom check"}]) {
+          assert.deepEqual(changeEditorAction({...source,assert:assertion}, target).assert, assertion, `custom assertion in ${source.action} → ${target}`);
+        }
+      }
+    }
+  }
+});

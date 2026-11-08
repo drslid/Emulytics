@@ -77,7 +77,7 @@ class DeviceRegistration(Contract):
 
 class WorkflowStep(Contract):
     id: Identifier
-    action: Literal["press_key", "open_app", "tap", "swipe", "type_text", "screenshot", "ensure_package", "open_url"]
+    action: Literal["press_key", "open_app", "tap", "swipe", "type_text", "screenshot", "ensure_package", "open_url", "open_settings", "read_device_info"]
     args: dict[str, JsonValue] = Field(default_factory=dict, max_length=32)
     selectors: list[dict[str, JsonValue]] = Field(default_factory=list, max_length=8)
     timeout_ms: int = Field(default=10_000, ge=1, le=300_000)

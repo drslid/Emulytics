@@ -1049,5 +1049,17 @@
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "নিজের ভাষায় লেখা এই লক্ষ্য তৈরি করতে কনফিগারেশনে ChatGPT যুক্ত করুন।",
   "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "এই লক্ষ্য এখনো সমর্থিত নয়। Chrome বা উইকিপিডিয়ার লক্ষ্য চেষ্টা করুন।",
   "Sélectionner cette page": "এই পৃষ্ঠা নির্বাচন করুন",
-  "Désélectionner cette page": "এই পৃষ্ঠার নির্বাচন বাতিল করুন"
+  "Désélectionner cette page": "এই পৃষ্ঠার নির্বাচন বাতিল করুন",
+  "Ouvrir les paramètres du téléphone": "ফোনের সেটিংস খুলুন",
+  "Lire la version Android": "Android সংস্করণ পড়ুন",
+  "Page des paramètres": "সেটিংস পৃষ্ঠা",
+  "À propos du téléphone": "ফোন সম্পর্কে",
+  "Paramètres du téléphone": "ফোনের সেটিংস",
+  "La version sera relevée sur l’appareil pendant l’exécution.": "চলার সময় ডিভাইস থেকে সংস্করণ পড়া হবে।",
+  "Version Android : {version}": "Android সংস্করণ: {version}",
+  "Relevée sur l’appareil": "ডিভাইস থেকে পড়া হয়েছে",
+  "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "এই লক্ষ্যটি বর্তমান সক্ষমতার বাইরে। উইকিপিডিয়ায় অনুসন্ধান, অ্যাপ খোলা বা Android সংস্করণ পড়ার চেষ্টা করুন।",
+  "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "ইঞ্জিন Chrome, উইকিপিডিয়া, অ্যাপ খোলা এবং সেটিংসে Android সংস্করণ পড়া সমর্থন করে।",
+  "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "উইকিপিডিয়া এবং Android সংস্করণের উদাহরণগুলো বাইরের অ্যাকাউন্ট ছাড়াই কাজ করে। অন্য লক্ষ্যের জন্য কনফিগারেশনে ChatGPT সংযুক্ত করুন। অসমর্থিত সক্ষমতাগুলো জানানো হবে।",
+  "Utiliser l’exemple version Android": "Android সংস্করণের উদাহরণ ব্যবহার করুন"
 }

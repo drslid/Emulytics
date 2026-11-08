@@ -134,7 +134,10 @@ class AndroidDriver:
 
     def ui_xml(self, *, timeout_s: float = 10) -> str:
         target = "/sdcard/emulytix-ui.xml"
-        self.command(["shell", "uiautomator", "dump", target], effect=False, timeout_s=timeout_s)
+        output = self.command(["shell", "uiautomator", "dump", target], effect=False, timeout_s=timeout_s)
+        # Android can exit zero on an idle timeout, leaving an earlier XML file.
+        if f"dumped to: {target}" not in output:
+            raise DriverError("Android did not confirm a fresh UI hierarchy")
         xml = self.command(["shell", "cat", target], effect=False, timeout_s=timeout_s)
         try:
             ET.fromstring(xml)
@@ -267,7 +270,8 @@ class AndroidDriver:
         action, args = step.get("action"), step.get("args", {})
         fields = {"press_key": {"keycode"}, "open_app": {"package_name"}, "tap": {"selector", "x", "y"},
                   "swipe": {"x1", "y1", "x2", "y2", "duration_ms"}, "type_text": {"text", "clear"},
-                  "screenshot": set(), "ensure_package": {"package", "apk", "sha256"}, "open_url": {"url"}}
+                  "screenshot": set(), "ensure_package": {"package", "apk", "sha256"}, "open_url": {"url"},
+                  "open_settings": {"section"}, "read_device_info": {"field"}}
         if not isinstance(action, str) or action not in fields or not isinstance(args, dict) or set(args) - fields[action]:
             raise DriverError("Unsupported action or action arguments")
         if action == "press_key" and (not isinstance(args.get("keycode"), str) or not re.fullmatch(r"KEYCODE_[A-Z0-9_]{1,60}", args["keycode"])):
@@ -278,6 +282,10 @@ class AndroidDriver:
             raise DriverError('Invalid application package')
         if action == "open_url":
             cls._wikipedia_url(args.get("url"))
+        if action == "open_settings" and (set(args) != {"section"} or not isinstance(args["section"], str) or args["section"] not in {"main", "about"}):
+            raise DriverError("Unsupported Android settings section")
+        if action == "read_device_info" and (set(args) != {"field"} or args["field"] != "android_version"):
+            raise DriverError("Unsupported Android device information")
         if action == "type_text":
             text = args.get("text")
             if not isinstance(text, str) or not text or len(text) > 16_384 or not text.isascii() or any(ord(c) < 32 for c in text) or "%s" in text or type(args.get("clear", False)) is not bool:
@@ -328,6 +336,20 @@ class AndroidDriver:
                     return match.group(1)
         raise DriverError("Foreground package could not be observed")
 
+    def read_android_version(self) -> dict:
+        release = self.command(["shell", "getprop", "ro.build.version.release"], effect=False).rstrip("\r\n")
+        sdk = self.command(["shell", "getprop", "ro.build.version.sdk"], effect=False).rstrip("\r\n")
+        # Android documents RELEASE as an opaque label, not necessarily a number.
+        if not release.isprintable():
+            raise DriverError("Android release could not be read reliably")
+        release = release.strip()
+        if not release or len(release) > 64 or release.casefold() == "unknown":
+            raise DriverError("Android release could not be read reliably")
+        if not re.fullmatch(r"[1-9][0-9]{0,4}", sdk) or int(sdk) > 10_000:
+            raise DriverError("Android SDK version could not be read reliably")
+        return {"type": "android_version", "value": release, "sdk_int": int(sdk),
+                "source": "android_system_properties"}
+
     def check_assertion(self, assertion: dict) -> None:
         kind = assertion.get("type")
         if kind == "all":
@@ -370,6 +392,7 @@ class AndroidDriver:
         if not 0.1 <= timeout_s <= 300:
             raise DriverError("Invalid step timeout")
         skipped = False
+        result = None
         if step.get("when"):
             try:
                 self.find_node(self.ui_xml(), step["when"]["selector"])
@@ -402,6 +425,11 @@ class AndroidDriver:
             self.open_url(args.get("url", ""))
         elif action == "open_app":
             self.command(['shell', 'monkey', '-p', args['package_name'], '-c', 'android.intent.category.LAUNCHER', '1'], effect=True)
+        elif action == "open_settings":
+            intent = {"main": "android.settings.SETTINGS", "about": "android.settings.DEVICE_INFO_SETTINGS"}[args["section"]]
+            self.command(["shell", "am", "start", "-W", "-a", intent, "-p", "com.android.settings"], effect=True)
+        elif action == "read_device_info":
+            result = self.read_android_version()
         elif action == "ensure_package":
             self.ensure_package_installed(**args)
         elif action != "screenshot":
@@ -430,9 +458,12 @@ class AndroidDriver:
         screenshot.write_bytes(image)
         xml_path = self.artifact_dir / (stem + ".xml")
         xml_path.write_text(self.ui_xml())
-        return {"assertion_passed": True, "skipped": skipped, "captured_at": captured_at,
-                "screenshot": str(screenshot), "ui_xml": str(xml_path),
-                "screenshot_sha256": hashlib.sha256(screenshot.read_bytes()).hexdigest()}
+        evidence = {"assertion_passed": True, "skipped": skipped, "captured_at": captured_at,
+                    "screenshot": str(screenshot), "ui_xml": str(xml_path),
+                    "screenshot_sha256": hashlib.sha256(screenshot.read_bytes()).hexdigest()}
+        if result is not None:
+            evidence["result"] = result
+        return evidence
 
     def _tap_alternative(self, selectors: list[dict]) -> None:
         xml = self.ui_xml()

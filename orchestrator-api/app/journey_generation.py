@@ -3,6 +3,7 @@ import copy
 import json
 from pathlib import Path
 import re
+import unicodedata
 from urllib.parse import quote
 
 from fastapi import HTTPException
@@ -18,6 +19,17 @@ PATTERNS = [
     rf'(?:(?:ouvre|ouvrir|open)\s+chrome\s*[,;]\s*)?(?:(?:va|aller|go)\s+(?:sur|to)\s+|(?:ouvre|ouvrir|open)\s+)?{WIKI}\s*[,;]\s*(?:recherche(?:r)?|search(?: for)?)\s+(?P<query>.+?){VERIFY}',
     rf'(?:recherche(?:r)?|search(?: for)?)\s+(?P<query>.+?)\s+(?:sur|on)\s+{WIKI}{VERIFY}',
 ]
+ANDROID_VERSION_PATTERNS = [
+    r"(?:(?:ouvre|ouvrir) (?:les )?parametres(?: (?:du|de mon|de ce) telephone)?(?:\s*[,;]\s*| (?:et|puis) ))?(?:donne moi|donner|affiche(?: moi)?|afficher|indique(?: moi)?|indiquer|lis|lire|releve|relever|verifie|verifier) (?:la )?version (?:d'|de |d )?android(?: (?:du|de mon|de ce) telephone)?",
+    r"(?:open (?:the )?(?:phone |device )?settings(?:\s*[,;]\s*| and | then ))?(?:tell me|show(?: me)?|read|check|get) (?:the )?android version(?: of (?:the|my) (?:phone|device))?",
+]
+
+
+def android_version_goal(instructions):
+    source = unicodedata.normalize('NFKD', instructions.casefold().replace('’', "'"))
+    source = ''.join(char for char in source if not unicodedata.combining(char))
+    source = ' '.join(source.replace('donne-moi', 'donne moi').split()).rstrip('.!?').strip()
+    return any(re.fullmatch(pattern, source) for pattern in ANDROID_VERSION_PATTERNS)
 
 
 def validate_generated_recipe(value, instructions):
@@ -39,6 +51,20 @@ def validate_generated_recipe(value, instructions):
 
 def local_goal(instructions):
     """Recognize complete reference intents only; never drop an extra requested action."""
+    if android_version_goal(instructions):
+        assertion = {'type': 'package', 'value': 'com.android.settings'}
+        recipe = validate_generated_recipe({
+            'name': 'Version Android', 'recovery_budget': 0,
+            'steps': [
+                {'id': 'open-phone-settings', 'action': 'open_settings', 'args': {'section': 'main'},
+                 'timeout_ms': 30000, 'assert': assertion},
+                {'id': 'read-android-version', 'action': 'read_device_info', 'args': {'field': 'android_version'},
+                 'timeout_ms': 30000, 'assert': assertion},
+            ],
+        }, instructions)
+        return {'recipe': recipe, 'source': 'verified_template',
+                'expected_result': 'La version Android sera relevée sur l’appareil pendant l’exécution.',
+                'capabilities': ['android_settings', 'android_version'], 'requires_test': True}
     source = instructions.strip().rstrip('.').strip()
     match = next((m for pattern in PATTERNS if (m := re.fullmatch(pattern, source, re.IGNORECASE))), None)
     if not match:

@@ -1049,5 +1049,17 @@
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "Connect ChatGPT in Configuration to prepare this free-form goal.",
   "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "This goal is not supported yet. Try a Chrome or Wikipedia goal.",
   "Sélectionner cette page": "Select this page",
-  "Désélectionner cette page": "Deselect this page"
+  "Désélectionner cette page": "Deselect this page",
+  "Ouvrir les paramètres du téléphone": "Open phone settings",
+  "Lire la version Android": "Read Android version",
+  "Page des paramètres": "Settings page",
+  "À propos du téléphone": "About phone",
+  "Paramètres du téléphone": "Phone settings",
+  "La version sera relevée sur l’appareil pendant l’exécution.": "The version will be read from the device during execution.",
+  "Version Android : {version}": "Android version: {version}",
+  "Relevée sur l’appareil": "Read from the device",
+  "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "This goal exceeds the current capabilities. Try a Wikipedia search, opening an app, or reading the Android version.",
+  "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "The engine supports Chrome, Wikipedia, opening apps, and reading the Android version in Settings.",
+  "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "The Wikipedia and Android version examples work without an external account. For another goal, connect ChatGPT in Settings. Unsupported capabilities are reported.",
+  "Utiliser l’exemple version Android": "Use the Android version example"
 }

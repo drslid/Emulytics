@@ -1049,5 +1049,17 @@
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "Conecta ChatGPT en Configuración para preparar este objetivo libre.",
   "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "Este objetivo aún no es compatible. Prueba un objetivo de Chrome o Wikipedia.",
   "Sélectionner cette page": "Seleccionar esta página",
-  "Désélectionner cette page": "Deseleccionar esta página"
+  "Désélectionner cette page": "Deseleccionar esta página",
+  "Ouvrir les paramètres du téléphone": "Abrir los ajustes del teléfono",
+  "Lire la version Android": "Leer la versión de Android",
+  "Page des paramètres": "Página de ajustes",
+  "À propos du téléphone": "Acerca del teléfono",
+  "Paramètres du téléphone": "Ajustes del teléfono",
+  "La version sera relevée sur l’appareil pendant l’exécution.": "La versión se leerá del dispositivo durante la ejecución.",
+  "Version Android : {version}": "Versión de Android: {version}",
+  "Relevée sur l’appareil": "Leída del dispositivo",
+  "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "Este objetivo supera las capacidades actuales. Prueba una búsqueda en Wikipedia, abrir una aplicación o consultar la versión de Android.",
+  "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "El motor permite usar Chrome y Wikipedia, abrir aplicaciones y consultar la versión de Android en Ajustes.",
+  "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "Los ejemplos de Wikipedia y de la versión de Android funcionan sin una cuenta externa. Para otro objetivo, conecta ChatGPT en Configuración. Se indican las capacidades no admitidas.",
+  "Utiliser l’exemple version Android": "Usar el ejemplo de versión de Android"
 }

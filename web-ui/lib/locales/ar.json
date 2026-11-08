@@ -1049,5 +1049,17 @@
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "اربط ChatGPT في الإعدادات لإعداد هذا الهدف الحر.",
   "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "هذا الهدف غير مدعوم بعد. جرّب هدفًا باستخدام Chrome أو ويكيبيديا.",
   "Sélectionner cette page": "تحديد هذه الصفحة",
-  "Désélectionner cette page": "إلغاء تحديد هذه الصفحة"
+  "Désélectionner cette page": "إلغاء تحديد هذه الصفحة",
+  "Ouvrir les paramètres du téléphone": "فتح إعدادات الهاتف",
+  "Lire la version Android": "قراءة إصدار Android",
+  "Page des paramètres": "صفحة الإعدادات",
+  "À propos du téléphone": "حول الهاتف",
+  "Paramètres du téléphone": "إعدادات الهاتف",
+  "La version sera relevée sur l’appareil pendant l’exécution.": "ستتم قراءة الإصدار من الجهاز أثناء التنفيذ.",
+  "Version Android : {version}": "إصدار Android: {version}",
+  "Relevée sur l’appareil": "تمت قراءته من الجهاز",
+  "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "يتجاوز هذا الهدف الإمكانات الحالية. جرّب البحث في ويكيبيديا أو فتح تطبيق أو قراءة إصدار Android.",
+  "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "يدعم المحرك Chrome وويكيبيديا وفتح التطبيقات وقراءة إصدار Android في الإعدادات.",
+  "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "يعمل مثالا ويكيبيديا وإصدار Android دون حساب خارجي. لهدف آخر، اربط ChatGPT في الإعدادات. يتم توضيح الإمكانات غير المدعومة.",
+  "Utiliser l’exemple version Android": "استخدام مثال إصدار Android"
 }

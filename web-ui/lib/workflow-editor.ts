@@ -9,6 +9,8 @@ export const editorActions = {
   screenshot: "Prendre une capture",
   ensure_package: "Vérifier une application",
   swipe: "Faire défiler",
+  open_settings: "Ouvrir les paramètres du téléphone",
+  read_device_info: "Lire la version Android",
 };
 
 const argumentFields: Record<string, { key: string; label: string }> = {
@@ -31,8 +33,16 @@ export function editorRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+const settingsActions = new Set(["open_settings", "read_device_info"]);
+
+function defaultEditorAssertion(action: string) {
+  return { type: action === "ensure_package" ? "package_installed" : "package", value: settingsActions.has(action) ? "com.android.settings" : "com.android.chrome" };
+}
+
 export function freshEditorStep(action = "open_app"): Step {
-  const args = action === "open_app" ? { package_name: "com.android.chrome" }
+  const args = action === "open_settings" ? { section: "main" }
+    : action === "read_device_info" ? { field: "android_version" }
+    : action === "open_app" ? { package_name: "com.android.chrome" }
     : action === "open_url" ? { url: "https://fr.wikipedia.org/" }
       : action === "press_key" ? { keycode: "KEYCODE_ENTER" }
         : action === "type_text" ? { text: "", clear: true }
@@ -42,14 +52,21 @@ export function freshEditorStep(action = "open_app"): Step {
     id: `step-${crypto.randomUUID().slice(0, 8)}`, action, args,
     selectors: action === "tap" ? [{ resource_id: "" }]
       : action === "type_text" ? [{ class: "android.widget.EditText", focused: true }] : [],
-    assert: { type: action === "ensure_package" ? "package_installed" : "package", value: "com.android.chrome" },
+    assert: defaultEditorAssertion(action),
     timeout_ms: 30000, non_idempotent: false, recovery_budget: 0,
   };
 }
 
 export function changeEditorAction(step: Step, action: string): Step {
   const fresh = freshEditorStep(action);
-  return { ...step, action, args: fresh.args, selectors: fresh.selectors };
+  const previousDefault = defaultEditorAssertion(step.action);
+  const migrateDefault = (settingsActions.has(step.action) || settingsActions.has(action))
+    && Object.hasOwn(editorActions, step.action) && editorRecord(step.assert)
+    && Object.keys(step.assert).length === 2
+    && step.assert.type === previousDefault.type && step.assert.value === previousDefault.value;
+  return { ...step, action, args: fresh.args, selectors: fresh.selectors,
+    ...(migrateDefault ? {assert: fresh.assert} : {}),
+  };
 }
 
 export function duplicateEditorStep(step: Step): Step {

@@ -86,6 +86,7 @@ export function ExecutionGallery({ execution, steps, compact = false }: { execut
   const key = `${execution.id}:${execution.lease_epoch ?? ""}:${selectedId ?? ""}:${selected?.captureUrl ?? ""}`;
   const capture = useCapture(selected?.captureUrl ?? null, key, retry);
   const blocked = capture?.status === "expired" || capture?.status === "forbidden";
+  const observedResult = [...rows].reverse().find(step => step.result)?.result;
   const number = (value: number) => new Intl.NumberFormat(locale).format(value);
   useEffect(() => {
     // Wait for the first available capture before pinning an automatic selection.
@@ -119,6 +120,7 @@ export function ExecutionGallery({ execution, steps, compact = false }: { execut
     : "Impossible de charger la capture.";
   return <section className={`execution-gallery ${compact ? "execution-gallery--compact" : ""}`} aria-labelledby={titleId} onKeyDown={navigate}>
     <div className="execution-gallery-heading"><h4 id={titleId}>{t("Captures des étapes")}</h4>{rows.length > 0 && <span>{t("Captures enregistrées : {count}", { count: number(rows.filter(step => step.captureUrl).length) })}</span>}</div>
+    {!blocked && observedResult && <div className="notice notice--success" role="status"><Icon name="check" /><div><strong>{t("Version Android : {version}", {version: observedResult.value})}</strong><p className="small-copy">{t("Relevée sur l’appareil")}</p></div></div>}
     {!selected ? <p className="small-copy">{t("Les preuves apparaîtront lorsque le worker aura exécuté les étapes.")}</p> : <div className="execution-gallery-layout">
       <ol className="execution-step-list" role="list" aria-label={t("Captures des étapes")}>
         {rows.map((step, index) => <li id={`capture-${execution.id}-${step.id}`} key={`${execution.id}:${execution.lease_epoch}:${step.id}`}><button type="button" className="execution-step-button" ref={button => { buttons.current[index] = button; }} tabIndex={selectedId === step.id ? 0 : -1} aria-pressed={selectedId === step.id} aria-controls={previewId} onClick={() => select(index)}>

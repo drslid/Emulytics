@@ -53,9 +53,9 @@ def generate_recipe(payload: GoalInput, request: Request, store: Store):
         raise HTTPException(422, {'code': 'unsupported_goal'})
     try:
         steps = json.loads(output['steps_json'])
-        if not isinstance(steps, list) or not steps or steps[-1].get('action') != 'screenshot':
+        if not isinstance(steps, list) or not steps or steps[-1].get('action') not in {'screenshot', 'read_device_info'}:
             raise ValueError()
-        if any(step.get('action') not in {'open_app', 'open_url', 'screenshot', 'press_key', 'ensure_package'} for step in steps):
+        if any(step.get('action') not in {'open_app', 'open_url', 'screenshot', 'press_key', 'ensure_package', 'open_settings', 'read_device_info'} for step in steps):
             raise ValueError()
         if any(step.get('action') == 'press_key' and step.get('args', {}).get('keycode') not in {'KEYCODE_HOME', 'KEYCODE_BACK'} for step in steps):
             raise ValueError()
@@ -63,7 +63,7 @@ def generate_recipe(payload: GoalInput, request: Request, store: Store):
     except (ValueError, TypeError, KeyError, AttributeError):
         raise HTTPException(422, 'La génération ne fournit pas un parcours vérifiable. Précisez le résultat attendu.') from None
     return {'recipe': value, 'source': 'chatgpt', 'expected_result': output['reason'], 'requires_test': True,
-            'capabilities': ['installed_apps', 'chrome', 'wikipedia']}
+            'capabilities': ['installed_apps', 'chrome', 'wikipedia', 'android_settings', 'android_version']}
 
 
 @router.post("/recipes/from-workflow")

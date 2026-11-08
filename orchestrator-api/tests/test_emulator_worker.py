@@ -50,6 +50,8 @@ def test_managed_power_and_journey_share_the_same_lease_queue(registered, run_pa
                 return 'package:com.android.chrome\n' if len(args) == 4 or args[4] == 'com.android.chrome' else ''
             if args[:2] == ['shell', 'dumpsys']:
                 return 'mCurrentFocus=Window{0 u0 com.android.launcher3/Launcher}'
+            if args[:3] == ['shell', 'uiautomator', 'dump']:
+                return f'UI hierarchy dumped to: {args[-1]}\n'
             if args[:2] == ['shell', 'cat']:
                 return '<hierarchy />'
             return PNG if kwargs.get('binary') else 'ok\n'

@@ -1049,5 +1049,17 @@
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "Подключите ChatGPT в настройках для подготовки свободно сформулированной цели.",
   "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "Эта цель пока не поддерживается. Попробуйте цель для Chrome или Википедии.",
   "Sélectionner cette page": "Выбрать эту страницу",
-  "Désélectionner cette page": "Снять выбор с этой страницы"
+  "Désélectionner cette page": "Снять выбор с этой страницы",
+  "Ouvrir les paramètres du téléphone": "Открыть настройки телефона",
+  "Lire la version Android": "Прочитать версию Android",
+  "Page des paramètres": "Страница настроек",
+  "À propos du téléphone": "О телефоне",
+  "Paramètres du téléphone": "Настройки телефона",
+  "La version sera relevée sur l’appareil pendant l’exécution.": "Версия будет считана с устройства во время выполнения.",
+  "Version Android : {version}": "Версия Android: {version}",
+  "Relevée sur l’appareil": "Считана с устройства",
+  "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "Эта цель выходит за рамки текущих возможностей. Попробуйте поиск в Википедии, открытие приложения или чтение версии Android.",
+  "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "Движок поддерживает Chrome, Википедию, открытие приложений и чтение версии Android в настройках.",
+  "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "Примеры с Википедией и версией Android работают без внешнего аккаунта. Для другой цели подключите ChatGPT в настройках. Неподдерживаемые возможности будут указаны.",
+  "Utiliser l’exemple version Android": "Использовать пример с версией Android"
 }

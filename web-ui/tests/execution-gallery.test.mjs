@@ -151,3 +151,30 @@ test("selection survives a refresh and falls back to the first available capture
   assert.equal(initialGallerySelection(rows.slice(0, 1)), "waiting");
   assert.equal(initialGallerySelection([]), null);
 });
+
+test("Android version is exposed only from a confirmed observed result", () => {
+  const result = {type:"android_version",value:"10",sdk_int:29,source:"android_system_properties"};
+  const rows = buildExecutionGallery(execution("succeeded", {steps:[
+    {step_id:"observed",assertion_passed:true,result},
+    {step_id:"unconfirmed",result},
+    {step_id:"skipped",assertion_passed:true,skipped:true,result},
+    {step_id:"invalid-source",assertion_passed:true,result:{...result,source:"model"}},
+    {step_id:"invalid-api",assertion_passed:true,result:{...result,sdk_int:"29"}},
+    {step_id:"invalid-value",assertion_passed:true,result:{...result,value:"10\nsecret"}},
+    {step_id:"invalid-control",assertion_passed:true,result:{...result,value:"10\u0085secret"}},
+    {step_id:"unknown",assertion_passed:true,result:{...result,value:"unknown"}},
+  ]}));
+  assert.deepEqual(rows[0].result,result);
+  for(const row of rows.slice(1)) assert.equal(row.result,null,row.id);
+  assert.equal(buildExecutionGallery(execution("failed",{failed_step:"observed",steps:[{step_id:"observed",assertion_passed:true,result}]}))[0].result,null);
+  assert.equal(buildExecutionGallery(execution("queued"),[{id:"future",action:"read_device_info",result}])[0].result,null);
+});
+
+test("Android versions allow named previews and reject malformed observations", () => {
+  const result = {type:"android_version",value:"Baklava",sdk_int:36,source:"android_system_properties"};
+  const observed = value => buildExecutionGallery(execution("succeeded", {steps:[{step_id:"version",assertion_passed:true,result:value}]}))[0].result;
+  assert.deepEqual(observed(result), result);
+  for (const value of [null, [], "10", {...result,type:"other"}, ...["", " ", "10 ", "a".repeat(65)].map(value=>({...result,value})), ...[0, 1.5, 10001, NaN, Infinity].map(sdk_int=>({...result,sdk_int}))]) {
+    assert.equal(observed(value), null, JSON.stringify(value));
+  }
+});

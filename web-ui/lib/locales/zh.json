@@ -1049,5 +1049,17 @@
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "请在配置中连接 ChatGPT，以准备自由描述的目标。",
   "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "暂不支持此目标。请尝试 Chrome 或维基百科相关目标。",
   "Sélectionner cette page": "选择本页",
-  "Désélectionner cette page": "取消选择本页"
+  "Désélectionner cette page": "取消选择本页",
+  "Ouvrir les paramètres du téléphone": "打开手机设置",
+  "Lire la version Android": "读取 Android 版本",
+  "Page des paramètres": "设置页面",
+  "À propos du téléphone": "关于手机",
+  "Paramètres du téléphone": "手机设置",
+  "La version sera relevée sur l’appareil pendant l’exécution.": "执行时将从设备读取版本。",
+  "Version Android : {version}": "Android 版本：{version}",
+  "Relevée sur l’appareil": "从设备读取",
+  "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "此目标超出了当前能力范围。请尝试搜索维基百科、打开应用或读取 Android 版本。",
+  "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "引擎支持 Chrome、维基百科、打开应用以及读取设置中的 Android 版本。",
+  "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "维基百科和 Android 版本示例无需外部账户。其他目标请在配置中连接 ChatGPT。不支持的功能会明确提示。",
+  "Utiliser l’exemple version Android": "使用 Android 版本示例"
 }

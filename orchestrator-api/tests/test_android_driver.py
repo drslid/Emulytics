@@ -35,6 +35,7 @@ def fake_adb(tmp_path, monkeypatch):
         "if os.environ.get('FAKE_ADB_MODE')=='failtap' and 'tap' in args: sys.exit(1)\n"
         "if os.environ.get('FAKE_ADB_MODE')=='badpng' and 'screencap' in args: print('not PNG');sys.exit(0)\n"
         f"if args[:2]==['shell','cat']: print({UI!r})\n"
+        "elif args[:3]==['shell','uiautomator','dump']: print('UI hierarchy dumped to: '+args[-1])\n"
         "elif args[:3]==['shell','dumpsys','window']: print('mCurrentFocus=Window{0 u0 com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity}')\n"
         "elif args[:3]==['shell','pm','path']:\n"
         " print('package:/data/app/chrome/base.apk' if os.environ.get('FAKE_PACKAGE','present')=='present' else '')\n"
@@ -236,7 +237,11 @@ def test_adb_child_dies_when_worker_process_is_killed(tmp_path, fake_adb, monkey
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
             stat = Path(f"/proc/{child}/stat")
-            if not stat.exists() or stat.read_text().split()[2] == "Z":
+            try:
+                state = stat.read_text().split()[2]
+            except FileNotFoundError:
+                break
+            if state == "Z":
                 break
             time.sleep(0.05)
         else:

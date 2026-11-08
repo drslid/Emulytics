@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -200,7 +200,7 @@ def test_concurrent_scheduler_ticks_submit_exactly_once(database_dsn, workflow_p
     assert current["next_run_at"] > datetime.now(timezone.utc)
 
 
-def test_failed_due_schedules_do_not_starve_a_later_valid_schedule(database_dsn, workflow_payload):
+def test_failed_due_schedules_do_not_starve_a_later_valid_schedule(database_dsn, workflow_payload, monkeypatch):
     store, valid, actor = schedule_fixture(database_dsn, workflow_payload)
     store.register_device(DeviceRegistration(device_id='unprepared-phone',host_id='host',serial='emulator-5556',kind='emulator'))
     with store.connect() as connection:
@@ -212,6 +212,9 @@ def test_failed_due_schedules_do_not_starve_a_later_valid_schedule(database_dsn,
         connection.execute("UPDATE automation_schedules SET next_run_at=clock_timestamp()-interval '2 hours' WHERE id=ANY(%s)",(rejected,))
         connection.execute("UPDATE automation_schedules SET next_run_at=clock_timestamp()-interval '1 hour' WHERE id=%s",(valid['id'],))
         due = {row['id']:row['next_run_at'] for row in connection.execute('SELECT id,next_run_at FROM automation_schedules').fetchall()}
+    # Keep the next slot beyond this fairness check, even across minute boundaries.
+    monkeypatch.setattr('app.automation_store.next_occurrences',
+                        lambda expression, zone, after, count: [after + timedelta(hours=1)])
     assert store.dispatch_due()==0
     assert store.dispatch_due()==1
     assert store.dispatch_due()==0

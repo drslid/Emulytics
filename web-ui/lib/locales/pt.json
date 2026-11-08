@@ -1049,5 +1049,17 @@
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "Conecte o ChatGPT em Configuração para preparar este objetivo livre.",
   "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "Este objetivo ainda não é compatível. Tente um objetivo do Chrome ou da Wikipédia.",
   "Sélectionner cette page": "Selecionar esta página",
-  "Désélectionner cette page": "Desmarcar esta página"
+  "Désélectionner cette page": "Desmarcar esta página",
+  "Ouvrir les paramètres du téléphone": "Abrir as definições do telefone",
+  "Lire la version Android": "Ler a versão do Android",
+  "Page des paramètres": "Página de definições",
+  "À propos du téléphone": "Sobre o telefone",
+  "Paramètres du téléphone": "Definições do telefone",
+  "La version sera relevée sur l’appareil pendant l’exécution.": "A versão será lida no dispositivo durante a execução.",
+  "Version Android : {version}": "Versão do Android: {version}",
+  "Relevée sur l’appareil": "Lida no dispositivo",
+  "Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.": "Este objetivo excede as capacidades atuais. Experimente uma pesquisa na Wikipédia, abrir uma aplicação ou consultar a versão do Android.",
+  "Le moteur prend en charge Chrome, Wikipédia, l’ouverture d’applications et la lecture de la version Android dans les paramètres.": "O motor suporta Chrome, Wikipédia, abertura de aplicações e leitura da versão do Android nas definições.",
+  "Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.": "Os exemplos da Wikipédia e da versão do Android funcionam sem uma conta externa. Para outro objetivo, ligue o ChatGPT em Configuração. As capacidades não suportadas são indicadas.",
+  "Utiliser l’exemple version Android": "Usar o exemplo da versão do Android"
 }
