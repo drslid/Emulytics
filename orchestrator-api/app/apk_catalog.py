@@ -1,21 +1,48 @@
 """Bounded, immutable local APK imports; no remote download or client-chosen path."""
 
 import hashlib
+import logging
 import os
 from pathlib import Path
 import re
 import selectors
 import signal
+import stat
 import subprocess
 import tempfile
 import time
-from uuid import uuid4
+from uuid import UUID, uuid4
 import zipfile
 
 from fastapi import HTTPException, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 MAX_APK_BYTES = 128 * 1024 * 1024
+logger = logging.getLogger(__name__)
+
+
+def discard_rejected_import(metadata: dict) -> bool:
+    """Remove only this request's verified artifact after a definite catalogue rollback."""
+    try:
+        root = Path(os.environ['EMULYTIX_APK_ROOT']).resolve(strict=True)
+        filename = str(UUID(metadata['id'])) + '.apk'
+        if metadata['filename'] != filename:
+            raise ValueError()
+        target = root / filename
+        with os.fdopen(os.open(target, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as handle:
+            owned = os.fstat(handle.fileno())
+            if (not stat.S_ISREG(owned.st_mode) or owned.st_uid != os.getuid()
+                    or owned.st_size != metadata['size_bytes'] or not 1 <= owned.st_size <= MAX_APK_BYTES
+                    or hashlib.file_digest(handle, 'sha256').hexdigest() != metadata['sha256']):
+                raise ValueError()
+            current = target.stat(follow_symlinks=False)
+            if (current.st_dev, current.st_ino) != (owned.st_dev, owned.st_ino):
+                raise ValueError()
+            target.unlink()
+        return True
+    except (KeyError, TypeError, ValueError, OSError):
+        logger.warning('Rejected APK cleanup could not be verified; artifact retained')
+        return False
 
 
 def _badging(path: Path) -> str:

@@ -1,15 +1,19 @@
 """Authenticated managed-emulator configuration and queued operations."""
 from typing import Annotated
 from uuid import UUID
+import logging
 
-from fastapi import APIRouter, File, Form, Request, Response, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile
+import psycopg
 from pydantic import Field, field_validator, model_validator
+from starlette.concurrency import run_in_threadpool
 
 from .emulator_store import EmulatorStore
 from .run_models import Contract, Identifier
 from .run_routes import ControlRoute, Store
 
 router = APIRouter(prefix='/console',tags=['Managed emulators'],route_class=ControlRoute)
+logger = logging.getLogger(__name__)
 
 
 class Configuration(Contract):
@@ -66,6 +70,18 @@ def operation(device_id: Identifier, action: Annotated[str,Field(pattern=r'^(sta
 
 @router.post('/applications',status_code=201)
 async def upload_application(request: Request, store: Store, file: Annotated[UploadFile,File()], name: Annotated[str|None,Form(max_length=160)]=None):
-    from .apk_catalog import ingest_apk
+    from .apk_catalog import discard_rejected_import, ingest_apk
     metadata = await ingest_apk(file,name)
-    return EmulatorStore(store.dsn).add_application(metadata,_actor(request))
+    try:
+        return EmulatorStore(store.dsn).add_application(metadata,_actor(request))
+    except HTTPException as error:
+        if error.status_code in {401,403,409,422}:
+            await run_in_threadpool(discard_rejected_import,metadata)
+        raise
+    except psycopg.IntegrityError:
+        await run_in_threadpool(discard_rejected_import,metadata)
+        raise
+    except psycopg.Error:
+        # A lost commit acknowledgement can still mean the catalogue row exists.
+        logger.warning('APK publication could not be confirmed; imported artifact retained')
+        raise

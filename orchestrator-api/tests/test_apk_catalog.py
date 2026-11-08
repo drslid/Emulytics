@@ -1,12 +1,15 @@
 import asyncio
+import hashlib
 import io
 import os
 from pathlib import Path
 import sys
 import time
 import zipfile
+from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile
+import psycopg
 import pytest
 
 from app import apk_catalog
@@ -70,3 +73,42 @@ def test_manifest_inspector_output_is_bounded_while_the_process_runs(tmp_path, m
     with pytest.raises(ValueError, match='exceeds'):
         apk_catalog._badging(tmp_path / 'unused.apk')
     assert time.monotonic() - started < 5
+
+
+@pytest.mark.parametrize('failure,expected',[
+    (HTTPException(403,'Actor permission revoked'),403),
+    (psycopg.errors.UniqueViolation('Rollback is certain'),503),
+    (psycopg.OperationalError('Commit acknowledgement lost'),503),
+])
+def test_rejected_catalogue_import_removes_only_a_definitely_rolled_back_file(control_client,tmp_path,monkeypatch,failure,expected):
+    from app.emulator_store import EmulatorStore
+    monkeypatch.setenv('EMULYTIX_APK_ROOT',str(tmp_path))
+    monkeypatch.setattr(apk_catalog,'_badging',lambda path:"package: name='com.example.demo' versionCode='1'\n")
+    def rejected(*args,**kwargs):
+        raise failure
+    monkeypatch.setattr(EmulatorStore,'add_application',rejected)
+    result = control_client.post('/console/applications',files={'file':('demo.apk',archive_bytes(),'application/vnd.android.package-archive')})
+    assert result.status_code==expected
+    assert len(list(tmp_path.glob('*.apk')))==(1 if isinstance(failure,psycopg.OperationalError) else 0)
+    assert not list(tmp_path.glob('.import-*'))
+
+
+@pytest.mark.parametrize('changed',['contents','symlink','filename'])
+def test_rollback_cleanup_refuses_files_without_the_import_ownership_proof(tmp_path,monkeypatch,changed):
+    monkeypatch.setenv('EMULYTIX_APK_ROOT',str(tmp_path))
+    app_id = str(uuid4())
+    content = b'import-owned-artifact'
+    filename = app_id+'.apk'
+    target = tmp_path/filename
+    target.write_bytes(content)
+    metadata = {'id':app_id,'filename':filename,'size_bytes':len(content),'sha256':hashlib.sha256(content).hexdigest()}
+    if changed=='contents':
+        target.write_bytes(b'changed-artifact')
+    elif changed=='symlink':
+        other = tmp_path/'another-artifact'
+        target.rename(other)
+        target.symlink_to(other)
+    else:
+        metadata['filename']='../another-artifact.apk'
+    assert not apk_catalog.discard_rejected_import(metadata)
+    assert target.exists()
