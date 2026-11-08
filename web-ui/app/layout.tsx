@@ -10,6 +10,7 @@ import "./responsive.css";
 import "./mobile-navigation.css";
 import "./dashboard-charts.css";
 import "./emulators.css";
+import "./configuration.css";
 import "./tailwind.css";
 import { LocaleProvider } from "../lib/i18n";
 import { resolveLocale, serverT } from "../lib/i18n-server";

@@ -28,6 +28,7 @@ const navigation = [
   },
   {
     id: "administration", label: "Administration", items: [
+      { id: "configuration", href: "/configuration", label: "Configuration", icon: "settings" as const },
       { id: "users", href: "/utilisateurs", label: "Utilisateurs", icon: "users" as const }
     ]
   }

@@ -1,13 +1,13 @@
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const identifier = "[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}";
-const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events)?|console/(summary|fleet|dashboard|emulators|account/(profile|security|two-factor/enrollment(/qr)?)|devices/${identifier}/screen|monitor(/stream)?|logs|users(/${UUID})?|recipes|schedules|executions/${UUID}/(captures/${identifier}|screen)))$`);
+const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events)?|console/(summary|fleet|dashboard|emulators|account/(profile|security|chatgpt|two-factor/enrollment(/qr)?)|devices/${identifier}/screen|monitor(/stream)?|logs|users(/${UUID})?|recipes|schedules|executions/${UUID}/(captures/${identifier}|screen)))$`);
 const userPath = `console/users/${UUID}`;
 const recipePath = `console/recipes/${UUID}`;
 const schedulePath = `console/schedules/${UUID}`;
 const changes = {
-  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/cancel|console/(emulators|emulators/${identifier}/(configuration|start|prepare|stop)|applications|users|recipes|recipes/from-workflow|schedules|schedules/preview|account/(password|recovery-codes|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
+  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/cancel|console/(emulators|emulators/${identifier}/(configuration|start|prepare|stop)|applications|users|recipes|recipes/from-workflow|schedules|schedules/preview|account/(password|recovery-codes|chatgpt/(login|cancel)|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
   PATCH: new RegExp(`^(${userPath}|${recipePath}|${schedulePath}|console/account/profile)$`),
-  DELETE: new RegExp(`^(${schedulePath}|console/account/two-factor/enrollment)$`)
+  DELETE: new RegExp(`^(${schedulePath}|console/account/(chatgpt|two-factor/enrollment))$`)
 };
 
 export function sessionCookies(raw: string | null): string {

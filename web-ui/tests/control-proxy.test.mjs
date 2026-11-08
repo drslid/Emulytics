@@ -13,6 +13,37 @@ function post(body = "{}", origin = "http://localhost:3100") {
   return { method: "POST", body, headers: { Origin: origin, "Content-Type": "application/json", "X-Emulytix-Client": "console" } };
 }
 
+test("personal ChatGPT routes preserve only the session and reject arbitrary provider control", async () => {
+  for (const [path, method] of [
+    ['console/account/chatgpt', 'GET'], ['console/account/chatgpt/login', 'POST'],
+    ['console/account/chatgpt/cancel', 'POST'], ['console/account/chatgpt', 'DELETE']
+  ]) {
+    const options = method === 'GET' ? {headers:{Cookie:'emulytix_session=personal; other=secret',Authorization:'Bearer forbidden'}}
+      : {...post(),method,headers:{...post().headers,Cookie:'emulytix_session=personal; other=secret',Authorization:'Bearer forbidden'}};
+    const result = await proxyControl(request(path, options), path.split('/'), async (url, upstream) => {
+      assert.equal(url, `http://api.internal:8010/${path}?`);
+      assert.equal(upstream.headers.get('cookie'), 'emulytix_session=personal');
+      assert.equal(upstream.headers.get('authorization'), null);
+      assert.equal(upstream.method, method);
+      return Response.json({provider:'chatgpt',status:'disconnected'});
+    });
+    assert.equal(result.status, 200);
+    assert.equal(result.headers.get('cache-control'), 'private, no-store');
+  }
+  const never = () => assert.fail('Rejected requests must not reach a provider');
+  for (const [path, options] of [
+    ['console/account/chatgpt/tokens', {}], ['console/account/chatgpt/login', {}],
+    ['console/account/chatgpt/rpc', post()], ['console/account/openai/login', post()],
+    ['console/account/chatgpt', {...post(),method:'PATCH'}],
+    ['console/account/chatgpt/logout', post()], ['console/account/chatgpt/login/extra', post()]
+  ]) assert.equal((await proxyControl(request(path,options), path.split('/'), never)).status,404);
+  for (const path of ['console/account/chatgpt/login','console/account/chatgpt/cancel']) {
+    assert.equal((await proxyControl(request(path,post('{}','https://other.test')),path.split('/'),never)).status,403);
+  }
+  const path = 'console/account/chatgpt';
+  assert.equal((await proxyControl(request(path,{...post('{}','https://other.test'),method:'DELETE'}),path.split('/'),never)).status,403);
+});
+
 test("managed emulator routes preserve session and refuse arbitrary Docker endpoints", async () => {
   for (const endpoint of ['console/emulators', 'console/emulators/emu-example/start', 'console/emulators/emu-example/prepare', 'console/emulators/emu-example/stop', 'console/emulators/emu-example/configuration']) {
     const result = await proxyControl(request(endpoint, post()), endpoint.split('/'), async (url) => {
