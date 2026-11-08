@@ -121,7 +121,7 @@ export function ExecutionGallery({ execution, steps, compact = false }: { execut
     <div className="execution-gallery-heading"><h4 id={titleId}>{t("Captures des étapes")}</h4>{rows.length > 0 && <span>{t("Captures enregistrées : {count}", { count: number(rows.filter(step => step.captureUrl).length) })}</span>}</div>
     {!selected ? <p className="small-copy">{t("Les preuves apparaîtront lorsque le worker aura exécuté les étapes.")}</p> : <div className="execution-gallery-layout">
       <ol className="execution-step-list" role="list" aria-label={t("Captures des étapes")}>
-        {rows.map((step, index) => <li key={`${execution.id}:${execution.lease_epoch}:${step.id}`}><button type="button" className="execution-step-button" ref={button => { buttons.current[index] = button; }} tabIndex={selectedId === step.id ? 0 : -1} aria-pressed={selectedId === step.id} aria-controls={previewId} onClick={() => select(index)}>
+        {rows.map((step, index) => <li id={`capture-${execution.id}-${step.id}`} key={`${execution.id}:${execution.lease_epoch}:${step.id}`}><button type="button" className="execution-step-button" ref={button => { buttons.current[index] = button; }} tabIndex={selectedId === step.id ? 0 : -1} aria-pressed={selectedId === step.id} aria-controls={previewId} onClick={() => select(index)}>
           <span className="execution-step-number"><bdi>{number(index + 1)}</bdi></span><Thumbnail step={step} blocked={blocked} retry={retry} /><span className="execution-step-copy"><strong><bdi>{step.label}</bdi></strong>{actionLabel(step.id) && <small className="execution-step-action">{actionLabel(step.id)}</small>}<StepState state={step.state} /></span>
         </button></li>)}
       </ol>

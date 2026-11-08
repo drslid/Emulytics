@@ -118,6 +118,6 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
     {adding && can("devices.write") && <DeviceForm hosts={data?.workerHosts ?? []} onClose={() => setAdding(false)} onAdded={() => { setAdding(false); setNotice(t("Téléphone ajouté. Sa connexion reste à vérifier sur le worker.")); void load(); }} />}
     {launching && data && can("runs.execute") && <RunDialog userId={user.id} devices={mergeEmulatorLaunchDevices(data.devices, currentEmulatorLaunchDevice(launching.device, managedDevices))} workflows={data.workflows} initialWorkflow={launching.workflow} initialDeviceIds={launching.ids} onClose={() => setLaunching(null)} onLaunched={launched} />}
     {scheduling && data && can("schedules.write") && <ScheduleEditor userId={user.id} devices={data.devices} workflows={data.workflows} initial={scheduling} onClose={() => setScheduling(null)} onSaved={() => {setScheduling(null); setNotice(t("Planification créée."));}} />}
-    {runId && <RunDetail canCancel={can("runs.cancel")} canManageDevices={can("devices.write")} key={runId} runId={runId} onClose={() => setRunId(null)} onChanged={() => void load()} />}
+    {runId && <RunDetail userId={user.id} canRetry={can("runs.execute")} onOpen={setRunId} canCancel={can("runs.cancel")} canManageDevices={can("devices.write")} key={runId} runId={runId} onClose={() => setRunId(null)} onChanged={() => void load()} />}
   </div>;
 }

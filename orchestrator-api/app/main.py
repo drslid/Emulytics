@@ -33,6 +33,7 @@ from .emulator_routes import router as emulator_router
 from .self_security import router as self_security_router
 from .chatgpt_routes import router as chatgpt_router
 from .personal_api_routes import router as personal_api_router, account_router as api_keys_router
+from .run_recovery import router as recovery_router
 from .chatgpt_process import close_manager
 
 
@@ -490,6 +491,7 @@ app.include_router(self_security_router)
 app.include_router(chatgpt_router)
 app.include_router(api_keys_router)
 app.include_router(personal_api_router)
+app.include_router(recovery_router)
 
 app.add_middleware(
     CORSMiddleware,
