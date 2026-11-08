@@ -1005,5 +1005,7 @@
   "Votre compte ChatGPT a été déconnecté d’Emulytix.": "Ваш аккаунт ChatGPT отключён от Emulytix.",
   "Code copié.": "Код скопирован.",
   "La copie automatique est indisponible. Sélectionnez le code pour le copier.": "Автоматическое копирование недоступно. Выделите код и скопируйте его.",
-  "Connexion annulée.": "Подключение отменено."
+  "Connexion annulée.": "Подключение отменено.",
+  "Aucun parcours créé": "Сценарии ещё не созданы",
+  "{n} parcours": "Сценариев: {n}"
 }

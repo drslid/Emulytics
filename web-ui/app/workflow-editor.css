@@ -1,7 +1,9 @@
 .console-dialog--recipe { width:min(840px,calc(100vw - 32px)); }
-.recipe-editor-inputs { min-width:0; margin:0; padding:0; border:0; display:grid; gap:20px; }
+.recipe-editor-inputs,.schedule-editor-fields { min-width:0; margin:0; padding:0; border:0; display:grid; gap:20px; }
 .recipe-editor-inputs > .notice { margin:0; }
 .recipe-editor-inputs:disabled { opacity:.7; }
+.recipe-list-status { padding:18px 24px; display:grid; justify-items:start; gap:12px; }
+.recipe-list-status > .small-copy { margin:0; }
 .recipe-steps-heading { margin:0; gap:12px; }
 .recipe-steps-heading h3 { margin:0; font-size:15px; }
 .recipe-steps-heading p { margin:6px 0 0; font-size:12px; }

@@ -1005,5 +1005,7 @@
   "Votre compte ChatGPT a été déconnecté d’Emulytix.": "आपका ChatGPT खाता Emulytix से हटा दिया गया है।",
   "Code copié.": "कोड कॉपी हो गया।",
   "La copie automatique est indisponible. Sélectionnez le code pour le copier.": "अपने आप कॉपी करना उपलब्ध नहीं है। कोड चुनकर कॉपी करें।",
-  "Connexion annulée.": "कनेक्शन रद्द कर दिया गया।"
+  "Connexion annulée.": "कनेक्शन रद्द कर दिया गया।",
+  "Aucun parcours créé": "कोई वर्कफ़्लो नहीं बनाया गया",
+  "{n} parcours": "{n} वर्कफ़्लो"
 }

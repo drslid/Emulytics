@@ -1005,5 +1005,7 @@
   "Votre compte ChatGPT a été déconnecté d’Emulytix.": "Ihr ChatGPT-Konto wurde von Emulytix getrennt.",
   "Code copié.": "Code kopiert.",
   "La copie automatique est indisponible. Sélectionnez le code pour le copier.": "Automatisches Kopieren ist nicht verfügbar. Markieren Sie den Code zum Kopieren.",
-  "Connexion annulée.": "Verbindung abgebrochen."
+  "Connexion annulée.": "Verbindung abgebrochen.",
+  "Aucun parcours créé": "Keine Abläufe erstellt",
+  "{n} parcours": "{n} Abläufe"
 }

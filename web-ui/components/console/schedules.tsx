@@ -1,12 +1,14 @@
 "use client";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { api } from "../../lib/client-api";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { api, ApiError } from "../../lib/client-api";
 import { useLocale, useT } from "../../lib/i18n";
 import type { Device, Page, Schedule, Workflow } from "../../lib/console-types";
 import { Dialog, Empty, ErrorNotice, date, workflowName } from "./shared";
 import { Icon } from "./icons";
+import { parseScheduleDraft, scheduleDraftKey, type ScheduleSubmission } from "../../lib/schedule-draft";
 
 export function Schedules({
+  userId,
   devices,
   workflows,
   canWrite,
@@ -14,6 +16,7 @@ export function Schedules({
   onInitialUsed,
   onOpenRun,
 }: {
+  userId: string;
   devices: Device[];
   workflows: Workflow[];
   canWrite: boolean;
@@ -165,6 +168,7 @@ export function Schedules({
       </div>
       {adding && (
         <ScheduleEditor
+          userId={userId}
           devices={devices}
           workflows={workflows}
           initial={initial}
@@ -183,12 +187,14 @@ export function Schedules({
   );
 }
 export function ScheduleEditor({
+  userId,
   devices,
   workflows,
   initial,
   onClose,
   onSaved,
 }: {
+  userId: string;
   devices: Device[];
   workflows: Workflow[];
   initial?: Workflow | null;
@@ -200,7 +206,9 @@ export function ScheduleEditor({
   const [key, setKey] = useState(
       initial ? `${initial.workflow_id}:${initial.version}` : "",
     ),
+    [name, setName] = useState(""),
     [selected, setSelected] = useState<string[]>([]),
+    [concurrency, setConcurrency] = useState(1),
     [mode, setMode] = useState("daily"),
     [time, setTime] = useState("09:00"),
     [weekday, setWeekday] = useState("1"),
@@ -211,8 +219,20 @@ export function ScheduleEditor({
     [previewZone, setPreviewZone] = useState("Europe/Paris"),
     [previewError, setPreviewError] = useState(""),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  const [requestId] = useState(() => crypto.randomUUID());
+    [busy, setBusy] = useState(false),
+    [attempted, setAttempted] = useState(false);
+  const intent = useRef<ScheduleSubmission | null>(null), sending = useRef(false);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(scheduleDraftKey(userId));
+      const pending = raw ? parseScheduleDraft(JSON.parse(raw)) : null;
+      if (pending) {
+        intent.current = pending; setAttempted(true); setName(pending.name);
+        setKey(`${pending.workflow_id}:${pending.workflow_version}`); setSelected(pending.device_ids);
+        setConcurrency(pending.max_concurrency); setMode("advanced"); setRaw(pending.cron); setZone(pending.timezone);
+      }
+    } catch { setError(t("Autorisez le stockage de session du navigateur pour sécuriser cette demande.")); }
+  }, [userId, t]);
   const [h, m] = time.split(":").map(Number);
   const cron =
     mode === "advanced"
@@ -247,31 +267,32 @@ export function ScheduleEditor({
   }, [cron, zone, t]);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const form = new FormData(e.currentTarget),
-      workflow = workflows.find((w) => `${w.workflow_id}:${w.version}` === key);
-    if (!workflow || !selected.length) return;
-    setBusy(true);
+    if (sending.current) return;
+    const workflow = workflows.find((w) => `${w.workflow_id}:${w.version}` === key);
+    const request = intent.current ?? (workflow ? parseScheduleDraft({
+      request_id: crypto.randomUUID(), name: name.trim(), workflow_id: workflow.workflow_id,
+      workflow_version: workflow.version, device_ids: selected, max_concurrency: Math.min(selected.length, concurrency),
+      cron, timezone: zone.trim(), enabled: true,
+    }) : null);
+    if (!request) { setError(t("Vérifiez les informations saisies.")); return; }
+    sending.current = true; setBusy(true);
     setError("");
+    let sent = false;
     try {
-      await api("console/schedules", {
-        request_id: requestId,
-        name: String(form.get("name")).trim(),
-        workflow_id: workflow.workflow_id,
-        workflow_version: workflow.version,
-        device_ids: selected,
-        max_concurrency: Math.min(
-          selected.length,
-          Number(form.get("max_concurrency")),
-        ),
-        cron,
-        timezone: zone.trim(),
-        enabled: true,
-      });
+      sessionStorage.setItem(scheduleDraftKey(userId), JSON.stringify(request));
+      intent.current = request; setAttempted(true); sent = true;
+      await api("console/schedules", request);
+      try { sessionStorage.removeItem(scheduleDraftKey(userId)); } catch { /* Replaying a confirmed request is safe. */ }
+      intent.current = null;
       onSaved();
-    } catch (e) {
-      setError((e as Error).message);
+    } catch (failure) {
+      if (!sent || failure instanceof ApiError && [401, 403, 404, 409, 422].includes(failure.status)) {
+        try { sessionStorage.removeItem(scheduleDraftKey(userId)); } catch {}
+        intent.current = null; setAttempted(false);
+      }
+      setError(!sent ? t("Autorisez le stockage de session du navigateur pour sécuriser cette demande.") : (failure as Error).message);
     } finally {
-      setBusy(false);
+      sending.current = false; setBusy(false);
     }
   }
   return (
@@ -287,12 +308,16 @@ export function ScheduleEditor({
     >
       <form className="dialog-form" onSubmit={submit}>
         {error && <ErrorNotice message={error} />}
+        {attempted && <p className="notice notice--warning">{t("La demande précédente est conservée. Réessayez pour confirmer son résultat.")}</p>}
+        <fieldset className="schedule-editor-fields" disabled={busy || attempted}>
         <label>
           {t("Nom de la planification")}
           <input
             name="name"
             required
             maxLength={120}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             placeholder={t("Ex. Vérification du matin")}
           />
         </label>
@@ -300,6 +325,7 @@ export function ScheduleEditor({
           {t("Parcours publié")}
           <select required value={key} onChange={(e) => setKey(e.target.value)}>
             <option value="">{t("Choisir un parcours")}</option>
+            {intent.current && !workflows.some(w => `${w.workflow_id}:${w.version}` === key) && <option value={key}>{intent.current.workflow_id} · v{intent.current.workflow_version}</option>}
             {workflows.map((w) => (
               <option
                 key={`${w.workflow_id}:${w.version}`}
@@ -450,7 +476,8 @@ export function ScheduleEditor({
             name="max_concurrency"
             type="number"
             required
-            defaultValue={1}
+            value={concurrency}
+            onChange={(e) => setConcurrency(Number(e.target.value))}
             min={1}
             max={Math.max(1, selected.length)}
           />
@@ -481,6 +508,7 @@ export function ScheduleEditor({
             )}
           </p>
         </section>
+        </fieldset>
         <div className="dialog-footer">
           <button
             type="button"
@@ -493,10 +521,10 @@ export function ScheduleEditor({
           <button
             className="button button--primary"
             disabled={
-              busy || !selected.length || !next.length || !!previewError
+              busy || !attempted && (!selected.length || !next.length || !!previewError)
             }
           >
-            {t(busy ? "Enregistrement…" : "Créer la planification")}
+            {t(busy ? "Enregistrement…" : attempted ? "Confirmer le résultat de la demande" : "Créer la planification")}
           </button>
         </div>
       </form>

@@ -1005,5 +1005,7 @@
   "Votre compte ChatGPT a été déconnecté d’Emulytix.": "Sua conta ChatGPT foi desconectada do Emulytix.",
   "Code copié.": "Código copiado.",
   "La copie automatique est indisponible. Sélectionnez le code pour le copier.": "A cópia automática está indisponível. Selecione o código para copiá-lo.",
-  "Connexion annulée.": "Conexão cancelada."
+  "Connexion annulée.": "Conexão cancelada.",
+  "Aucun parcours créé": "Nenhum percurso criado",
+  "{n} parcours": "{n} percursos"
 }

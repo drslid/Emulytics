@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../lib/client-api";
 import { useT } from "../../lib/i18n";
 import type { Page, Recipe, Workflow } from "../../lib/console-types";
@@ -23,21 +23,30 @@ export function Workflows({
   onChanged: () => void;
 }) {
   const t = useT();
-  const [recipes, setRecipes] = useState<Recipe[]>([]),
+  const [page, setPage] = useState<Page<Recipe> | null>(null),
     [editing, setEditing] = useState<Recipe | "new" | null>(null),
     [error, setError] = useState(""),
+    [loadError, setLoadError] = useState(""),
+    [loading, setLoading] = useState(canBuild),
     [busy, setBusy] = useState(false);
-  const load = useCallback(async () => {
+  const sequence = useRef(0), mounted = useRef(false), requestedOffset = useRef(0);
+  const recipes = page?.items ?? [], total = page?.total ?? recipes.length, offset = page?.offset ?? 0;
+  const load = useCallback(async (pageOffset = 0) => {
+    if (!canBuild) return;
+    const request = ++sequence.current;
+    requestedOffset.current = pageOffset; setLoading(true); setLoadError("");
     try {
-      const result = await api<Page<Recipe>>("console/recipes?limit=100");
-      setRecipes(result.items);
-      setError("");
+      const result = await api<Page<Recipe>>(`console/recipes?limit=100&offset=${pageOffset}`);
+      if (!mounted.current || request !== sequence.current) return;
+      setPage(result);
     } catch (e) {
-      setError((e as Error).message);
-    }
-  }, []);
+      if (mounted.current && request === sequence.current) setLoadError((e as Error).message);
+    } finally { if (mounted.current && request === sequence.current) setLoading(false); }
+  }, [canBuild]);
   useEffect(() => {
+    mounted.current = true;
     void load();
+    return () => { mounted.current = false; sequence.current++; };
   }, [load]);
   function publishedName(workflow: Workflow) {
     return workflow.name || recipes.find(recipe => recipe.workflow_id === workflow.workflow_id)?.name || t(workflowName(workflow.workflow_id));
@@ -111,9 +120,11 @@ export function Workflows({
         )}
       </div>
       {error && <ErrorNotice message={error} />}
-      {canBuild && recipes.length > 0 && (
-        <section className="surface recipe-list">
-          {recipes.map((recipe) => (
+      {canBuild && (
+        <section className="surface recipe-list" aria-busy={loading}>
+          {(loading || loadError) && <div className="recipe-list-status">{loading && <p className="small-copy" role="status">{t("Chargement…")}</p>}{loadError && <><ErrorNotice message={loadError} /><button type="button" className="button button--secondary" disabled={loading || busy} onClick={() => void load(requestedOffset.current)}>{t("Réessayer")}</button></>}</div>}
+          {!loading && !loadError && page && !recipes.length && <Empty icon="workflow" title={t("Aucun parcours créé")}>{t("Créez votre premier parcours, puis publiez-le pour le lancer.")}</Empty>}
+          <div>{recipes.map((recipe) => (
             <article className="recipe-row" key={recipe.id}>
               <div>
                 <h3>{recipe.name}</h3>
@@ -126,21 +137,22 @@ export function Workflows({
               <div className="row-actions">
                 <button
                   className="button button--secondary"
-                  disabled={busy}
+                  disabled={busy || loading}
                   onClick={() => setEditing(recipe)}
                 >
                   {t("Modifier les étapes")}
                 </button>
                 <button
                   className="button button--primary"
-                  disabled={busy}
+                  disabled={busy || loading}
                   onClick={() => void publish(recipe)}
                 >
                   {t("Publier")}
                 </button>
               </div>
             </article>
-          ))}
+          ))}</div>
+          {page && <div className="table-footer"><span>{recipes.length ? t("{start}–{end} sur {total}", { start: offset + 1, end: offset + recipes.length, total }) : t("{n} parcours", { n: total })}</span><div className="row-actions"><button type="button" className="button button--secondary" disabled={loading || busy || offset === 0} onClick={() => void load(Math.max(0, offset - 100))}>{t("Précédent")}</button><button type="button" className="button button--secondary" disabled={loading || busy || offset + recipes.length >= total} onClick={() => void load(offset + 100)}>{t("Suivant")}</button></div></div>}
         </section>
       )}
       <div className="section-heading">

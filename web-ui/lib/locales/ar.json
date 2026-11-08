@@ -1005,5 +1005,7 @@
   "Votre compte ChatGPT a été déconnecté d’Emulytix.": "تم فصل حسابك في ChatGPT عن Emulytix.",
   "Code copié.": "تم نسخ الرمز.",
   "La copie automatique est indisponible. Sélectionnez le code pour le copier.": "النسخ التلقائي غير متاح. حدّد الرمز لنسخه.",
-  "Connexion annulée.": "تم إلغاء الاتصال."
+  "Connexion annulée.": "تم إلغاء الاتصال.",
+  "Aucun parcours créé": "لم يتم إنشاء أي مسارات",
+  "{n} parcours": "{n} مسارات"
 }

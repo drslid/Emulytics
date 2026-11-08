@@ -108,14 +108,14 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
           {view === "overview" && <Overview data={data} onOpen={setRunId} onLaunch={() => setLaunching({ ids: [] })} onAdd={() => setAdding(true)} canAdd={can("devices.write")} canLaunch={can("runs.execute")} />}
           {view === "devices" && <><ManagedEmulators userId={user.id} devices={data.devices} canManage={can("devices.write")} canLaunch={can("runs.execute")} onChanged={() => void load()} onLaunch={device => setLaunching({ ids: [device.device_id], device })} onOpenRun={setRunId} onDevices={setManagedDevices} /><Devices devices={data.devices} total={data.devicesTotal} offset={loadedOffsets.devices} onPage={(value) => { setOffset(value); setSelected([]); }} selected={selected} onSelect={setSelected} onAdd={() => setAdding(true)} onLaunch={() => setLaunching({ ids: [...selected] })} canAdd={can("devices.write")} canLaunch={can("runs.execute")} /></>}
           {view === "workflows" && <Workflows workflows={data.workflows} onLaunch={(workflow) => setLaunching({ workflow, ids: [] })} onSchedule={setScheduling} canBuild={can("workflows.write")} canLaunch={can("runs.execute")} onChanged={() => void load()} />}
-          {view === "schedules" && <Schedules devices={data.devices} workflows={data.workflows} canWrite={can("schedules.write")} onInitialUsed={() => {}} onOpenRun={setRunId} />}
+          {view === "schedules" && <Schedules userId={user.id} devices={data.devices} workflows={data.workflows} canWrite={can("schedules.write")} onInitialUsed={() => {}} onOpenRun={setRunId} />}
           {view === "activity" && <Activity runs={data.runs} total={data.summary.runs_total} offset={loadedOffsets.runs} onPage={setRunOffset} onOpen={setRunId} onLaunch={() => setLaunching({ ids: [] })} canLaunch={can("runs.execute")} />}
         </>}
       </main>
     </div>
     {adding && can("devices.write") && <DeviceForm hosts={data?.workerHosts ?? []} onClose={() => setAdding(false)} onAdded={() => { setAdding(false); setNotice(t("Téléphone ajouté. Sa connexion reste à vérifier sur le worker.")); void load(); }} />}
     {launching && data && can("runs.execute") && <RunDialog userId={user.id} devices={mergeEmulatorLaunchDevices(data.devices, currentEmulatorLaunchDevice(launching.device, managedDevices))} workflows={data.workflows} initialWorkflow={launching.workflow} initialDeviceIds={launching.ids} onClose={() => setLaunching(null)} onLaunched={launched} />}
-    {scheduling && data && can("schedules.write") && <ScheduleEditor devices={data.devices} workflows={data.workflows} initial={scheduling} onClose={() => setScheduling(null)} onSaved={() => {setScheduling(null); setNotice(t("Planification créée."));}} />}
+    {scheduling && data && can("schedules.write") && <ScheduleEditor userId={user.id} devices={data.devices} workflows={data.workflows} initial={scheduling} onClose={() => setScheduling(null)} onSaved={() => {setScheduling(null); setNotice(t("Planification créée."));}} />}
     {runId && <RunDetail canCancel={can("runs.cancel")} canManageDevices={can("devices.write")} key={runId} runId={runId} onClose={() => setRunId(null)} onChanged={() => void load()} />}
   </div>;
 }

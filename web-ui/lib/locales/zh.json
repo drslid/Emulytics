@@ -1005,5 +1005,7 @@
   "Votre compte ChatGPT a été déconnecté d’Emulytix.": "您的 ChatGPT 账号已与 Emulytix 断开连接。",
   "Code copié.": "代码已复制。",
   "La copie automatique est indisponible. Sélectionnez le code pour le copier.": "无法自动复制。请选中代码进行复制。",
-  "Connexion annulée.": "连接已取消。"
+  "Connexion annulée.": "连接已取消。",
+  "Aucun parcours créé": "尚未创建流程",
+  "{n} parcours": "{n} 个流程"
 }
