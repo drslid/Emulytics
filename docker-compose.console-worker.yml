@@ -14,7 +14,7 @@ services:
       EMULYTIX_ARTIFACT_ROOT: /storage/runs
       EMULYTIX_APK_ROOT: /apks
       EMULYTIX_MANAGED_EMULATORS: "true"
-      EMULYTIX_MANAGED_IMAGE: ${EMULYTIX_MANAGED_IMAGE:-emulytix/android-runtime-check:0.8.1}
+      EMULYTIX_MANAGED_IMAGE: ${EMULYTIX_MANAGED_IMAGE:-emulytix/android-runtime:0.9.0}
       EMULYTIX_BENCH_NETWORK: ${EMULYTIX_BENCH_NETWORK:-emulytix-wf01-bench}
       ADB_SERVER_SOCKET: ${ADB_SERVER_SOCKET:-tcp:emulytix-wf01-android:5037}
     volumes:

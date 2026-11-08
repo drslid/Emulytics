@@ -1,0 +1,5 @@
+# SHA-256, official archive URL. Upgrade deliberately and verify a real Android run.
+2d2d50857e4eb553af5a6dc3ad507a17adf43d115264b1afc116f95c92e5e258 https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+d230f13842f60f782a8645f9c813f8f845bf36089ea7289f28c48f17979313f1 https://dl.google.com/android/repository/platform-tools_r37.0.1-linux.zip
+b08fc43d8608d2955f607f1b287beb525041e730086bdca3af152accac3af9c1 https://dl.google.com/android/repository/emulator-linux_x64-16428233.zip
+eaf28fa8c267b97a874ffbb8156a1038cc66c1a95167f9b6954a62da2c3091ee https://dl.google.com/android/repository/sys-img/google_apis/x86_64-29_r13.zip

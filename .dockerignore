@@ -1,9 +1,18 @@
 .git
 .env
+.env.*
+!.env.example
 .next
 node_modules
-storage/apks
-storage/screenshots
+**/.next
+**/node_modules
+storage
+graphify-out
+.venv
+.install.lock
 __pycache__
+**/__pycache__
 *.pyc
+**/*.pyc
+**/*.tsbuildinfo
 

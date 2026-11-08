@@ -1,0 +1,28 @@
+# Android 10 is the verified console baseline; the separate Dockerfile targets Android 14.
+FROM eclipse-temurin:17-jre-jammy@sha256:887199eb587bda85fcbc40379beccc9f13016bd63db008ad64239edc89a10bea
+
+ARG ANDROID_SDK_LICENSE_ACCEPTED=false
+ENV ANDROID_HOME=/opt/android-sdk \
+    ANDROID_SDK_ROOT=/opt/android-sdk \
+    ANDROID_USER_HOME=/project/.android-user \
+    PATH=/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+RUN test "$ANDROID_SDK_LICENSE_ACCEPTED" = true \
+    && test "$(uname -m)" = x86_64 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends curl unzip libpulse0 libnss3 \
+       libx11-6 libxcb1 libxext6 libxi6 libxrender1 libxtst6 libglu1-mesa \
+       libasound2 libgbm1 libvulkan1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY sdk-packages.sha256 /opt/emulytix/sdk-packages.sha256
+COPY scripts/install-sdk.sh /opt/emulytix/install-sdk.sh
+RUN bash /opt/emulytix/install-sdk.sh
+
+LABEL org.opencontainers.image.title="Emulytix Android console runtime" \
+      org.opencontainers.image.version="0.9.0" \
+      emulytix.android.api="29" \
+      emulytix.android.system-image="google_apis;x86_64;r13" \
+      emulytix.android.license="https://developer.android.com/studio/terms"
+WORKDIR /project
+CMD ["bash", "-c", "sleep infinity"]

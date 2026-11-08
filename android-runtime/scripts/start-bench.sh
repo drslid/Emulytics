@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Local observation bench; its Android 10 / Chrome 74 image is not the Android 14 production target.
-bench_image="${EMULYTIX_BENCH_IMAGE:-emulytix/android-runtime-check:0.8.1}"
+# Reproducible Android 10 / Chrome baseline; Android 14 is a separate runtime target.
+bench_image="${EMULYTIX_BENCH_IMAGE:-emulytix/android-runtime:0.9.0}"
 bench_container="${EMULYTIX_BENCH_CONTAINER:-emulytix-wf01-android}"
 bench_network="${EMULYTIX_BENCH_NETWORK:-emulytix-wf01-bench}"
 boot_timeout="${EMULYTIX_BENCH_BOOT_TIMEOUT:-180}"

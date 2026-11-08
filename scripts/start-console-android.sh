@@ -5,6 +5,8 @@ umask 077
 
 bench_container="${EMULYTIX_BENCH_CONTAINER:-emulytix-wf01-android}"
 bench_network="${EMULYTIX_BENCH_NETWORK:-emulytix-wf01-bench}"
+boot_timeout="${EMULYTIX_BENCH_BOOT_TIMEOUT:-180}"
+[[ "$boot_timeout" =~ ^[1-9][0-9]{0,2}$ ]] || { echo "Délai de démarrage Android invalide." >&2; exit 1; }
 [[ "$bench_container" == emulytix-wf01-* && "$bench_network" == emulytix-wf01-* ]] || {
   echo "Les noms du banc doivent commencer par emulytix-wf01-." >&2
   exit 1
@@ -21,8 +23,8 @@ done
 if docker container inspect "$bench_container" >/dev/null 2>&1; then
   label="$(docker inspect --format '{{ index .Config.Labels "emulytix.bench" }}' "$bench_container")"
   running="$(docker inspect --format '{{.State.Running}}' "$bench_container")"
-  [[ "$label" == wf01 && "$running" == true ]] || {
-    echo "Le conteneur existant n'est pas un banc Emulytix actif ; aucun remplacement effectué." >&2
+  [[ "$label" == wf01 ]] || {
+    echo "Le conteneur existant n'est pas un banc Emulytix ; aucun remplacement effectué." >&2
     exit 1
   }
 else
@@ -37,8 +39,15 @@ networks="$(docker inspect --format '{{range $name, $network := .NetworkSettings
   echo "Le banc n'est pas connecté au réseau attendu." >&2
   exit 1
 }
-booted="$(docker exec "$bench_container" timeout 5 adb -H 127.0.0.1 -P 5037 -s emulator-5554 shell getprop sys.boot_completed | tr -d '\r\n')"
-[[ "$booted" == 1 ]] || { echo "Android n'a pas terminé son démarrage." >&2; exit 1; }
+if [[ "${running:-true}" != true ]]; then docker start "$bench_container" >/dev/null; fi
+deadline=$((SECONDS + boot_timeout))
+while (( SECONDS < deadline )); do
+  booted="$(docker exec "$bench_container" timeout 5 adb -H 127.0.0.1 -P 5037 -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r\n' || true)"
+  [[ "$booted" == 1 ]] && break
+  [[ "$(docker inspect --format '{{.State.Running}}' "$bench_container")" == true ]] || break
+  sleep 2
+done
+[[ "${booted:-}" == 1 ]] || { echo "Android n'a pas terminé son démarrage. Les données sont conservées ; relancez après diagnostic." >&2; exit 1; }
 
 "${console[@]}" exec -T console-api python - <<'PY'
 import os

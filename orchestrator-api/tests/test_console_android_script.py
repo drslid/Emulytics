@@ -64,11 +64,13 @@ elif args[:2] == ['network', 'inspect']:
 elif args[0] == 'inspect':
     fmt = args[args.index('--format') + 1]
     if '.Config.Labels' in fmt: print(os.getenv('FAKE_LABEL', 'wf01'))
-    elif '.State.Running' in fmt: print('true')
+    elif '.State.Running' in fmt: print(os.getenv('FAKE_RUNNING', 'true'))
     elif '.NetworkSettings.Networks' in fmt: print('emulytix-wf01-bench')
     else: sys.exit(5)
 elif args[0] == 'exec':
     print(os.getenv('FAKE_BOOT', '1'))
+elif args[0] == 'start':
+    pass
 else: sys.exit(6)
 '''
 
@@ -86,7 +88,7 @@ def launcher(tmp_path):
     bench.write_text('#!/bin/sh\nset -eu\ntouch "$FAKE_CREATED"\n'); bench.chmod(0o755)
     environment = dict(os.environ, PATH=f"{tmp_path / 'bin'}:{os.environ['PATH']}",
                        FAKE_DOCKER_LOG=str(tmp_path / 'docker.jsonl'), FAKE_CREATED=str(tmp_path / 'created'),
-                       EMULYTIX_HOST_ID='user-other-host')
+                       EMULYTIX_HOST_ID='user-other-host', EMULYTIX_BENCH_BOOT_TIMEOUT='1')
     for name in ('EMULYTIX_BENCH_CONTAINER', 'EMULYTIX_BENCH_NETWORK'):
         environment.pop(name, None)
     def run(**values):
@@ -118,6 +120,15 @@ def test_missing_bench_is_created_and_real_device_is_registered(launcher):
     registered = [call['fields'] for call in calls if call['event'] == 'registered']
     assert registered == [dict(device_id='local-emulator', display_name='Émulateur local',
                                host_id='bench-host', serial='emulator-5554', kind='emulator')]
+
+
+def test_stopped_owned_bench_is_started_without_replacing_its_data(launcher):
+    run, root = launcher
+    result, calls = run(FAKE_RUNNING='false', FAKE_DEVICE='true')
+    assert result.returncode == 0, result.stderr
+    assert not (root / 'created').exists()
+    assert any(call.get('args') == ['start', 'emulytix-wf01-android'] for call in calls)
+    assert not any(call.get('args', [''])[0] in ('rm', 'create') for call in calls)
 
 
 @pytest.mark.parametrize('failure', [{'FAKE_LABEL': 'foreign'}, {'FAKE_BOOT': '0'}, {'FAKE_BASE': 'false'}])
