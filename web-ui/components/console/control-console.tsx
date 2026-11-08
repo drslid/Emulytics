@@ -24,6 +24,7 @@ import { ConsoleNavigation } from "./navigation";
 import { ManagedEmulators } from "./emulators";
 import { currentEmulatorLaunchDevice, mergeEmulatorLaunchDevices } from "../../lib/emulators";
 import { Configuration } from "./configuration";
+import { FirstRun } from "./first-run";
 
 const titles: Record<View, { title: string; subtitle: string }> = {
   overview: { title: "Tableau de bord", subtitle: "Votre flotte et vos automatisations, au même endroit." },
@@ -62,12 +63,13 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
     const request = ++sequence.current;
     pending.current = true; setRefreshing(true);
     try {
-      const [fleet, workflows, runs, summary] = await Promise.all([
+      const [fleet, workflows, runs, summary, emulators] = await Promise.all([
         api<Page<Device> & { worker_hosts?: string[] }>(`console/fleet?limit=100&offset=${offset}`), api<Page<Workflow>>("workflows?limit=100&offset=0"),
-        api<Page<Run>>(`runs?limit=100&offset=${runOffset}`), api<Summary>("console/summary")
+        api<Page<Run>>(`runs?limit=100&offset=${runOffset}`), api<Summary>("console/summary"), api<{items: {device_id: string; state: string}[]}>("console/emulators")
       ]);
       if (request !== sequence.current) return;
-      setData({ devices: fleet.items, devicesTotal: fleet.total ?? fleet.items.length, workerHosts: connectionWorkerHosts(fleet.items, fleet.worker_hosts), workflows: workflows.items, runs: runs.items, summary });
+      const states = new Map(emulators.items.map(emulator => [emulator.device_id, emulator.state]));
+      setData({ devices: fleet.items.map(device => states.has(device.device_id) ? {...device, emulator_state: states.get(device.device_id)} : device), devicesTotal: fleet.total ?? fleet.items.length, workerHosts: connectionWorkerHosts(fleet.items, fleet.worker_hosts), workflows: workflows.items, runs: runs.items, summary });
       setLoadedOffsets({ devices: offset, runs: runOffset });
       setSelected((current) => current.filter((id) => !fleet.items.some((device) => device.device_id === id && device.availability === "needs_review")));
       setUpdatedAt(new Date()); setError("");
@@ -105,11 +107,11 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
         {error && <ErrorNotice message={error} />}
         {notice && <div className="notice notice--success" role="status"><Icon name="check" /><span>{notice}</span><button className="icon-button" onClick={() => setNotice("")} aria-label={t("Masquer la confirmation")}><Icon name="close" size={17} /></button></div>}
         {!allowed ? <section className="surface empty-state"><Icon name="shield" size={32} /><h2>{t("Accès réservé")}</h2><p>{t("Votre rôle ne permet pas d’accéder à cette section.")}</p></section> : view === "configuration" ? <Configuration user={user} /> : view === "profile" ? <Profile user={user} onLogout={() => void logout()} /> : view === "users" ? <Users user={user} /> : view === "monitor" ? <Monitor permissions={user.permissions ?? []} /> : view === "logs" ? <Logs /> : !data ? <section className="surface loading-state" aria-busy={!error} role="status">{error ? <><h2>{t("La console ne peut pas charger vos données")}</h2><p>{t("Vos données restent conservées. Réessayez lorsque le service est disponible.")}</p><button className="button button--secondary" onClick={() => void load()} disabled={refreshing}>{t("Réessayer")}</button></> : <><div className="skeleton-line" /><div className="skeleton-line skeleton-line--short" /><p>{t("Chargement de votre espace…")}</p></>}</section> : <>
-          {view === "overview" && <Overview data={data} onOpen={setRunId} onLaunch={() => setLaunching({ ids: [] })} onAdd={() => setAdding(true)} canAdd={can("devices.write")} canLaunch={can("runs.execute")} />}
+          {view === "overview" && <><FirstRun data={data} canBuild={can("workflows.write")} canManage={can("devices.write")} canLaunch={can("runs.execute")} onLaunch={(workflow, ids = []) => setLaunching({workflow, ids})} onOpen={setRunId} onChanged={() => void load()} /><Overview data={data} onOpen={setRunId} onLaunch={() => setLaunching({ ids: [] })} onAdd={() => setAdding(true)} canAdd={can("devices.write")} canLaunch={can("runs.execute")} /></>}
           {view === "devices" && <><ManagedEmulators userId={user.id} devices={data.devices} canManage={can("devices.write")} canLaunch={can("runs.execute")} onChanged={() => void load()} onLaunch={device => setLaunching({ ids: [device.device_id], device })} onOpenRun={setRunId} onDevices={setManagedDevices} /><Devices devices={data.devices} total={data.devicesTotal} offset={loadedOffsets.devices} onPage={(value) => { setOffset(value); setSelected([]); }} selected={selected} onSelect={setSelected} onAdd={() => setAdding(true)} onLaunch={() => setLaunching({ ids: [...selected] })} canAdd={can("devices.write")} canLaunch={can("runs.execute")} /></>}
           {view === "workflows" && <Workflows workflows={data.workflows} onLaunch={(workflow) => setLaunching({ workflow, ids: [] })} onSchedule={setScheduling} canBuild={can("workflows.write")} canLaunch={can("runs.execute")} onChanged={() => void load()} />}
           {view === "schedules" && <Schedules userId={user.id} devices={data.devices} workflows={data.workflows} canWrite={can("schedules.write")} onInitialUsed={() => {}} onOpenRun={setRunId} />}
-          {view === "activity" && <Activity runs={data.runs} total={data.summary.runs_total} offset={loadedOffsets.runs} onPage={setRunOffset} onOpen={setRunId} onLaunch={() => setLaunching({ ids: [] })} canLaunch={can("runs.execute")} />}
+          {view === "activity" && <Activity runs={data.runs} workflows={data.workflows} total={data.summary.runs_total} offset={loadedOffsets.runs} onPage={setRunOffset} onOpen={setRunId} onLaunch={() => setLaunching({ ids: [] })} canLaunch={can("runs.execute")} />}
         </>}
       </main>
     </div>

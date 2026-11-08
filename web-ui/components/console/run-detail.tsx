@@ -22,6 +22,7 @@ export function RunDetail({ runId, onClose, onChanged, canCancel = true, canMana
   const { t, locale } = useLocale();
   const [liveSelection, setLiveSelection] = useState<ExecutionLiveSelection>({ executionId: null, hidden: false });
   const [workflowSteps, setWorkflowSteps] = useState<Step[] | undefined>();
+  const [displayName, setDisplayName] = useState("");
   const [workflowUnavailable, setWorkflowUnavailable] = useState(false);
   const [run, setRun] = useState<Detail | null>(null);
   const [events, setEvents] = useState<RunEvent[]>([]);
@@ -100,13 +101,13 @@ export function RunDetail({ runId, onClose, onChanged, canCancel = true, canMana
   useEffect(() => {
     if (!workflowId || !workflowVersion) return;
     let active = true;
-    setWorkflowUnavailable(false); setWorkflowSteps(undefined);
+    setWorkflowUnavailable(false); setWorkflowSteps(undefined); setDisplayName("");
     void api<Workflow>(`workflows/${encodeURIComponent(workflowId)}/versions/${workflowVersion}`)
-      .then(workflow => { if (active) setWorkflowSteps(workflow.steps); })
+      .then(workflow => { if (active) {setWorkflowSteps(workflow.steps); setDisplayName(workflow.name ?? "");} })
       .catch(() => { if (active) setWorkflowUnavailable(true); });
     return () => { active = false; };
   }, [workflowId, workflowVersion]);
-  return <Dialog title={run ? t(workflowName(run.workflow_id)) : t("Détail de l’exécution")} description={t("Exécution {id}", { id: runId.slice(0, 8) })} onClose={onClose} wide className="console-dialog--execution">
+  return <Dialog title={displayName || (run ? t(workflowName(run.workflow_id)) : t("Détail de l’exécution"))} description={t("Exécution {id}", { id: runId.slice(0, 8) })} onClose={onClose} wide className="console-dialog--execution">
     <div className="dialog-form">
       {error && <ErrorNotice message={error} />}
       {!run ? <p role="status" className="loading-copy">{t("Chargement de l’exécution…")}</p> : <>

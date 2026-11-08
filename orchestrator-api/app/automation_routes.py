@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from .automation_models import PreviewInput, PublishInput, RecipeInput, RecipeUpdate, ScheduleInput, ScheduleToggle, WorkflowRecipeInput
+from .automation_models import GoalInput, PreviewInput, PublishInput, RecipeInput, RecipeUpdate, ScheduleInput, ScheduleToggle, WorkflowRecipeInput
 from .automation_store import AutomationStore, next_occurrences
 from .run_routes import ControlRoute, Limit, Offset, Store
 
@@ -27,6 +27,43 @@ def recipes(request: Request, store: Store, limit: Limit = 100, offset: Offset =
 @router.post("/recipes", status_code=201)
 def create_recipe(payload: RecipeInput, request: Request, store: Store):
     return AutomationStore(store.dsn).create_recipe(payload, _actor(request))
+
+
+@router.post('/recipes/generate')
+def generate_recipe(payload: GoalInput, request: Request, store: Store):
+    import json
+    from .auth import AuthConfig, SESSION_COOKIE, auth_enabled
+    from .journey_generation import local_goal, validate_generated_recipe
+    from .journey_provider import JourneyProvider
+    local = local_goal(payload.instructions)
+    if local:
+        return local
+    if not auth_enabled():
+        raise HTTPException(503, 'La génération libre exige une connexion personnelle ChatGPT.')
+    provider = JourneyProvider(AuthConfig.load())
+    user = provider.current_user(request.cookies.get(SESSION_COOKIE))
+    if not user:
+        raise HTTPException(401, 'Connexion personnelle requise')
+    provider.limit('journey-generation', str(user['id']), request.client.host if request.client else 'unknown', maximum=10)
+    output = provider.generate(request.cookies.get(SESSION_COOKIE), payload.instructions)
+    if (not isinstance(output, dict) or type(output.get('supported')) is not bool
+            or not isinstance(output.get('reason'), str) or len(output['reason']) > 1000):
+        raise HTTPException(422, 'La génération a produit une réponse invalide. Reformulez votre objectif.')
+    if not output['supported']:
+        raise HTTPException(422, {'code': 'unsupported_goal'})
+    try:
+        steps = json.loads(output['steps_json'])
+        if not isinstance(steps, list) or not steps or steps[-1].get('action') != 'screenshot':
+            raise ValueError()
+        if any(step.get('action') not in {'open_app', 'open_url', 'screenshot', 'press_key', 'ensure_package'} for step in steps):
+            raise ValueError()
+        if any(step.get('action') == 'press_key' and step.get('args', {}).get('keycode') not in {'KEYCODE_HOME', 'KEYCODE_BACK'} for step in steps):
+            raise ValueError()
+        value = validate_generated_recipe({'name': output['name'], 'steps': steps, 'recovery_budget': 0}, payload.instructions)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        raise HTTPException(422, 'La génération ne fournit pas un parcours vérifiable. Précisez le résultat attendu.') from None
+    return {'recipe': value, 'source': 'chatgpt', 'expected_result': output['reason'], 'requires_test': True,
+            'capabilities': ['installed_apps', 'chrome', 'wikipedia']}
 
 
 @router.post("/recipes/from-workflow")

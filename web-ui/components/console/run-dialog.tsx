@@ -16,6 +16,7 @@ export function RunDialog({ userId, devices, workflows, initialDeviceIds, initia
   onClose: () => void; onLaunched: (run: RunDetail) => void;
 }) {
   const { t, locale } = useLocale();
+  const availableWorkflows = initialWorkflow && !workflows.some(item => item.workflow_id === initialWorkflow.workflow_id && item.version === initialWorkflow.version) ? [initialWorkflow, ...workflows] : workflows;
   const [workflowKey, setWorkflowKey] = useState(initialWorkflow ? `${initialWorkflow.workflow_id}:${initialWorkflow.version}` : "");
   const [ids, setIds] = useState(initialDeviceIds);
   const [concurrency, setConcurrency] = useState(1);
@@ -36,7 +37,7 @@ export function RunDialog({ userId, devices, workflows, initialDeviceIds, initia
   }, [devices]);
   const blocked = !!review && !canSubmitDevices(review.device_ids, devices);
   const unavailable = devices.filter(device => !isDeviceReady(device));
-  const workflow = workflows.find((item) => `${item.workflow_id}:${item.version}` === workflowKey);
+  const workflow = availableWorkflows.find((item) => `${item.workflow_id}:${item.version}` === workflowKey);
   const visible = devices.filter((device) => (device.display_name || device.device_id).toLocaleLowerCase(locale).includes(search.toLocaleLowerCase(locale)));
   function prepare(event: FormEvent) {
     event.preventDefault();
@@ -73,7 +74,7 @@ export function RunDialog({ userId, devices, workflows, initialDeviceIds, initia
       <div className="notice notice--info"><Icon name="clock" /><span>{t("Le worker doit être actif sur chaque hôte. Les téléphones occupés attendront leur tour ; une inscription ne confirme pas une connexion Android.")}</span></div>
       <div className="dialog-footer"><button className="button button--secondary" disabled={busy || attempted.current} onClick={() => setReview(null)}>{t("Modifier")}</button><button className="button button--primary" disabled={busy || (blocked && !attempted.current)} onClick={() => void launch()}><Icon name="play" size={18} />{busy ? t("Envoi en cours…") : (attempted.current ? t("Confirmer le résultat de la demande") : t("Confirmer le lancement"))}</button></div>
     </div> : <form className="dialog-form" onSubmit={prepare}>
-      <label>{t("1. Choisir l’automatisation")}<select required value={workflowKey} onChange={(event) => setWorkflowKey(event.target.value)}><option value="" disabled>{t("Sélectionner un parcours")}</option>{workflows.map((item) => <option key={`${item.workflow_id}:${item.version}`} value={`${item.workflow_id}:${item.version}`}>{item.name || t(workflowName(item.workflow_id))} · v{item.version}</option>)}</select></label>
+      <label>{t("1. Choisir l’automatisation")}<select required value={workflowKey} onChange={(event) => setWorkflowKey(event.target.value)}><option value="" disabled>{t("Sélectionner un parcours")}</option>{availableWorkflows.map((item) => <option key={`${item.workflow_id}:${item.version}`} value={`${item.workflow_id}:${item.version}`}>{item.name || t(workflowName(item.workflow_id))} · v{item.version}</option>)}</select></label>
       {unavailable.length > 0 && <div className="notice notice--warning"><span>{t("Connexion Android requise pour lancer un parcours.")} {t("Appareils indisponibles : {names}.", { names: unavailable.map(device => device.display_name || device.device_id).join(", ") })}</span><a href="/monitoring">{t("Vérifier le monitoring")}</a></div>}
       {!workflows.length && <div className="notice notice--info">{t("Aucun parcours n’a encore été publié.")}</div>}
       <fieldset className="device-picker"><legend>{t("2. Cibler les téléphones")} <span>{t("{count} sélectionné(s)", {count: ids.length})}</span></legend><input type="search" aria-label={t("Filtrer les téléphones proposés")} placeholder={t("Rechercher dans les téléphones chargés…")} value={search} onChange={(event) => setSearch(event.target.value)} /><div className="device-picker-list">{visible.length ? visible.map((device) => <label key={device.device_id} className="device-picker-row"><input type="checkbox" checked={ids.includes(device.device_id)} disabled={!isDeviceReady(device) || (!ids.includes(device.device_id) && ids.length >= 100)} onChange={() => setIds((current) => current.includes(device.device_id) ? current.filter((id) => id !== device.device_id) : [...current, device.device_id])} /><span><strong>{device.display_name || device.device_id}</strong><small>{device.host_id} · {device.serial} · {device.kind === "emulator" ? t("Émulateur") : t("Physique")}</small></span><>{device.availability === "needs_review" ? <Badge status="needs_review" /> : <DeviceConnection device={device} />}</></label>) : <p className="picker-empty">{t("Aucun téléphone à proposer. Ajoutez un appareil dans Téléphones.")}</p>}</div></fieldset>

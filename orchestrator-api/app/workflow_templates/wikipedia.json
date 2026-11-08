@@ -1,0 +1,295 @@
+{
+  "workflow_id": "chrome-wikipedia-football",
+  "version": 1,
+  "recovery_budget": 0,
+  "steps": [
+    {
+      "id": "ensure-chrome",
+      "action": "ensure_package",
+      "args": {
+        "package": "com.android.chrome"
+      },
+      "selectors": [],
+      "timeout_ms": 30000,
+      "assert": {
+        "type": "package_installed",
+        "value": "com.android.chrome"
+      },
+      "non_idempotent": true,
+      "recovery_budget": 0,
+      "recovery_actions": [],
+      "verify_after_crash": {
+        "type": "package_installed",
+        "value": "com.android.chrome"
+      }
+    },
+    {
+      "id": "open-chrome",
+      "action": "open_app",
+      "args": {
+        "package_name": "com.android.chrome"
+      },
+      "selectors": [],
+      "timeout_ms": 30000,
+      "assert": {
+        "type": "package",
+        "value": "com.android.chrome"
+      },
+      "non_idempotent": false,
+      "recovery_budget": 0,
+      "recovery_actions": [],
+      "verify_after_crash": null
+    },
+    {
+      "id": "disable-usage-reports",
+      "action": "tap",
+      "args": {},
+      "selectors": [
+        {
+          "resource_id": "com.android.chrome:id/send_report_checkbox",
+          "checked": true
+        }
+      ],
+      "timeout_ms": 30000,
+      "assert": {
+        "type": "package",
+        "value": "com.android.chrome"
+      },
+      "non_idempotent": false,
+      "recovery_budget": 0,
+      "recovery_actions": [],
+      "verify_after_crash": null,
+      "when": {
+        "type": "ui",
+        "selector": {
+          "resource_id": "com.android.chrome:id/send_report_checkbox",
+          "checked": true
+        }
+      }
+    },
+    {
+      "id": "accept-chrome-welcome",
+      "action": "tap",
+      "args": {},
+      "selectors": [
+        {
+          "resource_id": "com.android.chrome:id/terms_accept"
+        }
+      ],
+      "timeout_ms": 30000,
+      "assert": {
+        "type": "package",
+        "value": "com.android.chrome"
+      },
+      "non_idempotent": false,
+      "recovery_budget": 0,
+      "recovery_actions": [],
+      "verify_after_crash": null,
+      "when": {
+        "type": "ui",
+        "selector": {
+          "resource_id": "com.android.chrome:id/terms_accept"
+        }
+      }
+    },
+    {
+      "id": "continue-without-account",
+      "action": "tap",
+      "args": {},
+      "selectors": [
+        {
+          "resource_id": "com.android.chrome:id/negative_button"
+        }
+      ],
+      "timeout_ms": 30000,
+      "assert": {
+        "type": "package",
+        "value": "com.android.chrome"
+      },
+      "non_idempotent": false,
+      "recovery_budget": 0,
+      "recovery_actions": [],
+      "verify_after_crash": null,
+      "when": {
+        "type": "ui",
+        "selector": {
+          "resource_id": "com.android.chrome:id/negative_button"
+        }
+      }
+    },
+    {
+      "id": "open-wikipedia",
+      "action": "open_url",
+      "args": {
+        "url": "https://fr.wikipedia.org/"
+      },
+      "selectors": [],
+      "timeout_ms": 30000,
+      "assert": {
+        "type": "all",
+        "checks": [
+          {
+            "type": "package",
+            "value": "com.android.chrome"
+          },
+          {
+            "type": "url",
+            "host": "fr.wikipedia.org"
+          },
+          {
+            "type": "ui",
+            "selector": {
+              "resource_id": "searchIcon",
+              "text": "Rechercher"
+            }
+          }
+        ]
+      },
+      "non_idempotent": false,
+      "recovery_budget": 0,
+      "recovery_actions": [],
+      "verify_after_crash": null
+    },
+    {
+      "id": "close-translation-prompt",
+      "action": "tap",
+      "args": {},
+      "selectors": [
+        {
+          "resource_id": "com.android.chrome:id/infobar_close_button"
+        }
+      ],
+      "timeout_ms": 30000,
+      "assert": {
+        "type": "package",
+        "value": "com.android.chrome"
+      },
+      "non_idempotent": false,
+      "recovery_budget": 0,
+      "recovery_actions": [],
+      "verify_after_crash": null,
+      "when": {
+        "type": "ui",
+        "selector": {
+          "resource_id": "com.android.chrome:id/infobar_close_button"
+        }
+      }
+    },
+    {
+      "id": "open-site-search",
+      "action": "tap",
+      "args": {},
+      "selectors": [
+        {
+          "resource_id": "searchIcon",
+          "text": "Rechercher"
+        }
+      ],
+      "timeout_ms": 30000,
+      "assert": {
+        "type": "ui",
+        "selector": {
+          "class": "android.widget.EditText",
+          "focused": true
+        }
+      },
+      "non_idempotent": false,
+      "recovery_budget": 0,
+      "recovery_actions": [],
+      "verify_after_crash": null
+    },
+    {
+      "id": "enter-football",
+      "action": "type_text",
+      "args": {
+        "text": "football",
+        "clear": true
+      },
+      "selectors": [
+        {
+          "class": "android.widget.EditText",
+          "focused": true
+        }
+      ],
+      "timeout_ms": 30000,
+      "assert": {
+        "type": "ui",
+        "selector": {
+          "class": "android.widget.EditText",
+          "focused": true,
+          "text": "football"
+        }
+      },
+      "non_idempotent": false,
+      "recovery_budget": 0,
+      "recovery_actions": [],
+      "verify_after_crash": null
+    },
+    {
+      "id": "submit-site-search",
+      "action": "press_key",
+      "args": {
+        "keycode": "KEYCODE_ENTER"
+      },
+      "selectors": [],
+      "timeout_ms": 30000,
+      "assert": {
+        "type": "all",
+        "checks": [
+          {
+            "type": "package",
+            "value": "com.android.chrome"
+          },
+          {
+            "type": "url",
+            "host": "fr.wikipedia.org",
+            "path_contains": "/wiki/Football"
+          },
+          {
+            "type": "ui",
+            "selector": {
+              "resource_id": "firstHeading",
+              "text": "Football"
+            }
+          }
+        ]
+      },
+      "non_idempotent": false,
+      "recovery_budget": 0,
+      "recovery_actions": [],
+      "verify_after_crash": null
+    },
+    {
+      "id": "capture-football-result",
+      "action": "screenshot",
+      "args": {},
+      "selectors": [],
+      "timeout_ms": 30000,
+      "assert": {
+        "type": "all",
+        "checks": [
+          {
+            "type": "package",
+            "value": "com.android.chrome"
+          },
+          {
+            "type": "url",
+            "host": "fr.wikipedia.org",
+            "path_contains": "/wiki/Football"
+          },
+          {
+            "type": "ui",
+            "selector": {
+              "resource_id": "firstHeading",
+              "text": "Football"
+            }
+          }
+        ]
+      },
+      "non_idempotent": false,
+      "recovery_budget": 0,
+      "recovery_actions": [],
+      "verify_after_crash": null
+    }
+  ]
+}

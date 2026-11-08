@@ -27,7 +27,7 @@ export async function api<T>(path: string, body?: unknown, method?: "GET" | "POS
       503: "Le service est indisponible. Réessayez dans un instant."
     };
     const payload = await response.json().catch(() => null);
-    const known = ["invalid_email", "email_in_use", "username_in_use", "last_admin_required", "self_security_required"];
+    const known = ["invalid_email", "email_in_use", "username_in_use", "last_admin_required", "self_security_required", "chatgpt_required", "unsupported_goal"];
     const code = typeof payload?.detail?.code === "string" && known.includes(payload.detail.code) ? payload.detail.code : undefined;
     throw new ApiError(response.status, browserT(response.status === 401 && path.startsWith("auth/") && path !== "auth/login" ? "Code incorrect ou connexion expirée. Réessayez avec le code actuel, ou revenez à la connexion." : messages[response.status] ?? "L’action n’a pas abouti. Réessayez."), code);
   }

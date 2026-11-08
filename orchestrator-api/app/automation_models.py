@@ -29,6 +29,15 @@ class RecipeUpdate(RecipeInput):
     revision: int = Field(ge=1, le=2_147_483_647)
 
 
+class GoalInput(Contract):
+    instructions: Annotated[str, Field(min_length=8, max_length=8000)]
+
+    @field_validator('instructions', mode='before')
+    @classmethod
+    def trim_goal(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
 class WorkflowRecipeInput(Contract):
     workflow_id: Identifier
     version: Version

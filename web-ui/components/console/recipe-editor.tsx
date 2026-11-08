@@ -10,7 +10,7 @@ import { Icon } from "./icons";
 import { StepEditor, stepPreview } from "./step-editor";
 
 export function RecipeEditor({ recipe, templates, onClose, onSaved }: {
-  recipe: Recipe | null; templates: Workflow[]; onClose: () => void; onSaved: () => void;
+  recipe: Recipe | null; templates: Workflow[]; onClose: () => void; onSaved: (recipe?: Recipe) => void;
 }) {
   const t = useT();
   const [name, setName] = useState(recipe?.name ?? "");
@@ -21,8 +21,23 @@ export function RecipeEditor({ recipe, templates, onClose, onSaved }: {
   const [json, setJson] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"goal" | "expert">(recipe ? "expert" : "goal");
+  const [generatedFrom, setGeneratedFrom] = useState("");
+  const [expected, setExpected] = useState("");
   const saving = useRef(false);
+  const hasGeneration = !!generatedFrom && generatedFrom === instructions.trim();
   function close() { if (!saving.current) onClose(); }
+  async function generate() {
+    if (saving.current || instructions.trim().length < 8) return;
+    saving.current = true; setBusy(true); setError("");
+    try {
+      const result = await api<{recipe: {name: string; steps: Step[]}; expected_result: string}>("console/recipes/generate", {instructions: instructions.trim()});
+      setName(result.recipe.name); setSteps(result.recipe.steps);
+      setJson(JSON.stringify(result.recipe.steps, null, 2)); setAdvanced(false);
+      setExpected(result.expected_result); setGeneratedFrom(instructions.trim());
+    } catch (failure) { setError(failure instanceof ApiError && failure.code === "chatgpt_required" ? t("Connectez ChatGPT dans Configuration pour préparer cet objectif libre.") : failure instanceof ApiError && failure.code === "unsupported_goal" ? t("Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.") : (failure as Error).message); }
+    finally { saving.current = false; setBusy(false); }
+  }
   function update(step: Step) { setSteps(items => items.map(item => item.id === step.id ? step : item)); }
   function move(index: number, offset: number) {
     setSteps(items => {
@@ -40,33 +55,37 @@ export function RecipeEditor({ recipe, templates, onClose, onSaved }: {
   async function save(event: FormEvent) {
     event.preventDefault();
     if (saving.current) return;
+    if (mode === "goal" && !hasGeneration) { await generate(); return; }
     setError("");
     let parsed: Step[];
     try { parsed = parseEditorSteps(advanced ? json : JSON.stringify(steps)); }
     catch { setError(t("Le JSON des étapes est invalide.")); return; }
     saving.current = true; setBusy(true);
     try {
-      await api(recipe ? `console/recipes/${recipe.id}` : "console/recipes", {
+      const saved = await api<Recipe>(recipe ? `console/recipes/${recipe.id}` : "console/recipes", {
         name: name.trim(), instructions: instructions.trim(), steps: parsed,
         recovery_budget: recipe?.definition.recovery_budget ?? 0,
         ...(recipe ? { revision: recipe.revision } : {}),
       }, recipe ? "PATCH" : "POST");
-      onSaved();
+      onSaved(saved);
     } catch (error) {
       setError(error instanceof ApiError && error.status === 409
         ? t("Ce brouillon a changé depuis son ouverture. Vos modifications sont conservées ici. Copiez le JSON avancé avant de fermer, puis rouvrez le parcours à jour.")
         : (error as Error).message);
     } finally { saving.current = false; setBusy(false); }
   }
-  return <Dialog wide className="console-dialog--recipe" title={t(recipe ? "Modifier le parcours" : "Créer un parcours")} description={t(recipe ? "Modifiez le brouillon courant, puis publiez une nouvelle version pour appliquer vos changements." : "Décrivez le résultat attendu, puis préparez les étapes exécutables.")} onClose={close}>
+  return <Dialog wide className="console-dialog--recipe" title={t(recipe ? "Modifier le parcours" : "Créer un parcours")} description={t(recipe ? "Modifiez le brouillon courant, puis publiez une nouvelle version pour appliquer vos changements." : "Décrivez votre objectif. La console prépare les étapes pour vous.")} onClose={close}>
     <form className="dialog-form recipe-editor-form" onSubmit={save} aria-busy={busy}>
       {error && <ErrorNotice message={error} />}
       <fieldset className="recipe-editor-inputs" disabled={busy}>
         <div className="notice notice--info">{t("Le moteur actif prend en charge Chrome et les pages HTTPS de Wikipédia.")}</div>
-        <label>{t("Nom du parcours")}<input required maxLength={120} value={name} onChange={event => setName(event.target.value)} placeholder={t("Ex. Recherche Wikipédia")} /></label>
+        <div className="button-row"><button type="button" className={`button ${mode === "goal" ? "button--primary" : "button--secondary"}`} aria-pressed={mode === "goal"} onClick={() => {setMode("goal"); setGeneratedFrom("");}}>{t("Décrire mon objectif")}</button><button type="button" className={`button ${mode === "expert" ? "button--primary" : "button--secondary"}`} aria-pressed={mode === "expert"} onClick={() => setMode("expert")}>{t("Réglages avancés")}</button></div>
+        {(mode === "expert" || hasGeneration) && <label>{t("Nom du parcours")}<input required maxLength={120} value={name} onChange={event => setName(event.target.value)} placeholder={t("Ex. Recherche Wikipédia")} /></label>}
         <label>{t("Instructions et résultat attendu")}<textarea required maxLength={8000} rows={3} value={instructions} onChange={event => setInstructions(event.target.value)} placeholder={t("Ex. Ouvrir Wikipédia, rechercher football et vérifier le titre de l’article.")} />
-          <span>{t("Les instructions expliquent l’objectif. Les étapes ci-dessous définissent les actions exécutées.")}</span>
+          <span>{t(mode === "goal" ? "La génération ne lance aucune action. Vérifiez le résumé avant d’enregistrer, puis testez le parcours sur un appareil." : "Les instructions expliquent l’objectif. Les étapes ci-dessous définissent les actions exécutées.")}</span>
         </label>
+        {mode === "goal" && <><button type="button" className="text-button" onClick={() => setInstructions("Ouvrir Wikipédia, rechercher football et vérifier le titre de l’article.")}>{t("Utiliser l’exemple Wikipédia")}</button><p className="small-copy">{t("L’exemple Wikipédia fonctionne sans compte externe. Pour un objectif libre, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.")} <a href="/configuration">{t("Configuration")}</a></p>{hasGeneration && <div className="review-section"><h3>{t("Résultat attendu")}</h3><p>{expected}</p><ol>{steps.map(step => <li key={step.id}>{t(editorActionLabel(step.action))} · <bdi>{stepPreview(step)}</bdi></li>)}</ol><button type="button" className="text-button" onClick={() => setGeneratedFrom("")}>{t("Générer à nouveau")}</button></div>}</>}
+        {mode === "expert" && <>
         {!recipe && <label>{t("Partir d’un modèle")}<select defaultValue="" onChange={event => {
           const template = templates.find(item => `${item.workflow_id}:${item.version}` === event.target.value);
           if (template) { const copied = structuredClone(template.steps); setSteps(copied); setJson(JSON.stringify(copied, null, 2)); setExpanded(copied[0]?.id ?? null); }
@@ -100,10 +119,11 @@ export function RecipeEditor({ recipe, templates, onClose, onSaved }: {
               const step = freshEditorStep(); setSteps(items => [...items, step]); setExpanded(step.id);
             }}><Icon name="plus" />{t("Ajouter une étape")}</button>
           </div>}
+        </>}
       </fieldset>
       <div className="dialog-footer">
         <button type="button" className="button button--secondary" onClick={close} disabled={busy}>{t("Annuler")}</button>
-        <button className="button button--primary" disabled={busy}>{t(busy ? "Enregistrement…" : "Enregistrer le brouillon")}</button>
+        <button className="button button--primary" disabled={busy || instructions.trim().length < 8}>{t(busy ? "Chargement…" : mode === "goal" && !hasGeneration ? "Préparer mon parcours" : "Enregistrer le brouillon")}</button>
       </div>
     </form>
   </Dialog>;
