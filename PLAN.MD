@@ -1,9 +1,26 @@
 # Emulytix × Google ARTEMIS — Plan de réalisation
 
 Date : 5 novembre 2026.  
-Statut : catalogue et runs persistants livrés ; worker local et WF01 vérifiés sur un émulateur. Les jalons complets S1/S2/S3 restent ouverts.
+Statut : première livraison des huit chantiers sélectionnés déployée localement ; validation détaillée dans docs/product-delivery-2026-11-08.md. Les jalons complets S1/S2/S3 restent ouverts.
 Référence prioritaire : [study_v2.md](study_v2.md), dont le contenu correspond à la **v3 consolidée**.  
-Périmètre de cette intervention : validation du plan avec les skills installées, correction du séquencement et début d'implémentation des contrats et de la persistance.
+Périmètre actuel : parcours en langage naturel, installation complète, premier parcours guidé, version GitHub reproductible, matériel des émulateurs, diagnostic et relance contrôlée, groupes/actions groupées/capacité, API et MCP personnels.
+
+## Livraison sélectionnée après l’audit — 8 novembre 2026
+
+L’utilisateur a autorisé les huit chantiers ci-dessous. La liste historique est conservée comme contexte ; les fonctionnalités non sélectionnées, dont iOS, restent au backlog. `PLAN.MD` demeure le plan et la liste de tâches de référence.
+
+| Tranche | Résultat attendu et critères d’acceptation | Vérification | Dépendance / état |
+|---|---|---|---|
+| A. Objectif en langage naturel | L’utilisateur décrit uniquement son objectif ; la console génère un brouillon exécutable, résume les actions et indique clairement les limites ou informations manquantes. Le texte modifié invalide toute génération antérieure. Aucune génération ne pilote l’appareil ni ne publie silencieusement. | Tests du compilateur et de ses refus ; contrat API ; création, publication et exécution Wikipédia depuis le navigateur. | [x] Livré et testé sur Wikipédia ; ChatGPT réel à valider avec le compte utilisateur |
+| B. Installation complète | Un point d’entrée contrôle Docker/Compose/KVM et les ressources, construit un runtime Android depuis des archives officielles vérifiées, puis démarre console et worker sans remplacer les secrets ou données existants. | Tests des prérequis et relances ; construction du runtime ; recette isolée lorsque les téléchargements nécessaires sont disponibles. | [x] Livré ; preuves et limites dans la fiche de livraison |
+| C. Premier parcours réussi | L’accueil guide vers un appareil réellement prêt, un objectif, une version testable et l’exécution. Chaque blocage propose une action concrète. | Tests des états ; recette navigateur avec le parcours Chrome/Wikipédia. | [x] Création → publication → Android vérifiée depuis le navigateur |
+| D. Version GitHub reproductible | Instructions publiques, fichiers d’exemple sans secrets, dépendances verrouillées, build Android documenté et CI pour Python, frontend et Go. Les choix encore à faire sont explicites. | CI locale équivalente, configuration Compose, scan ciblé des fichiers suivis. Aucune publication implicite. | [x] Recette et CI fournies ; clone vierge, CI GitHub et choix de licence ouverts |
+| E. Matériel des émulateurs | Préréglages et options avancées pour écran/densité/RAM/CPU/stockage ; validation serveur et affichage du matériel appliqué. Modification à l’arrêt ; stockage défini avant initialisation, sans redimensionnement risquant les données. | Tests de contrats, reconfiguration et commandes runtime ; build frontend. | [x] Livré ; preuves et limites dans la fiche de livraison |
+| F. Diagnostic et relance contrôlée | Cause lisible, étape et preuves ; nouvelle tentative limitée aux échecs admissibles, liée à la source et idempotente. Exclure succès, exécutions actives, quarantaine et effets incertains. | Régressions PostgreSQL concurrentes, droits et reprise après réponse perdue ; recette UI. | [x] Droits, concurrence et reprise testés ; aucune relance d’effet incertain |
+| G. Groupes et actions groupées | Nommer des groupes, sélectionner leur flotte, afficher capacité observée et blocages ; allumer/préparer/éteindre les émulateurs sélectionnés avec un résultat individuel, puis lancer un parcours sur le lot. Les appareils physiques n’ont pas de bouton d’alimentation virtuelle. | Tests de groupe, limites et résultats partiels ; UI responsive ; aucune action groupée implicite sur toute la flotte. | [x] Groupes/capacité/bulk livrés ; états incertains simulés dans le navigateur |
+| H. API/MCP personnels | Créer une clé depuis le profil, affichée une seule fois, avec permissions/expiration/révocation ; API documentée et MCP utilisant les mêmes services et droits. Aucun accès d’administration ou de shell par défaut. | Tests isolation, expiration, rôles modifiés, révocation et idempotence ; protocole MCP et client REST. | [x] Livré ; preuves et limites dans la fiche de livraison |
+
+Les cases ci-dessus indiquent une implémentation disponible, avec la portée des validations et les recettes encore ouvertes explicitement mentionnées. Les tranches sont livrées avec tests et revue séparée. Android 10 du banc validé reste la cible du premier runtime reproductible ; une migration Android 14 ou iOS n’est pas assimilée à une simple reconstruction. La licence finale du projet nécessite le choix de son propriétaire. Une connexion ChatGPT personnelle, lorsqu’elle est nécessaire à la génération, ne sera jamais remplacée par les identifiants Codex de la machine de développement.
 
 ## 1. Besoin compris
 

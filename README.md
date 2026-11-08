@@ -2,6 +2,16 @@
 
 Console de pilotage d’une flotte d’appareils mobiles : téléphones, automatisations versionnées, exécutions et preuves. Interface claire inspirée des outils Google, avec connexion par mot de passe et second facteur obligatoire. Le moteur actuel pilote Android ; l’intégration iOS est prévue.
 
+## Installer la console et Android en une commande
+
+Sur Linux x86_64 avec Docker/Compose, Python 3 et KVM :
+
+```bash
+./scripts/install.sh --accept-android-license
+```
+
+La commande vérifie les prérequis, construit le runtime Android depuis les archives officielles vérifiées, puis démarre la console et son worker. Elle conserve les secrets et données lors d’une relance. L’option confirme l’acceptation des conditions Android SDK ; `--check` vérifie seulement les prérequis. Voir le [guide d’installation et de construction reproductible](docs/installation-console.md).
+
 ## Démarrer la console locale
 
 ```bash
@@ -46,6 +56,16 @@ scripts/account.sh reset-2fa mon_identifiant
 Cette commande révoque les sessions et les codes précédents et impose un nouvel enrôlement. Sauvegarder `.env.console` avec la base : sa clé `EMULYTIX_AUTH_KEY` permet de déchiffrer les secrets TOTP. Sa perte ne se résout pas en générant une nouvelle clé.
 
 ### Utiliser la console
+
+Le tableau de bord propose **Votre premier parcours réussi** : préparer un appareil, décrire l’objectif, puis publier et tester en suivant l’écran et les preuves. Dans **Parcours → Créer**, le mode principal demande uniquement une instruction naturelle ; le nom et les étapes sont préparés puis présentés avant enregistrement. Modifier l’objectif invalide la génération précédente. Le mode avancé conserve l’édition technique existante.
+
+L’exemple « Rechercher football sur Wikipédia et vérifier le résultat » fonctionne sans compte externe. Les autres objectifs passent par la connexion ChatGPT personnelle dans Configuration et restent soumis aux capacités du pilote : aucune commande libre, aucun sélecteur inventé pour une application non observée et aucune publication sociale ou opération financière générée. Les objectifs non pris en charge sont refusés ; une génération n’exécute jamais l’appareil. Le parcours doit être testé avant planification. Voir [les capacités et les preuves de livraison](docs/product-delivery-2026-11-08.md).
+
+**Appareils → Groupes d’appareils** permet de conserver une sélection, de consulter la capacité observée et de lancer un parcours sur le groupe. Les actions groupées d’alimentation et de préparation montrent les émulateurs gérés concernés avant confirmation, puis un résultat par appareil. Les téléphones physiques et émulateurs externes restent utilisables dans un parcours mais sont exclus des commandes d’alimentation virtuelle. Un processus worker fournit un emplacement d’exécution simultanée ; les appareils connectés ne créent pas à eux seuls de capacité.
+
+Les émulateurs possèdent des [réglages matériels](docs/emulator-hardware.md) : résolution, densité, RAM, CPU et stockage initial. Les modifications demandent un appareil arrêté et sans travail en file ; le stockage ne se redimensionne pas après initialisation. Dans une exécution terminée, **Diagnostic et relance** explique l’échec et propose, après confirmation, une nouvelle tentative des seuls appareils admissibles. Les succès, effets incertains, appareils réservés et parcours non répétables sont exclus.
+
+**Mon profil → API et MCP personnels** permet de créer une clé avec mot de passe et code 2FA, permissions et expiration, puis de la révoquer. La clé est affichée une seule fois. L’API publique est servie sous `/api/v1` ; l’adaptateur MCP stdio utilise ces mêmes droits. [Contrats, exemples et configuration MCP](docs/api-mcp.md).
 
 - **Tableau de bord** : synthèse du parc, histogramme d’activité quotidienne sur sept jours calendaires dans le fuseau du navigateur, répartition des résultats et capacité actuelle. Les graphiques comptent les exécutions par appareil ; les indicateurs du haut comptent les lancements. Les effectifs et le tableau de données restent accessibles, avec signalement des mesures périmées et des connexions non confirmées.
 - **Appareils** : création d’émulateurs persistants, choix des applications, import d’APK et commandes distinctes **Allumer**, **Préparer les applications**, **Éteindre**, puis lancement d’un parcours sur un appareil prêt. Les appareils déjà existants se connectent séparément. Les noms acceptent les espaces et les identifiants sont générés automatiquement ; une déclaration seule ne prouve aucune connexion.
