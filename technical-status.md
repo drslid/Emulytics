@@ -1,5 +1,7 @@
 # Emulytix Technical Status
 
+Ce fichier conserve le journal historique du développement. Les anciens profils `docker-compose.yml` / `docker-compose.runtime.yml`, `agent-service`, `all-in-one` et l’outil de reprise de quatre demandes locales ont été retirés lors du nettoyage de publication du 8 novembre 2026. Leurs mentions anciennes ne constituent plus des instructions maintenues. Utiliser `scripts/install.sh` et la stack console ; détails dans [le bilan de nettoyage](docs/release-cleanup-2026-11-08.md).
+
 ## 1. Besoin fonctionnel
 
 Le besoin cible est le suivant :

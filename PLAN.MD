@@ -1,6 +1,7 @@
 # Emulytix × Google ARTEMIS — Plan de réalisation
 
 Date : 5 novembre 2026.  
+Note de publication du 8 novembre 2026 : les profils historiques `docker-compose.yml` / `docker-compose.runtime.yml`, l’ancien planificateur `agent-service`, l’image `all-in-one` et le script local de reprise ponctuelle ont été retirés. Les mentions ci-dessous décrivent des étapes passées, pas des commandes de déploiement maintenues. L’installation courante utilise `scripts/install.sh`, `docker-compose.preview.yml` et `docker-compose.console-worker.yml` ; voir [le bilan de nettoyage](docs/release-cleanup-2026-11-08.md).
 Statut : première livraison des huit chantiers sélectionnés déployée localement ; validation détaillée dans docs/product-delivery-2026-11-08.md. Les jalons complets S1/S2/S3 restent ouverts.
 Référence prioritaire : [study_v2.md](study_v2.md), dont le contenu correspond à la **v3 consolidée**.  
 Périmètre actuel : parcours en langage naturel, installation complète, premier parcours guidé, version GitHub reproductible, matériel des émulateurs, diagnostic et relance contrôlée, groupes/actions groupées/capacité, API et MCP personnels.
