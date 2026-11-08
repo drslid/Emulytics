@@ -243,9 +243,11 @@ class AutomationStore(RunStore):
     def dispatch_due(self, limit: int = 20) -> int:
         submitted = 0
         with self.connect() as connection:
+            # Retry failures after older untouched slots without changing their replay keys.
             due = connection.execute(
                 "SELECT * FROM automation_schedules WHERE enabled AND next_run_at<=clock_timestamp() "
-                "ORDER BY next_run_at,id LIMIT %s FOR UPDATE SKIP LOCKED", (max(1, min(limit, 100)),),
+                "ORDER BY CASE WHEN last_error IS NULL THEN next_run_at ELSE updated_at END,id "
+                "LIMIT %s FOR UPDATE SKIP LOCKED", (max(1, min(limit, 100)),),
             ).fetchall()
             for row in due:
                 if not self._authorized_owner(connection, row["created_by"]):

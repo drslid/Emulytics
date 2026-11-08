@@ -200,6 +200,29 @@ def test_concurrent_scheduler_ticks_submit_exactly_once(database_dsn, workflow_p
     assert current["next_run_at"] > datetime.now(timezone.utc)
 
 
+def test_failed_due_schedules_do_not_starve_a_later_valid_schedule(database_dsn, workflow_payload):
+    store, valid, actor = schedule_fixture(database_dsn, workflow_payload)
+    store.register_device(DeviceRegistration(device_id='unprepared-phone',host_id='host',serial='emulator-5556',kind='emulator'))
+    with store.connect() as connection:
+        connection.execute("INSERT INTO managed_emulators(id,device_id,host_id,slot,application_ids,create_key,create_hash) "
+                           "VALUES(%s,'unprepared-phone','host',1,'[]',%s,'test-hash')",(uuid4(),str(uuid4())))
+    rejected = [store.create_schedule(ScheduleInput(name=f'Not ready {index}',workflow_id='go-home',workflow_version=1,
+        device_ids=['unprepared-phone'],max_concurrency=1,cron='* * * * *'),actor)['id'] for index in range(20)]
+    with store.connect() as connection:
+        connection.execute("UPDATE automation_schedules SET next_run_at=clock_timestamp()-interval '2 hours' WHERE id=ANY(%s)",(rejected,))
+        connection.execute("UPDATE automation_schedules SET next_run_at=clock_timestamp()-interval '1 hour' WHERE id=%s",(valid['id'],))
+        due = {row['id']:row['next_run_at'] for row in connection.execute('SELECT id,next_run_at FROM automation_schedules').fetchall()}
+    assert store.dispatch_due()==0
+    assert store.dispatch_due()==1
+    assert store.dispatch_due()==0
+    runs = store.list_runs(100,0)
+    assert len(runs)==1 and runs[0]['device_ids']==['scheduled-phone']
+    assert store.get_run(runs[0]['id'])['idempotency_key']==f"schedule:{valid['id']}:{due[valid['id']].isoformat()}"
+    with store.connect() as connection:
+        blocked = connection.execute('SELECT id,next_run_at,last_error FROM automation_schedules WHERE id=ANY(%s)',(rejected,)).fetchall()
+        assert all(row['next_run_at']==due[row['id']] and row['last_error']=='dispatch_failed' for row in blocked)
+
+
 def test_scheduler_replay_after_submit_commit_before_cursor_advance(database_dsn, workflow_payload, monkeypatch):
     store, _, _ = schedule_fixture(database_dsn, workflow_payload)
     original = store._after_submission
