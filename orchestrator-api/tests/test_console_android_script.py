@@ -63,7 +63,19 @@ elif args[:2] == ['network', 'inspect']:
     print('wf01')
 elif args[0] == 'inspect':
     fmt = args[args.index('--format') + 1]
-    if '.Config.Labels' in fmt: print(os.getenv('FAKE_LABEL', 'wf01'))
+    if 'emulytix.bench.persistence' in fmt: print(os.getenv('FAKE_PERSISTENCE', 'preserve-avd-v1'))
+    elif '.Config.Labels' in fmt: print(os.getenv('FAKE_LABEL', 'wf01'))
+    elif '.Config.Entrypoint' in fmt: print(os.getenv('FAKE_ENTRYPOINT', '["/bin/bash"]'))
+    elif '.Config.Cmd' in fmt:
+        mode = os.getenv('FAKE_COMMAND', 'safe')
+        safe = 'if [[ ! -f "$ANDROID_AVD_HOME/emulytix-wf01.ini" ]]; then\n echo no | avdmanager create avd --name emulytix-wf01\nfi'
+        if mode == 'safe': print(json.dumps(['-lc', safe]))
+        elif mode == 'legacy': print(json.dumps(['-lc', 'echo no | avdmanager create avd --force --name emulytix-wf01']))
+        elif mode == 'guarded-force': print(json.dumps(['-lc', safe + '\n avdmanager create avd --force --name emulytix-wf01']))
+        elif mode == 'wipe-data': print(json.dumps(['-lc', safe + '\n emulator -wipe-data']))
+        elif mode == 'unknown': print(json.dumps(['-lc', 'custom boot command']))
+        elif mode == 'wrong-shape': print(json.dumps({'unexpected':'object'}))
+        else: print('unreadable')
     elif '.State.Running' in fmt: print(os.getenv('FAKE_RUNNING', 'true'))
     elif '.NetworkSettings.Networks' in fmt: print('emulytix-wf01-bench')
     else: sys.exit(5)
@@ -129,6 +141,45 @@ def test_stopped_owned_bench_is_started_without_replacing_its_data(launcher):
     assert not (root / 'created').exists()
     assert any(call.get('args') == ['start', 'emulytix-wf01-android'] for call in calls)
     assert not any(call.get('args', [''])[0] in ('rm', 'create') for call in calls)
+
+
+@pytest.mark.parametrize('failure', [
+    {'FAKE_PERSISTENCE': ''},
+    {'FAKE_COMMAND': 'legacy'},
+    {'FAKE_COMMAND': 'guarded-force'},
+    {'FAKE_COMMAND': 'wipe-data'},
+    {'FAKE_COMMAND': 'unknown'},
+    {'FAKE_COMMAND': 'wrong-shape'},
+    {'FAKE_COMMAND': 'invalid-json'},
+    {'FAKE_ENTRYPOINT': '["/custom-entrypoint"]'},
+    {'FAKE_ENTRYPOINT': 'invalid-json'},
+    {'FAKE_RUNNING': 'unknown'},
+])
+def test_legacy_or_unknown_stopped_bench_never_starts_or_mutates(launcher, failure):
+    run, root = launcher
+    result, calls = run(**{'FAKE_RUNNING': 'false', **failure})
+    assert result.returncode != 0
+    assert not (root / 'created').exists()
+    assert not any(call.get('args', [''])[0] in ('start', 'rm', 'create') for call in calls)
+    assert not any(call['event'] == 'registered' or 'up' in call.get('args', []) for call in calls)
+    assert 'Aucun redémarrage' in result.stderr
+
+
+def test_an_already_running_legacy_bench_is_not_restarted_or_blocked(launcher):
+    run, root = launcher
+    result, calls = run(FAKE_DEVICE='true', FAKE_PERSISTENCE='', FAKE_COMMAND='legacy')
+    assert result.returncode == 0, result.stderr
+    assert not any('.Config.Cmd' in ' '.join(call.get('args', [])) for call in calls)
+    assert not any(call.get('args', [''])[0] in ('start', 'rm', 'create') for call in calls)
+
+
+def test_new_bench_command_creates_the_avd_only_when_missing():
+    source = LAUNCHER.parents[1] / 'android-runtime/scripts/start-bench.sh'
+    command = source.read_text()
+    assert 'if [[ ! -f "$ANDROID_AVD_HOME/emulytix-wf01.ini" ]]; then' in command
+    assert 'avdmanager create avd --name emulytix-wf01' in command
+    assert 'avdmanager create avd --force' not in command
+    assert '--label emulytix.bench.persistence=preserve-avd-v1' in command
 
 
 @pytest.mark.parametrize('failure', [{'FAKE_LABEL': 'foreign'}, {'FAKE_BOOT': '0'}, {'FAKE_BASE': 'false'}])

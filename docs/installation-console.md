@@ -23,7 +23,7 @@ Pour vérifier les prérequis sans créer de configuration ou démarrer un servi
 3. Construit `emulytix/android-runtime:0.9.0` si nécessaire, depuis le Dockerfile suivi par Git et les archives officielles vérifiées par SHA-256.
 4. Vérifie réellement l’accélération KVM dans l’image sélectionnée, avant de lancer les services applicatifs.
 5. Lance PostgreSQL, les migrations, les API, l’ordonnanceur et l’interface ; initialise le premier accès seulement si l’installation n’en possède pas déjà un.
-6. Prépare le banc Android privé et le worker, en réutilisant son appareil enregistré. Un banc identifié Emulytix et arrêté est redémarré, sans suppression de ses données.
+6. Prépare le banc Android privé et le worker, en réutilisant son appareil enregistré. Les nouveaux bancs créent leur AVD uniquement au premier démarrage. Un banc arrêté n’est redémarré que si son marqueur et sa commande confirment cette conservation.
 
 La console est accessible sur [http://localhost:3100](http://localhost:3100). Pour consulter le mot de passe temporaire encore valide, exécuter `scripts/account.sh initial-access` dans un terminal privé. Le compte `admin` doit ensuite changer ce mot de passe et activer le 2FA. L’installateur ne réinitialise aucun compte existant et n’imprime pas les secrets dans ses journaux ordinaires.
 
@@ -34,6 +34,8 @@ Le lancement de l’installateur ne crée pas de nouvelle exécution. Le worker 
 Les variables `EMULYTIX_BENCH_IMAGE` et `EMULYTIX_MANAGED_IMAGE` peuvent désigner des images personnalisées déjà présentes. Les valeurs de l’environnement courant prennent le pas sur `.env.console`, puis sur la valeur par défaut. Une image personnalisée absente déclenche un message explicite ; elle n’est ni remplacée par une autre ni téléchargée implicitement.
 
 Les scripts ne suppriment aucun volume PostgreSQL ou profil d’émulateur existant. Le banc initial et les profils gérés conservent des cycles de vie distincts. Arrêter ou supprimer volontairement des conteneurs avec d’autres commandes Docker reste une action d’administration extérieure à l’installateur.
+
+Un ancien banc arrêté dont la commande recrée l’AVD est refusé, sans démarrage ni remplacement. Conserver son conteneur et sauvegarder ses données avant de préparer une migration ; le helper ne modifie pas automatiquement sa commande ni sa politique Docker de redémarrage. Un ancien banc déjà allumé reste utilisable sans être redémarré par l’installateur. Les redémarrages effectués hors du helper, notamment par Docker, restent soumis à la commande de cet ancien conteneur.
 
 Ne pas supprimer `.env.console` pour résoudre une erreur : il contient notamment la clé nécessaire pour déchiffrer les facteurs et connexions de l’installation. Sauvegarder ce fichier avec les données, dans un emplacement privé. La restauration complète d’une sauvegarde doit encore être vérifiée dans une recette dédiée.
 
@@ -58,7 +60,9 @@ La construction ne dépend plus d’une image privée créée manuellement sur l
 
 Le workflow manuel `android-runtime.yml` reconstruit l’image depuis les archives officielles après acceptation explicite des conditions Android SDK. Il vérifie les outils et la révision système. Il ne démarre pas un émulateur et ne remplace pas une recette KVM du parcours Chrome/Wikipédia.
 
-La recette locale du 8 novembre 2026 a construit l’image depuis ces sources, créé puis démarré un conteneur et un réseau éphémères distincts du banc existant, vérifié l’accélération KVM, Android API 29 et Chrome `74.0.3729.185` préinstallé. Le conteneur et le réseau ont ensuite été retirés. Les 30 tests ciblés de l’installateur, de l’accès initial et du helper Android passent ; la syntaxe Bash, Actionlint et le contrôle réel `--check` passent également. Cette recette ne remplace pas l’installation complète d’un clone vierge avec toutes ses étapes applicatives.
+La recette locale du 8 novembre 2026 a construit l’image depuis ces sources, créé puis démarré un conteneur et un réseau éphémères distincts du banc existant, vérifié l’accélération KVM, Android API 29 et Chrome `74.0.3729.185` préinstallé. Le conteneur et le réseau ont ensuite été retirés. Les tests ciblés de l’installateur, de l’accès initial et du helper Android passent ; la syntaxe Bash, Actionlint et le contrôle réel `--check` passent également. Cette recette ne remplace pas l’installation complète d’un clone vierge avec toutes ses étapes applicatives.
+
+Une recette supplémentaire a démarré deux fois le même nouveau banc isolé, avec arrêt Docker entre les deux. Un fichier témoin écrit dans `/data/local/tmp`, suivi d’un `sync` Android, et l’empreinte du fichier AVD `.ini` sont restés identiques après le second démarrage. Les dates de démarrage Docker ont bien changé. Le banc historique a conservé son identifiant, son état actif et sa date de démarrage ; aucune API ou base applicative n’a été utilisée pendant cet essai. Les ressources éphémères ont été supprimées. Cette preuve porte sur le redémarrage du conteneur, pas sur sa suppression/recréation ni sur une restauration depuis sauvegarde.
 
 La CI doit être exécutée sur le dépôt GitHub de destination avant de considérer une version publiable. Le choix de licence d’Emulytix appartient au propriétaire du projet ; aucune licence n’est ajoutée implicitement. La recette d’un clone vierge, la sauvegarde/restauration et les tests avec les applications sociales restent à distinguer des contrôles unitaires et des builds locaux.
 

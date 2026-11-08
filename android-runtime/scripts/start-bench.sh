@@ -51,12 +51,15 @@ if ! docker network inspect "$bench_network" >/dev/null 2>&1; then
 fi
 
 container_id="$(docker create --name "$bench_container" --network "$bench_network" --restart unless-stopped \
-  --label emulytix.bench=wf01 --device /dev/kvm --memory 3g --cpus 2 --shm-size 256m \
+  --label emulytix.bench=wf01 --label emulytix.bench.persistence=preserve-avd-v1 \
+  --device /dev/kvm --memory 3g --cpus 2 --shm-size 256m \
   --env ANDROID_AVD_HOME=/project/.android-user/avd --entrypoint /bin/bash "$bench_image" -lc '
     set -e
     mkdir -p "$ANDROID_AVD_HOME"
-    echo no | avdmanager create avd --force --name emulytix-wf01 \
-      --package "system-images;android-29;google_apis;x86_64"
+    if [[ ! -f "$ANDROID_AVD_HOME/emulytix-wf01.ini" ]]; then
+      echo no | avdmanager create avd --name emulytix-wf01 \
+        --package "system-images;android-29;google_apis;x86_64"
+    fi
     adb -a -P 5037 nodaemon server > /tmp/adb-server.log 2>&1 &
     adb_pid=$!
     for attempt in $(seq 1 50); do

@@ -27,6 +27,29 @@ if docker container inspect "$bench_container" >/dev/null 2>&1; then
     echo "Le conteneur existant n'est pas un banc Emulytix ; aucun remplacement effectué." >&2
     exit 1
   }
+  if [[ "$running" != true ]]; then
+    [[ "$running" == false ]] || { echo "L’état du banc est inconnu. Aucun redémarrage effectué." >&2; exit 1; }
+    persistence="$(docker inspect --format '{{ index .Config.Labels "emulytix.bench.persistence" }}' "$bench_container")"
+    command="$(docker inspect --format '{{json .Config.Cmd}}' "$bench_container")"
+    entrypoint="$(docker inspect --format '{{json .Config.Entrypoint}}' "$bench_container")"
+    if [[ "$persistence" != preserve-avd-v1 ]] || ! printf '%s' "$command" | python3 -c '
+import json, sys
+try:
+    assert json.loads(sys.argv[1]) == ["/bin/bash"]
+    command = json.load(sys.stdin)
+    assert isinstance(command, list) and len(command) == 2 and command[0] == "-lc"
+    source = command[1]
+    assert isinstance(source, str)
+    assert '\''if [[ ! -f "$ANDROID_AVD_HOME/emulytix-wf01.ini" ]]; then'\'' in source
+    assert "avdmanager create avd --name emulytix-wf01" in source
+    assert "--force" not in source and "-wipe-data" not in source
+except (ValueError, AssertionError, TypeError):
+    raise SystemExit(1)
+' "$entrypoint"; then
+      echo "Ce banc arrêté utilise une ancienne commande ou une configuration inconnue susceptible de recréer Android. Aucun redémarrage ni remplacement effectué. Conservez le conteneur et sauvegardez ses données avant de préparer sa migration." >&2
+      exit 1
+    fi
+  fi
 else
   android-runtime/scripts/start-bench.sh
 fi
