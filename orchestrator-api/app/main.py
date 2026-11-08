@@ -31,6 +31,8 @@ from .monitor_routes import router as monitor_router
 from .screen_routes import router as screen_router
 from .emulator_routes import router as emulator_router
 from .self_security import router as self_security_router
+from .chatgpt_routes import router as chatgpt_router
+from .chatgpt_process import close_manager
 
 
 APP_NAME = os.getenv("APP_NAME", "Emulytix Orchestrator API")
@@ -484,6 +486,7 @@ app.include_router(monitor_router)
 app.include_router(screen_router)
 app.include_router(emulator_router)
 app.include_router(self_security_router)
+app.include_router(chatgpt_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -658,6 +661,7 @@ def startup() -> None:
 
 @app.on_event("shutdown")
 def stop_heartbeat():
+    close_manager()
     if getattr(app.state, "heartbeat", None):
         app.state.heartbeat.__exit__(None, None, None)
 

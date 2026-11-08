@@ -43,6 +43,9 @@ def required_permission(method: str, path: str) -> str | None:
         '/console/account/two-factor/enrollment/qr': {'GET', 'HEAD'},
         '/console/account/two-factor/confirm': {'POST'},
         '/console/account/recovery-codes': {'POST'},
+        '/console/account/chatgpt': {'GET', 'HEAD', 'DELETE'},
+        '/console/account/chatgpt/login': {'POST'},
+        '/console/account/chatgpt/cancel': {'POST'},
     }
     if path in account_methods:
         return 'self' if method in account_methods[path] else None

@@ -53,6 +53,7 @@ services:
       EMULYTIX_STORAGE_ROOT: /storage
       EMULYTIX_ARTIFACT_ROOT: /storage/runs
       EMULYTIX_APK_ROOT: /apks
+      EMULYTIX_CHATGPT_ENABLED: "true"
     volumes:
       - ./storage/runs:/storage/runs:ro
       - ./storage/runtime-apks:/apks
