@@ -17,6 +17,7 @@ import { localeInfo } from "../../lib/i18n-core";
 import { LanguageSelector } from "../language-selector";
 import { Icon } from "./icons";
 import { Security } from "./security";
+import { APIKeys } from "./api-keys";
 import { Dialog, Empty, ErrorNotice, date } from "./shared";
 
 const roles = ["admin", "builder", "operator", "viewer", "auditor"] as const;
@@ -1158,6 +1159,7 @@ export function Profile({
         </div>
         <Security user={user} onLogout={onLogout} />
       </section>
+      <APIKeys user={user} />
       {editing && (
         <ProfileEditor
           user={user}

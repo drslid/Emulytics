@@ -124,6 +124,8 @@ class RunStore:
         return self._read_run(connection, previous["id"])
 
     def submit_run(self, submission: RunSubmission) -> dict:
+        if submission.idempotency_key.startswith(('retry:', 'api-')):
+            raise HTTPException(422, 'This idempotency key prefix is reserved for a dedicated endpoint')
         with self.connect() as connection:
             return self._submit_run(connection, submission)
 

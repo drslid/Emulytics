@@ -40,18 +40,26 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 response = JSONResponse({"status": "ok"})
             else:
                 config = AuthConfig.load()
-                service_token = valid_control_token(request)
+                personal_api = request.url.path.startswith('/api/v1/')
+                service_token = not personal_api and valid_control_token(request)
                 origin = request.headers.get("origin")
                 if not service_token and origin and origin != config.origin:
                     raise HTTPException(403, "Origine refusée")
-                if not service_token and request.method not in {"GET", "HEAD", "OPTIONS"}:
+                if not service_token and not personal_api and request.method not in {"GET", "HEAD", "OPTIONS"}:
                     if origin != config.origin or request.headers.get("x-emulytix-client") != "console":
                         raise HTTPException(403, "Origine ou protection CSRF invalide")
                     content_type = request.headers.get("content-type", "").split(";", 1)[0].strip()
                     apk_upload = request.method == 'POST' and request.url.path == '/console/applications'
                     if content_type != ('multipart/form-data' if apk_upload else 'application/json'):
                         raise HTTPException(415, "Requête JSON requise")
-                if request.url.path not in PUBLIC_AUTH_PATHS and not service_token:
+                if personal_api:
+                    from .api_key_store import APIKeyStore
+                    principal = await run_in_threadpool(APIKeyStore(config).authenticate_key, request.headers.get('authorization'))
+                    request.state.api_principal = principal
+                    request.state.auth_user = principal['user']
+                    if request.method not in {'GET', 'HEAD'} and request.headers.get('content-type', '').split(';')[0].strip() != 'application/json':
+                        raise HTTPException(415, 'Requête JSON requise')
+                elif request.url.path not in PUBLIC_AUTH_PATHS and not service_token:
                     user = await run_in_threadpool(AuthStore(config).current_user, request.cookies.get(SESSION_COOKIE))
                     if not user:
                         raise HTTPException(401, "Connexion requise")

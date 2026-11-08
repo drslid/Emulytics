@@ -46,13 +46,22 @@ def required_permission(method: str, path: str) -> str | None:
         '/console/account/chatgpt': {'GET', 'HEAD', 'DELETE'},
         '/console/account/chatgpt/login': {'POST'},
         '/console/account/chatgpt/cancel': {'POST'},
+        '/console/account/api-keys': {'GET', 'HEAD', 'POST'},
     }
     if path in account_methods:
         return 'self' if method in account_methods[path] else None
+    if re.fullmatch(r'/console/account/api-keys/[^/]+', path):
+        return 'self' if method == 'DELETE' else None
     if path == '/auth/me':
         return 'self'
     if path == '/devices' or path == '/console/fleet':
         return 'devices.read' if read else 'devices.write'
+    if path == '/console/fleet/capacity':
+        return 'devices.read' if read else None
+    if path == '/console/fleet/groups' or re.fullmatch(r'/console/fleet/groups/[^/]+', path):
+        return 'devices.read' if read else 'devices.write' if method in {'POST', 'PATCH', 'DELETE'} else None
+    if path == '/console/fleet/bulk':
+        return 'devices.write' if method == 'POST' else None
     if path == '/console/emulators':
         return 'devices.read' if read else 'devices.write' if method=='POST' else None
     if path == '/console/applications':
@@ -67,6 +76,8 @@ def required_permission(method: str, path: str) -> str | None:
         return 'workflows.read' if read else 'workflows.publish'
     if path == '/console/recipes/from-workflow':
         return 'workflows.write' if method == 'POST' else None
+    if path == '/console/recipes/generate':
+        return 'workflows.write' if method == 'POST' else None
     if path.startswith('/console/recipes'):
         return 'workflows.read' if read else 'workflows.publish' if path.endswith('/publish') else 'workflows.write'
     if path.startswith('/console/schedules'):
@@ -75,6 +86,10 @@ def required_permission(method: str, path: str) -> str | None:
         return 'runs.read' if read else 'runs.execute'
     if re.fullmatch(r'/runs/[^/]+/cancel', path):
         return 'runs.cancel'
+    if re.fullmatch(r'/runs/[^/]+/retry', path):
+        return 'runs.execute' if method == 'POST' else None
+    if re.fullmatch(r'/runs/[^/]+/diagnosis', path):
+        return 'runs.read' if read else None
     if re.fullmatch(r'/runs/[^/]+(?:/events)?', path) or re.fullmatch(r'/executions/[^/]+/actions', path):
         return 'runs.read' if read else None
     if re.fullmatch(r'/console/executions/[^/]+/captures/[^/]+', path):

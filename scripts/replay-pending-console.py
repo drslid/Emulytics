@@ -80,7 +80,9 @@ def replay_one(store, source_id, target_id="local-emulator", *, apply=False, aft
             device_ids=[target_id], max_concurrency=1, parameters=source["parameters"], idempotency_key=key,
         )
         # New-run commit precedes source cancellation. The stable key repairs a crash between them.
-        replacement = store.submit_run(submission)
+        # This administrator-only repair owns its reserved key and its separate commit.
+        with store.connect() as replacement_connection:
+            replacement = store._submit_run(replacement_connection, submission)
         if after_submission:
             after_submission(replacement)
         connection.execute("SELECT id FROM runs WHERE id=%s FOR UPDATE", (replacement["id"],)).fetchone()

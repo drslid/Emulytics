@@ -1,13 +1,13 @@
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const identifier = "[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}";
-const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events)?|console/(summary|fleet|dashboard|emulators|account/(profile|security|chatgpt|two-factor/enrollment(/qr)?)|devices/${identifier}/screen|monitor(/stream)?|logs|users(/${UUID})?|recipes|schedules|executions/${UUID}/(captures/${identifier}|screen)))$`);
+const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events|/diagnosis)?|console/(summary|fleet|fleet/(groups(/${UUID})?|capacity)|dashboard|emulators|account/(profile|security|api-keys|chatgpt|two-factor/enrollment(/qr)?)|devices/${identifier}/screen|monitor(/stream)?|logs|users(/${UUID})?|recipes|schedules|executions/${UUID}/(captures/${identifier}|screen)))$`);
 const userPath = `console/users/${UUID}`;
 const recipePath = `console/recipes/${UUID}`;
 const schedulePath = `console/schedules/${UUID}`;
 const changes = {
-  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/cancel|console/(emulators|emulators/${identifier}/(configuration|start|prepare|stop)|applications|users|recipes|recipes/from-workflow|schedules|schedules/preview|account/(password|recovery-codes|chatgpt/(login|cancel)|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
-  PATCH: new RegExp(`^(${userPath}|${recipePath}|${schedulePath}|console/account/profile)$`),
-  DELETE: new RegExp(`^(${schedulePath}|console/account/(chatgpt|two-factor/enrollment))$`)
+  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/(cancel|retry)|console/(fleet/(groups|bulk)|emulators|emulators/${identifier}/(configuration|start|prepare|stop)|applications|users|recipes|recipes/(from-workflow|generate)|schedules|schedules/preview|account/(api-keys|password|recovery-codes|chatgpt/(login|cancel)|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
+  PATCH: new RegExp(`^(${userPath}|${recipePath}|${schedulePath}|console/account/profile|console/fleet/groups/${UUID})$`),
+  DELETE: new RegExp(`^(${schedulePath}|console/fleet/groups/${UUID}|console/account/(api-keys/${UUID}|chatgpt|two-factor/enrollment))$`)
 };
 
 export function sessionCookies(raw: string | null): string {
@@ -76,7 +76,7 @@ export async function proxyControl(request: Request, segments: string[], fetcher
     const timer = streaming ? setTimeout(() => controller.abort(), 15_000) : undefined;
     let upstream: Response;
     try { upstream = await fetcher(`${base.replace(/\/$/, "")}/${endpoint}?${query}`, {
-      method: request.method, headers, body, cache: "no-store", redirect: "error", signal: streaming ? AbortSignal.any([request.signal, controller.signal]) : AbortSignal.timeout(apkUpload ? 60_000 : 15_000)
+      method: request.method, headers, body, cache: "no-store", redirect: "error", signal: streaming ? AbortSignal.any([request.signal, controller.signal]) : AbortSignal.timeout(endpoint === "console/recipes/generate" ? 100_000 : apkUpload || endpoint === "console/fleet/bulk" ? 60_000 : 15_000)
     }); } finally { if (timer) clearTimeout(timer); }
     const responseHeaders = new Headers({
       "Content-Type": upstream.headers.get("content-type") ?? "application/json",
