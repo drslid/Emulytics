@@ -1,0 +1,10 @@
+{
+  "name": "emulytix-chatgpt-auth-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pinned official Codex binary for personal ChatGPT device-code authentication",
+  "packageManager": "npm@10.9.4",
+  "dependencies": {
+    "@openai/codex": "0.157.1"
+  }
+}

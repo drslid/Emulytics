@@ -8,8 +8,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends adb \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt requirements.lock ./
+RUN python -m pip install --no-cache-dir --upgrade pip==26.3 \
+    && python -m pip install --no-cache-dir --require-hashes -r requirements.lock
 COPY app ./app
 
 CMD ["python", "-m", "app.worker"]
