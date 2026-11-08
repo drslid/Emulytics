@@ -5,11 +5,12 @@ export type ManagedEmulator = {
   application_ids: string[]; installed_packages: string[]; last_error: string | null; last_run_id: string | null;
   operation_status: string | null; availability: "declared" | "busy" | "needs_review"; updated_at: string;
   device?: Device;
+  hardware?: EmulatorHardware; applied_hardware?: AppliedEmulatorHardware | null; storage_editable?: boolean;
 };
 export type EmulatorCatalog = { items: ManagedEmulator[]; applications: EmulatorApplication[]; hosts: string[]; enabled: boolean; max_per_host: number };
 export type EmulatorAction = "start" | "prepare" | "stop";
 export type EmulatorOperation = { action: EmulatorAction; idempotency_key: string };
-export type EmulatorCreation = { name: string; host_id: string; application_ids: string[]; idempotency_key: string };
+export type EmulatorCreation = { name: string; host_id: string; application_ids: string[]; idempotency_key: string; hardware?: EmulatorHardware };
 export const MAX_APK_BYTES = 128 * 1024 * 1024;
 
 const active = new Set(["queued", "leased", "running", "recovering", "verifying_state", "waiting_auth"]);
@@ -67,10 +68,12 @@ export function parseEmulatorOperation(value: unknown): EmulatorOperation | null
 }
 export function parseEmulatorCreation(value: unknown): EmulatorCreation | null {
   const input = object(value);
+  const hardware = input.hardware === undefined ? undefined : parseHardware(input.hardware);
   return typeof input.name === "string" && input.name.trim().length > 0 && input.name.length <= 160 &&
     typeof input.host_id === "string" && identifier.test(input.host_id) && typeof input.idempotency_key === "string" && uuid.test(input.idempotency_key) &&
-    Array.isArray(input.application_ids) && input.application_ids.length <= 12 && input.application_ids.every(id => typeof id === "string" && identifier.test(id)) && new Set(input.application_ids).size === input.application_ids.length
-    ? { name: input.name, host_id: input.host_id, application_ids: input.application_ids, idempotency_key: input.idempotency_key } : null;
+    Array.isArray(input.application_ids) && input.application_ids.length <= 12 && input.application_ids.every(id => typeof id === "string" && identifier.test(id)) && new Set(input.application_ids).size === input.application_ids.length && hardware !== null
+    ? { name: input.name, host_id: input.host_id, application_ids: input.application_ids, idempotency_key: input.idempotency_key, ...(hardware ? { hardware } : {}) } : null;
 }
 import type { Device } from "./console-types";
+import { parseHardware, type AppliedEmulatorHardware, type EmulatorHardware } from "./emulator-hardware.ts";
 

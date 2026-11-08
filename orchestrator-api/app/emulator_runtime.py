@@ -14,6 +14,7 @@ from docker.errors import DockerException, NotFound
 from requests.exceptions import RequestException
 
 from .android_driver import DriverError
+from .emulator_hardware import applied_profile, hardware_config
 
 BOOT_COMMAND = r'''
 set -euo pipefail
@@ -21,6 +22,18 @@ mkdir -p "$ANDROID_AVD_HOME"
 if [ ! -f "$ANDROID_AVD_HOME/emulytix-managed.ini" ]; then
   echo no | avdmanager create avd --name emulytix-managed \
     --package 'system-images;android-29;google_apis;x86_64'
+fi
+if [ -n "${EMULYTIX_RAM_MB:-}" ]; then
+  config="$ANDROID_AVD_HOME/emulytix-managed.avd/config.ini"
+  sed -i -E '/^(hw\.lcd\.(width|height|density)|hw\.ramSize|hw\.cpu\.ncore|skin\.(name|path))=/d' "$config"
+  printf '%s\n' "hw.lcd.width=$EMULYTIX_WIDTH" "hw.lcd.height=$EMULYTIX_HEIGHT" \
+    "hw.lcd.density=$EMULYTIX_DENSITY" "hw.ramSize=$EMULYTIX_RAM_MB" \
+    "hw.cpu.ncore=$EMULYTIX_CPU_CORES" "skin.name=${EMULYTIX_WIDTH}x${EMULYTIX_HEIGHT}" >> "$config"
+  # Existing userdata is never resized or wiped when replacing a stopped container.
+  if ! compgen -G "$ANDROID_AVD_HOME/emulytix-managed.avd/userdata-qemu.img*" > /dev/null; then
+    sed -i '/^disk\.dataPartition\.size=/d' "$config"
+    printf '%s\n' "disk.dataPartition.size=${EMULYTIX_STORAGE_GB}G" >> "$config"
+  fi
 fi
 adb -a -P 5037 nodaemon server > /tmp/adb-server.log 2>&1 &
 adb_pid=$!
@@ -30,7 +43,8 @@ for attempt in $(seq 1 50); do
   sleep 0.1
 done
 /opt/android-sdk/emulator/emulator -avd emulytix-managed -no-window -no-audio \
-  -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 1536 -cores 2 \
+  -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory "${EMULYTIX_RAM_MB:-1536}" -cores "${EMULYTIX_CPU_CORES:-2}" \
+  -data "$ANDROID_AVD_HOME/emulytix-managed.avd/userdata-qemu.img" \
   -port "$EMULYTIX_EMULATOR_PORT" -accel on > /tmp/emulator.log 2>&1 &
 emulator_pid=$!
 trap 'kill -TERM "$emulator_pid" 2>/dev/null || true; wait "$emulator_pid" || true; exit 0' TERM INT
@@ -57,7 +71,13 @@ class EmulatorRuntime:
         self.volume_name = 'emulytix-avd-' + UUID(str(record['id'])).hex
         self.labels = {'emulytix.managed': 'console-v1', 'emulytix.emulator': str(record['id']),
                        'emulytix.host': record['host_id']}
-        self.image = os.getenv('EMULYTIX_MANAGED_IMAGE', 'emulytix/android-runtime-check:0.8.1')
+        self.hardware = hardware_config(record['hardware']) if 'hardware' in record else None
+        if self.hardware is not None:
+            from .run_store import fingerprint
+            self.hardware_hash = fingerprint({'hardware':self.hardware,'boot_command':BOOT_COMMAND})
+        else:
+            self.hardware_hash = None
+        self.image = os.getenv('EMULYTIX_MANAGED_IMAGE', 'emulytix/android-runtime:0.9.0')
         self.network = os.getenv('EMULYTIX_BENCH_NETWORK', 'emulytix-wf01-bench')
         self.client = client or docker.from_env(timeout=5)
         self.owns_client = client is None
@@ -99,6 +119,14 @@ class EmulatorRuntime:
 
     def start(self, timeout=180):
         container = self._container()
+        if container is not None and self.hardware_hash is not None:
+            applied = container.attrs.get('Config', {}).get('Labels', {}).get('emulytix.hardware')
+            if applied != self.hardware_hash:
+                if container.attrs.get('State', {}).get('Running'):
+                    raise DriverError('Stop the emulator before applying its new hardware configuration')
+                # Ownership and the persistent volume were verified by _container.
+                self._effect('replace-stopped-container', lambda: container.remove(v=False, force=False))
+                container = None
         if container is None:
             network = self.client.networks.get(self.network)
             if network.attrs.get('Labels', {}).get('emulytix.bench') != 'wf01':
@@ -112,12 +140,17 @@ class EmulatorRuntime:
             port = 5554 + int(self.record['slot']) * 2
             if not 5556 <= port <= 5562 or self.record['serial'] != f'emulator-{port}':
                 raise DriverError('Invalid managed emulator slot')
+            environment = {'ANDROID_AVD_HOME': '/managed/avd', 'EMULYTIX_EMULATOR_PORT': str(port)}
+            labels = dict(self.labels)
+            if self.hardware is not None:
+                environment.update({'EMULYTIX_'+key.upper(): str(value) for key,value in self.hardware.items()})
+                labels['emulytix.hardware'] = self.hardware_hash
             container = self._effect('create-container', lambda: self.client.containers.create(
                 self.image, ['-lc', BOOT_COMMAND], name=self.name, network=self.network,
-                entrypoint=['/bin/bash'], environment={'ANDROID_AVD_HOME': '/managed/avd',
-                                                      'EMULYTIX_EMULATOR_PORT': str(port)},
-                labels=self.labels, volumes={self.volume_name: {'bind': '/managed', 'mode': 'rw'}},
-                devices=['/dev/kvm:/dev/kvm:rwm'], mem_limit='3g', nano_cpus=2_000_000_000,
+                entrypoint=['/bin/bash'], environment=environment,
+                labels=labels, volumes={self.volume_name: {'bind': '/managed', 'mode': 'rw'}},
+                devices=['/dev/kvm:/dev/kvm:rwm'], mem_limit=f'{max(3072,self.hardware["ram_mb"]+1024) if self.hardware else 3072}m',
+                nano_cpus=(self.hardware['cpu_cores'] if self.hardware else 2)*1_000_000_000,
                 shm_size='256m', init=True, security_opt=['no-new-privileges:true'],
                 restart_policy={'Name': 'unless-stopped'},
             ))
@@ -128,23 +161,50 @@ class EmulatorRuntime:
             self.driver.poll()
             try:
                 booted = self.driver.command(['shell', 'getprop', 'sys.boot_completed'], effect=False, timeout_s=3)
-                if booted.strip() == '1':
-                    return {'state': 'running', 'boot_completed': True}
             except DriverError:
                 self.driver.poll()
+                booted = ''
+            if booted.strip() == '1':
+                evidence = {'state': 'running', 'boot_completed': True}
+                if self.hardware is not None:
+                    size = self.driver.command(['shell','wm','size'], effect=False)
+                    density = self.driver.command(['shell','wm','density'], effect=False)
+                    if (not re.search(rf'Physical size:\s*{self.hardware["width"]}x{self.hardware["height"]}\b',size)
+                            or not re.search(rf'Physical density:\s*{self.hardware["density"]}\b',density)):
+                        raise DriverError('Android display does not match the requested hardware configuration')
+                    capacity = None
+                    try:
+                        observed = self.driver.command(['shell','df','-k','/data'], effect=False, timeout_s=5)
+                        for line in observed.splitlines():
+                            fields = line.split()
+                            if len(fields)==6 and fields[-1]=='/data' and fields[1].isdigit():
+                                capacity = int(fields[1])*1024
+                                break
+                    except DriverError:
+                        self.driver.poll()
+                    evidence['applied_hardware'] = applied_profile({**self.hardware,'storage_capacity_bytes':capacity})
+                return evidence
             time.sleep(0.25)
         raise DriverError('Android did not finish booting within three minutes')
 
     def stop(self):
         container = self._container()
+        synced = None
         if container is not None and container.attrs.get('State', {}).get('Running'):
+            try:
+                # Flush guest writes before TERM; retaining the volume alone misses dirty guest pages.
+                self.driver.command(['shell','sync'], effect=True, timeout_s=10)
+                synced = True
+            except DriverError:
+                self.driver.poll()
+                synced = False
             # Graceful TERM reaches the emulator; its named userdata volume is retained.
             self._effect('stop-container', lambda: container.stop(timeout=20))
             container.reload()
             self.driver.poll()
             if container.attrs.get('State', {}).get('Running'):
                 raise RuntimeUncertain('Emulator stop could not be confirmed')
-        return {'state': 'stopped', 'data_retained': True}
+        return {'state': 'stopped', 'data_retained': True, 'guest_sync_confirmed': synced}
 
     def close(self):
         if self.owns_client:

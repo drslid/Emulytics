@@ -53,10 +53,23 @@
 .emulator-installed li { padding:7px 10px; background:var(--success-soft); color:var(--success); border-radius:8px; font-size:11px; overflow-wrap:anywhere; }
 .emulator-action-fieldset { border:0; padding:0; margin:0; min-width:0; }
 .emulator-operation-status { display:flex; align-items:center; flex-wrap:wrap; gap:10px; color:var(--muted); font-size:11px; }
+.emulator-hardware { min-width:0; border:1px solid var(--line); border-radius:12px; padding:20px; margin:0; display:grid; gap:16px; }
+.emulator-hardware legend { font-size:14px; font-weight:500; padding-inline:6px; }
+.emulator-hardware .small-copy { margin:0; }
+.emulator-hardware > label { max-width:100%; }
+.emulator-hardware-summary { margin:0; color:var(--muted); font-size:12px; line-height:1.8; overflow-wrap:anywhere; }
+.emulator-hardware summary { cursor:pointer; min-height:44px; padding-block:12px; color:var(--accent); font-size:12px; }
+.emulator-hardware summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.emulator-hardware-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; padding-block:16px; }
+.emulator-hardware-grid input { min-width:0; width:100%; }
+.emulator-applied-hardware { display:grid; gap:8px; padding:16px; background:var(--blue-soft); border-radius:10px; font-size:12px; min-width:0; }
+.emulator-applied-hardware p { margin:0; }
 @media(max-width:620px) {
  .emulator-card { padding:18px; }
  .emulator-application-options { grid-template-columns:1fr; }
  .emulator-actions .row-actions { flex-direction:column; }
  .emulator-actions > .button { width:100%; }
  .managed-emulators .section-heading > .row-actions { width:100%; justify-content:space-between; }
+ .emulator-hardware { padding:16px; }
+ .emulator-hardware-grid { grid-template-columns:1fr; }
 }

@@ -8,6 +8,7 @@ from psycopg.types.json import Jsonb
 
 from .access import audit_event, permissions_for
 from .console_routes import device_connection
+from .emulator_hardware import DEFAULT_HARDWARE, applied_profile, hardware_config
 from .execution_store import ACTIVE, ExecutionStore
 from .run_models import RunSubmission, WorkflowRegistration
 from .run_store import RunStore, fingerprint
@@ -93,7 +94,7 @@ class EmulatorStore(RunStore):
             "CASE WHEN r.status IN ('failed','needs_review') THEN 'failed' "
             "WHEN r.status='cancelled' AND m.state IN ('starting','preparing') THEN 'unknown' ELSE m.state END AS state,"
             'COALESCE(m.last_error,(SELECT error FROM executions WHERE run_id=m.last_run_id AND device_id=m.device_id ORDER BY attempt DESC LIMIT 1)) AS last_error,'
-            'm.last_run_id,r.status AS operation_status,m.updated_at,'
+            'm.last_run_id,r.status AS operation_status,m.updated_at,m.hardware,m.applied_hardware,'
             "CASE WHEN l.quarantined OR (l.owner_id IS NOT NULL AND l.expires_at<=clock_timestamp()) THEN 'needs_review' "
             "WHEN l.owner_id IS NOT NULL THEN 'busy' ELSE 'declared' END AS availability "
             'FROM managed_emulators m JOIN devices d USING(device_id) '
@@ -102,12 +103,14 @@ class EmulatorStore(RunStore):
         ).fetchone()
         if record is None:
             return None
+        record['applied_hardware'] = applied_profile(record['applied_hardware'])
         device = {key:record[key] for key in ('device_id','display_name','host_id','serial','availability')}
         device.update(kind=record.pop('device_kind'),status=record.pop('device_status'),
                       created_at=record.pop('device_created_at'),active_run_id=record.pop('active_run_id'),
                       lease_expires_at=record.pop('lease_expires_at'))
+        device['emulator_state'] = record['state']
         device.update(device_connection(device,cls._workers(connection) if workers is None else workers))
-        return {**record,'device':device}
+        return {**record,'device':device,'storage_editable':record['last_run_id'] is None and record['applied_hardware'] is None}
 
     @classmethod
     def _lock_device(cls, connection, device_id):
@@ -133,9 +136,14 @@ class EmulatorStore(RunStore):
                 'applications':[{key:row[key] for key in ('id','name','package_name','source','size_bytes','available')} for row in catalog],
                 'hosts':hosts,'enabled':bool(hosts),'max_per_host':4}
 
-    def create_emulator(self, name, host_id, application_ids, idempotency_key, actor_id=None):
+    def create_emulator(self, name, host_id, application_ids, idempotency_key, actor_id=None, *, hardware=None):
         key = _key(actor_id,idempotency_key)
-        digest = fingerprint({'name':name,'host_id':host_id,'application_ids':application_ids})
+        settings = hardware_config(hardware)
+        content = {'name':name,'host_id':host_id,'application_ids':application_ids}
+        # Preserve replay keys created before hardware configuration existed.
+        if settings != DEFAULT_HARDWARE:
+            content['hardware'] = settings
+        digest = fingerprint(content)
         with self.connect() as connection:
             self._actor(connection,actor_id)
             connection.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))", ('emulator-create:'+key,))
@@ -159,17 +167,25 @@ class EmulatorStore(RunStore):
                 (device_id,name,host_id,f'emulator-{5554+slot*2}')).fetchone()
             if inserted is None:
                 raise HTTPException(409,'The device slot changed; retry creation')
-            connection.execute('INSERT INTO managed_emulators(id,device_id,host_id,slot,application_ids,create_key,create_hash,created_by) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)',
-                (emulator_id,device_id,host_id,slot,Jsonb(application_ids),key,digest,actor_id))
+            connection.execute('INSERT INTO managed_emulators(id,device_id,host_id,slot,application_ids,create_key,create_hash,created_by,hardware) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                (emulator_id,device_id,host_id,slot,Jsonb(application_ids),key,digest,actor_id,Jsonb(settings)))
             audit_event(connection,actor_id,'emulator.created',device_id,category='automation')
             return self._record(connection,device_id),True
 
-    def configure(self, device_id, application_ids, actor_id=None):
+    def configure(self, device_id, application_ids, actor_id=None, *, hardware=None):
+        settings = hardware_config(hardware) if hardware is not None else None
         with self.connect() as connection:
             self._actor(connection,actor_id)
             self._lock_device(connection,device_id)
             self._idle(connection,device_id)
             self._resolve(connection,application_ids)
+            current = self._record(connection,device_id)
+            if settings is not None and settings != current['hardware']:
+                if current['state'] not in {'created','stopped'}:
+                    raise HTTPException(409,'Stop the emulator before changing its hardware')
+                if settings['storage_gb'] != current['hardware']['storage_gb'] and not current['storage_editable']:
+                    raise HTTPException(409,'Existing Android storage cannot be resized safely; create another emulator with the desired size')
+                connection.execute('UPDATE managed_emulators SET hardware=%s WHERE device_id=%s', (Jsonb(settings),device_id))
             connection.execute("UPDATE managed_emulators SET application_ids=%s,state=CASE WHEN application_ids=%s THEN state WHEN state IN ('created','stopped','running') THEN state WHEN state='ready' THEN 'running' ELSE 'unknown' END,last_error=NULL,updated_at=clock_timestamp() WHERE device_id=%s",
                 (Jsonb(application_ids),Jsonb(application_ids),device_id))
             audit_event(connection,actor_id,'emulator.configured',device_id,category='automation')
@@ -237,21 +253,22 @@ class EmulatorStore(RunStore):
 
     def operation(self, execution_id):
         with self.connect() as connection:
-            row = connection.execute('SELECT m.id,m.device_id,d.host_id,d.serial,m.slot,o.action,o.applications,o.service_actor,u.active,u.totp_enabled,u.password_change_required,u.role FROM executions e JOIN emulator_operations o ON o.run_id=e.run_id AND o.device_id=e.device_id JOIN managed_emulators m ON m.device_id=o.device_id JOIN devices d ON d.device_id=m.device_id LEFT JOIN auth_users u ON u.id=o.created_by WHERE e.id=%s',(execution_id,)).fetchone()
+            row = connection.execute('SELECT m.id,m.device_id,d.host_id,d.serial,m.slot,m.hardware,o.action,o.applications,o.service_actor,u.active,u.totp_enabled,u.password_change_required,u.role FROM executions e JOIN emulator_operations o ON o.run_id=e.run_id AND o.device_id=e.device_id JOIN managed_emulators m ON m.device_id=o.device_id JOIN devices d ON d.device_id=m.device_id LEFT JOIN auth_users u ON u.id=o.created_by WHERE e.id=%s',(execution_id,)).fetchone()
             if row is None:
                 return None
             authorized = row['service_actor'] or bool(row['active'] and row['totp_enabled'] and not row['password_change_required'] and 'devices.write' in permissions_for(row['role']))
-            return {**{key:row[key] for key in ('id','device_id','host_id','serial','slot','action','applications')},'authorized':authorized}
+            return {**{key:row[key] for key in ('id','device_id','host_id','serial','slot','hardware','action','applications')},'authorized':authorized}
 
-    def update_runtime(self, device_id, state, installed_packages=None, last_error=None, *, execution_id, owner_id, lease_epoch):
+    def update_runtime(self, device_id, state, installed_packages=None, last_error=None, *, execution_id, owner_id, lease_epoch, applied_hardware=None):
         if state not in STATES:
             raise ValueError('Invalid emulator state')
+        applied_hardware = applied_profile(applied_hardware)
         with self.connect() as connection:
             locked = ExecutionStore._lock(connection,execution_id)
             if not ExecutionStore._owns(locked,owner_id,lease_epoch) or locked[0]['device_id']!=device_id:
                 return False
-            updated = connection.execute('UPDATE managed_emulators m SET state=%s,installed_packages=COALESCE(%s::jsonb,installed_packages),last_error=%s,updated_at=clock_timestamp() WHERE device_id=%s AND EXISTS(SELECT 1 FROM device_leases l JOIN executions e ON e.id=l.execution_id WHERE l.device_id=m.device_id AND e.device_id=m.device_id AND e.id=%s AND l.owner_id=%s AND l.lease_epoch=%s AND l.expires_at>clock_timestamp() AND NOT l.quarantined AND e.status=ANY(%s)) RETURNING m.id',
-                (state,Jsonb(installed_packages) if installed_packages is not None else None,last_error[:512] if last_error else None,device_id,execution_id,owner_id,lease_epoch,list(ACTIVE))).fetchone()
+            updated = connection.execute('UPDATE managed_emulators m SET state=%s,installed_packages=COALESCE(%s::jsonb,installed_packages),applied_hardware=COALESCE(%s::jsonb,applied_hardware),last_error=%s,updated_at=clock_timestamp() WHERE device_id=%s AND EXISTS(SELECT 1 FROM device_leases l JOIN executions e ON e.id=l.execution_id WHERE l.device_id=m.device_id AND e.device_id=m.device_id AND e.id=%s AND l.owner_id=%s AND l.lease_epoch=%s AND l.expires_at>clock_timestamp() AND NOT l.quarantined AND e.status=ANY(%s)) RETURNING m.id',
+                (state,Jsonb(installed_packages) if installed_packages is not None else None,Jsonb(applied_hardware) if applied_hardware is not None else None,last_error[:512] if last_error else None,device_id,execution_id,owner_id,lease_epoch,list(ACTIVE))).fetchone()
             if not ExecutionStore._before_deadline(connection,locked[2]['expires_at']):
                 connection.rollback()
                 return False

@@ -6,7 +6,7 @@ export function connectionWorkerHosts(devices: Device[], advertisedHosts?: strin
 }
 
 export function isDeviceReady(device: Device | undefined): boolean {
-  return device?.connection_status === "connected" && device.availability !== "needs_review";
+  return device?.connection_status === "connected" && device.availability !== "needs_review" && (!device.emulator_state || device.emulator_state === "ready");
 }
 
 export function canSubmitDevices(ids: string[], devices: Device[], attempted = false): boolean {

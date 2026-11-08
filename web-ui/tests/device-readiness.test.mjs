@@ -28,6 +28,9 @@ test("an immediate launch requires observed Android readiness for every target",
   assert.equal(canSubmitDevices(["emulator", "missing"], [connected]), false);
   assert.equal(isDeviceReady({ ...connected, availability: "needs_review" }), false);
   assert.equal(isDeviceReady({ ...connected, availability: "busy" }), true);
+  assert.equal(isDeviceReady({...connected,emulator_state:"ready"}),true);
+  for(const emulator_state of ["created","running","starting","stopped","preparing","failed","unknown"])
+    assert.equal(isDeviceReady({...connected,emulator_state}),false,emulator_state);
 });
 
 test("an uncertain submitted request stays replayable after loss of connection or quarantine", () => {

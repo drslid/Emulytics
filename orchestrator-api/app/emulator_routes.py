@@ -9,6 +9,7 @@ from pydantic import Field, field_validator, model_validator
 from starlette.concurrency import run_in_threadpool
 
 from .emulator_store import EmulatorStore
+from .emulator_hardware import EmulatorHardware
 from .run_models import Contract, Identifier
 from .run_routes import ControlRoute, Store
 
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class Configuration(Contract):
     application_ids: list[Annotated[str,Field(min_length=1,max_length=128)]] = Field(default_factory=lambda:['chrome'],max_length=12)
+    hardware: EmulatorHardware | None = None
 
     @model_validator(mode='after')
     def unique_applications(self):
@@ -53,14 +55,14 @@ def emulators(store: Store):
 
 @router.post('/emulators',status_code=201)
 def create_emulator(payload: CreateEmulator, request: Request, response: Response, store: Store):
-    value, created = EmulatorStore(store.dsn).create_emulator(payload.name,payload.host_id,payload.application_ids,payload.idempotency_key,_actor(request))
+    value, created = EmulatorStore(store.dsn).create_emulator(payload.name,payload.host_id,payload.application_ids,payload.idempotency_key,_actor(request),hardware=payload.hardware.model_dump() if payload.hardware else None)
     response.status_code = 201 if created else 200
     return value
 
 
 @router.post('/emulators/{device_id}/configuration')
 def configuration(device_id: Identifier, payload: Configuration, request: Request, store: Store):
-    return EmulatorStore(store.dsn).configure(device_id,payload.application_ids,_actor(request))
+    return EmulatorStore(store.dsn).configure(device_id,payload.application_ids,_actor(request),hardware=payload.hardware.model_dump() if payload.hardware else None)
 
 
 @router.post('/emulators/{device_id}/{action}',status_code=202)

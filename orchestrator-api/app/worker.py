@@ -257,6 +257,7 @@ class Worker:
                         if operation['action'] == 'start' and not all(application_is_prepared(driver,app) for app in operation['applications']):
                             state = 'running'
                     if not emulator_store.update_runtime(grant['device_id'], state, installed_packages=installed,
+                            applied_hardware=next((result['applied_hardware'] for result in results if 'applied_hardware' in result),None),
                             last_error=None, execution_id=execution_id, owner_id=self.owner_id, lease_epoch=epoch):
                         raise LeaseLost('Emulator state update rejected')
                 if not self.store.finish(execution_id, self.owner_id, epoch, "succeeded", evidence={"steps": results}):

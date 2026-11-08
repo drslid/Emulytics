@@ -8,6 +8,9 @@ import { canonicalizeEmulatorUpload, emulatorCanLaunch, emulatorCanManage, emula
 import { useLocale } from "../../lib/i18n";
 import { Badge, Dialog, ErrorNotice, date } from "./shared";
 import { Icon } from "./icons";
+import { DEFAULT_HARDWARE, hardwareEditable, parseHardware, sameAppliedHardware, sameHardware, type EmulatorHardware } from "../../lib/emulator-hardware";
+import { hardwareCopy, hardwareStorageCopy } from "../../lib/emulator-hardware-copy";
+import { EmulatorHardwareFields, HardwareSummary } from "./emulator-hardware-fields";
 
 const labels = { created: "À préparer", starting: "Démarrage en cours", running: "Allumé · à préparer", ready: "Prêt", stopped: "Arrêté", preparing: "Préparation en cours", failed: "Échec de préparation", unknown: "État non confirmé" };
 const definite = (failure: unknown) => failure instanceof ApiError && [401, 403, 404, 409, 422].includes(failure.status);
@@ -140,15 +143,17 @@ function ApplicationPicker({ applications, selected, onChange, disabled, onUploa
 }
 
 function EmulatorForm({ userId, catalog, onClose, onUploaded, onCreated }: { userId: string; catalog: EmulatorCatalog; onClose: () => void; onUploaded: (application: EmulatorApplication) => void; onCreated: (emulator: ManagedEmulator) => void }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [name, setName] = useState(""), [host, setHost] = useState(catalog.hosts.length === 1 ? catalog.hosts[0] : ""), [selected, setSelected] = useState<string[]>([]);
+  const [hardware, setHardware] = useState<EmulatorHardware>({ ...DEFAULT_HARDWARE });
   const [busy, setBusy] = useState(false), [uploading, setUploading] = useState(false), [error, setError] = useState(""), [attempted, setAttempted] = useState(false);
   const intent = useRef<EmulatorCreation | null>(null), sending = useRef(false);
-  useEffect(() => { try { const raw = sessionStorage.getItem(emulatorIntentKey(userId)); const saved = raw ? parseEmulatorCreation(JSON.parse(raw)) : null; if (saved) { intent.current = saved; setName(saved.name); setHost(saved.host_id); setSelected(saved.application_ids); setAttempted(true); } } catch { setError(t(storageError)); } }, [userId, t]);
+  useEffect(() => { try { const raw = sessionStorage.getItem(emulatorIntentKey(userId)); const saved = raw ? parseEmulatorCreation(JSON.parse(raw)) : null; if (saved) { intent.current = saved; setName(saved.name); setHost(saved.host_id); setSelected(saved.application_ids); setHardware(saved.hardware ?? { ...DEFAULT_HARDWARE }); setAttempted(true); } } catch { setError(t(storageError)); } }, [userId, t]);
   async function submit(event: FormEvent) {
     event.preventDefault(); if (sending.current || uploading) return;
+    if (!intent.current && !parseHardware(hardware)) { setError(hardwareCopy[locale].bounds); return; }
     sending.current = true; setBusy(true); setError(""); let sent = false;
-    const request = intent.current ?? { name: name.trim(), host_id: host, application_ids: selected, idempotency_key: crypto.randomUUID() };
+    const request = intent.current ?? { name: name.trim(), host_id: host, application_ids: selected, hardware, idempotency_key: crypto.randomUUID() };
     try {
       sessionStorage.setItem(emulatorIntentKey(userId), JSON.stringify(request)); intent.current = request; setAttempted(true); sent = true;
       const emulator = await api<ManagedEmulator>("console/emulators", request);
@@ -161,7 +166,7 @@ function EmulatorForm({ userId, catalog, onClose, onUploaded, onCreated }: { use
   return <Dialog title={t("Créer un émulateur")} description={t("Choisissez ses applications maintenant, puis utilisez « Préparer les applications » pour les installer.")} onClose={() => { if (!busy && !uploading) onClose(); }} wide><form className="dialog-form emulator-form" onSubmit={submit}>
     {error && <ErrorNotice message={error} />}{attempted && <p className="notice notice--warning">{t("La demande précédente est conservée. Réessayez pour confirmer son résultat.")}</p>}
     <fieldset className="emulator-form-fields" disabled={busy || attempted || uploading}><label>{t("Nom de l’émulateur")}<input required maxLength={160} autoFocus value={name} onChange={event => setName(event.target.value)} placeholder={t("Ex. Android marketing")} /><span>{t("Les espaces sont acceptés. L’identifiant est généré automatiquement.")}</span></label><label>{t("Hôte de l’émulateur")}<select required value={host} onChange={event => setHost(event.target.value)}><option value="" disabled>{t("Choisir un hôte")}</option>{![...catalog.hosts].includes(host) && host && <option value={host}>{host}</option>}{catalog.hosts.map(value => <option key={value} value={value}>{value}</option>)}</select><span>{t("Jusqu’à {count} émulateurs par hôte.", { count: catalog.max_per_host })}</span></label></fieldset>
-    <p className="emulator-platform"><bdi>{emulatorPlatform}</bdi></p><ApplicationPicker applications={catalog.applications} selected={selected} onChange={setSelected} disabled={busy || attempted} onUploaded={onUploaded} onUploading={setUploading} />
+    <p className="emulator-platform"><bdi>{emulatorPlatform}</bdi></p><EmulatorHardwareFields value={hardware} onChange={setHardware} disabled={busy || attempted || uploading} /><ApplicationPicker applications={catalog.applications} selected={selected} onChange={setSelected} disabled={busy || attempted} onUploaded={onUploaded} onUploading={setUploading} />
     {missingEmulatorApplications(selected, catalog.applications).length > 0 && <p className="notice notice--info">{t("Vous pouvez enregistrer ce choix maintenant et importer les APK avant de préparer l’émulateur.")}</p>}
     <div className="dialog-footer"><button type="button" className="button button--secondary" disabled={busy || uploading} onClick={onClose}>{t("Annuler")}</button><button type="submit" className="button button--primary" disabled={busy || uploading || !attempted && (!name.trim() || !host)}>{t(busy ? "Création en cours…" : attempted ? "Confirmer le résultat de la demande" : "Créer l’émulateur")}</button></div>
   </form></Dialog>;
@@ -170,17 +175,27 @@ function EmulatorForm({ userId, catalog, onClose, onUploaded, onCreated }: { use
 function EmulatorDetails({ emulator, catalog, canManage, sending, pending, operationError, onClose, onUploaded, onSaved, actions, onOpenRun }: { emulator: ManagedEmulator; catalog: EmulatorCatalog; canManage: boolean; sending: boolean; pending: boolean; operationError?: string; onClose: () => void; onUploaded: (application: EmulatorApplication) => void; onSaved: (emulator: ManagedEmulator) => void; actions: ReactNode; onOpenRun: () => void }) {
   const { t, locale } = useLocale();
   const [selected, setSelected] = useState(emulator.application_ids), [busy, setBusy] = useState(false), [uploading, setUploading] = useState(false), [error, setError] = useState("");
+  const [hardware, setHardware] = useState<EmulatorHardware>(emulator.hardware ?? { ...DEFAULT_HARDWARE });
+  const copy = hardwareCopy[locale];
   const editable = canManage && catalog.enabled && emulator.availability === "declared" && !emulatorOperationActive(emulator) && !sending && !pending;
-  const dirty = [...selected].sort().join("\0") !== [...emulator.application_ids].sort().join("\0");
+  const canEditHardware = editable && hardwareEditable(emulator);
+  const hardwareDirty = !sameHardware(hardware, emulator.hardware ?? DEFAULT_HARDWARE);
+  const dirty = hardwareDirty || [...selected].sort().join("\0") !== [...emulator.application_ids].sort().join("\0");
   async function save(event: FormEvent) {
     event.preventDefault(); if (!editable || busy || uploading) return; setBusy(true); setError("");
-    try { const result = await api<ManagedEmulator>(`console/emulators/${encodeURIComponent(emulator.device_id)}/configuration`, { application_ids: selected }); setSelected(result.application_ids); onSaved(result); }
+    if (hardwareDirty && !canEditHardware || !parseHardware(hardware)) { setError(hardwareDirty && !canEditHardware ? copy.stop : copy.bounds); setBusy(false); return; }
+    try { const result = await api<ManagedEmulator>(`console/emulators/${encodeURIComponent(emulator.device_id)}/configuration`, { application_ids: selected, ...(hardwareDirty ? { hardware } : {}) }); setSelected(result.application_ids); setHardware(result.hardware ?? { ...DEFAULT_HARDWARE }); onSaved(result); }
     catch (failure) { setError((failure as Error).message); } finally { setBusy(false); }
   }
   return <Dialog title={emulator.display_name} description={t("Applications et préparation de l’émulateur.")} onClose={() => { if (!busy && !uploading) onClose(); }} wide><div className="dialog-form emulator-details">
     <p className="emulator-host"><bdi>{emulator.host_id}</bdi><span aria-hidden="true">·</span><bdi>{emulatorPlatform}</bdi></p><EmulatorOperationStatus emulator={emulator} /><div className="emulator-detail-status"><EmulatorState emulator={emulator} /><Badge status={emulator.availability} /><span>{t("Mis à jour à {time}", { time: date(emulator.updated_at, locale) })}</span></div>
     {(error || operationError) && <ErrorNotice message={error || operationError!} />}{emulator.last_error && <ErrorNotice message={emulator.last_error} />}
-    <form className="emulator-config-form" onSubmit={save}><ApplicationPicker applications={catalog.applications} selected={canManage ? selected : emulator.application_ids} onChange={setSelected} disabled={!editable || busy} onUploaded={onUploaded} onUploading={setUploading} />{canManage && <button type="submit" className="button button--secondary" disabled={!editable || busy || uploading || !dirty}>{t(busy ? "Enregistrement…" : "Enregistrer les applications")}</button>}{dirty && canManage && <p className="small-copy">{t("Enregistrez les applications avant de démarrer leur préparation.")}</p>}</form>
+    <form className="emulator-config-form" onSubmit={save}>
+      <EmulatorHardwareFields value={canManage ? hardware : emulator.hardware ?? DEFAULT_HARDWARE} onChange={setHardware} disabled={!canEditHardware || busy || uploading} storageEditable={emulator.storage_editable === true} />
+      {canManage && !hardwareEditable(emulator) && <p className="small-copy">{copy.stop}</p>}
+      <div className="emulator-applied-hardware"><strong>{copy.applied}</strong><p className="small-copy">{emulator.applied_hardware ? <HardwareSummary hardware={emulator.applied_hardware} applied /> : copy.notApplied}</p><p className="small-copy">{hardwareStorageCopy[locale].flags}</p>{emulator.applied_hardware && !sameAppliedHardware(emulator.hardware ?? DEFAULT_HARDWARE, emulator.applied_hardware) && <p className="notice notice--info">{copy.pending}</p>}</div>
+      <ApplicationPicker applications={catalog.applications} selected={canManage ? selected : emulator.application_ids} onChange={setSelected} disabled={!editable || busy} onUploaded={onUploaded} onUploading={setUploading} />{canManage && <button type="submit" className="button button--secondary" disabled={!editable || busy || uploading || !dirty || hardwareDirty && !canEditHardware}>{busy ? t("Enregistrement…") : copy.save}</button>}
+    </form>
     <section className="emulator-installed"><h3>{t("Applications détectées")}</h3>{emulator.installed_packages.length ? <ul>{emulator.installed_packages.map(value => <li key={value}>{catalog.applications.find(application => application.package_name === value)?.name ?? value}</li>)}</ul> : <p className="small-copy">{t("Aucune vérification d’application n’a encore été enregistrée.")}</p>}</section>
     <fieldset className="emulator-action-fieldset" disabled={dirty || busy || uploading}>{actions}</fieldset>
     {emulator.last_run_id && <button type="button" className="text-button" onClick={onOpenRun}>{t("Voir la dernière opération")}<Icon name="arrow" size={16} /></button>}

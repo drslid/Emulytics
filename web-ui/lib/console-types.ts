@@ -29,6 +29,7 @@ export type Device = {
   status: "registered";
   created_at: string;
   availability: "declared" | "busy" | "needs_review";
+  emulator_state?: string | null;
   connection_status?:
     | "connected"
     | "worker_offline"
