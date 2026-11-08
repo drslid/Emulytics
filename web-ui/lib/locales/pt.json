@@ -1047,5 +1047,7 @@
   "Le parcours a échoué. Consultez l’étape concernée et son journal.": "O fluxo falhou. Confira a etapa afetada e seu registro.",
   "Consultez les étapes et les captures de cette exécution.": "Confira as etapas e capturas desta execução.",
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "Conecte o ChatGPT em Configuração para preparar este objetivo livre.",
-  "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "Este objetivo ainda não é compatível. Tente um objetivo do Chrome ou da Wikipédia."
+  "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "Este objetivo ainda não é compatível. Tente um objetivo do Chrome ou da Wikipédia.",
+  "Sélectionner cette page": "Selecionar esta página",
+  "Désélectionner cette page": "Desmarcar esta página"
 }

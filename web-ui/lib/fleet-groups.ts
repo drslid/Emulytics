@@ -20,3 +20,9 @@ export function managedBulkTargets(ids: string[], managedIds: string[]): string[
   const managed = new Set(managedIds);
   return [...new Set(ids)].filter(id => managed.has(id)).sort();
 }
+export function toggleGroupPage(selected: string[], pageIds: string[]): string[] {
+  const page = new Set(pageIds);
+  return pageIds.length > 0 && pageIds.every(id => selected.includes(id))
+    ? selected.filter(id => !page.has(id))
+    : [...new Set([...selected, ...pageIds])].slice(0, 100);
+}

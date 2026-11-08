@@ -21,3 +21,12 @@ test("fleet controls and preservation messages cover the same labels in ten lang
     for(const value of Object.values(copy))assert.ok(typeof value==="string"&&value.trim());
   }
 });
+
+test('page selection retains other pages and never exceeds the group limit', async () => {
+ const {toggleGroupPage}=await import('../lib/fleet-groups.ts');
+ assert.deepEqual(toggleGroupPage(['other-page'],['phone-a','phone-b']),['other-page','phone-a','phone-b']);
+ assert.deepEqual(toggleGroupPage(['other-page','phone-a','phone-b'],['phone-a','phone-b']),['other-page']);
+ const selected=Array.from({length:99},(_,i)=>'existing-'+i);
+ assert.deepEqual(toggleGroupPage(selected,['new-a','new-b']),[...selected,'new-a']);
+ assert.deepEqual(toggleGroupPage(['retained'],[]),['retained']);
+});

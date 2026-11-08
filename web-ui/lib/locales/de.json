@@ -1047,5 +1047,7 @@
   "Le parcours a échoué. Consultez l’étape concernée et son journal.": "Der Ablauf ist fehlgeschlagen. Prüfen Sie den betroffenen Schritt und sein Protokoll.",
   "Consultez les étapes et les captures de cette exécution.": "Prüfen Sie die Schritte und Aufnahmen dieses Laufs.",
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "Verbinden Sie ChatGPT unter Konfiguration, um dieses frei formulierte Ziel vorzubereiten.",
-  "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "Dieses Ziel wird noch nicht unterstützt. Versuchen Sie ein Ziel für Chrome oder Wikipedia."
+  "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "Dieses Ziel wird noch nicht unterstützt. Versuchen Sie ein Ziel für Chrome oder Wikipedia.",
+  "Sélectionner cette page": "Diese Seite auswählen",
+  "Désélectionner cette page": "Auswahl dieser Seite aufheben"
 }

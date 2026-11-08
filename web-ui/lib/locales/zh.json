@@ -1047,5 +1047,7 @@
   "Le parcours a échoué. Consultez l’étape concernée et son journal.": "流程失败。请查看相关步骤及其日志。",
   "Consultez les étapes et les captures de cette exécution.": "查看此次运行的步骤和截图。",
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "请在配置中连接 ChatGPT，以准备自由描述的目标。",
-  "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "暂不支持此目标。请尝试 Chrome 或维基百科相关目标。"
+  "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "暂不支持此目标。请尝试 Chrome 或维基百科相关目标。",
+  "Sélectionner cette page": "选择本页",
+  "Désélectionner cette page": "取消选择本页"
 }

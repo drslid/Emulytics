@@ -1047,5 +1047,7 @@
   "Le parcours a échoué. Consultez l’étape concernée et son journal.": "প্রবাহ ব্যর্থ হয়েছে। সংশ্লিষ্ট ধাপ ও লগ দেখুন।",
   "Consultez les étapes et les captures de cette exécution.": "এই রানের ধাপ ও স্ক্রিনশট দেখুন।",
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "নিজের ভাষায় লেখা এই লক্ষ্য তৈরি করতে কনফিগারেশনে ChatGPT যুক্ত করুন।",
-  "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "এই লক্ষ্য এখনো সমর্থিত নয়। Chrome বা উইকিপিডিয়ার লক্ষ্য চেষ্টা করুন।"
+  "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "এই লক্ষ্য এখনো সমর্থিত নয়। Chrome বা উইকিপিডিয়ার লক্ষ্য চেষ্টা করুন।",
+  "Sélectionner cette page": "এই পৃষ্ঠা নির্বাচন করুন",
+  "Désélectionner cette page": "এই পৃষ্ঠার নির্বাচন বাতিল করুন"
 }

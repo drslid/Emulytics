@@ -1047,5 +1047,7 @@
   "Le parcours a échoué. Consultez l’étape concernée et son journal.": "Сценарий завершился ошибкой. Проверьте проблемный шаг и его журнал.",
   "Consultez les étapes et les captures de cette exécution.": "Изучите шаги и снимки этого запуска.",
   "Connectez ChatGPT dans Configuration pour préparer cet objectif libre.": "Подключите ChatGPT в настройках для подготовки свободно сформулированной цели.",
-  "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "Эта цель пока не поддерживается. Попробуйте цель для Chrome или Википедии."
+  "Cet objectif n’est pas encore pris en charge. Essayez un objectif Chrome ou Wikipédia.": "Эта цель пока не поддерживается. Попробуйте цель для Chrome или Википедии.",
+  "Sélectionner cette page": "Выбрать эту страницу",
+  "Désélectionner cette page": "Снять выбор с этой страницы"
 }
