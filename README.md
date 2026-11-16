@@ -46,6 +46,8 @@ cd Emulytics
 
 The flag confirms acceptance of the [Android SDK terms](https://developer.android.com/studio/terms). Docker and Compose must already be installed. The first build downloads the verified Android archives and builds the local application images.
 
+If Linux or a VM exposes less than 8 GiB total RAM, the installer reports the detected amount. Increase the guest's allocation or explicitly accept reduced capacity with `--allow-low-memory`; at least 4 GiB must still be available. You can verify this first with `./scripts/install.sh --check --allow-low-memory`.
+
 The installer:
 
 1. checks the host, local Docker engine, KVM, memory and free storage;

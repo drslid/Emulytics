@@ -7,6 +7,8 @@ description: Resolve common installation, connection, generation and execution b
 
 Use `./scripts/install.sh --check` and read the reported prerequisite. Confirm local Docker Engine, the Compose plugin, Linux x86_64, accessible KVM, available RAM and free disk space. Docker Desktop, ARM and remote Docker are outside this installer's supported runtime.
 
+If Linux/WSL reports slightly less than 8 GiB total RAM, increase the guest's memory allocation or explicitly accept reduced capacity with `--allow-low-memory`. Check with `./scripts/install.sh --check --allow-low-memory`, then add the same option to the installation command. At least 4 GiB of available RAM is still required.
+
 Do not delete `.env.console` or add `--volumes` to a shutdown command to fix an unrelated error.
 
 ## I cannot find the temporary password

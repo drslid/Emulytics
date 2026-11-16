@@ -31,7 +31,26 @@ def run(command: list[str], **options) -> subprocess.CompletedProcess:
     return subprocess.run(command, cwd=ROOT, check=True, **options)
 
 
-def preflight() -> None:
+def check_memory(*, allow_low_memory: bool = False) -> None:
+    total = int(os.sysconf("SC_PAGE_SIZE")) * int(os.sysconf("SC_PHYS_PAGES"))
+    if total < MIN_MEMORY:
+        detected = f"{total / 1024**3:.2f} Gio détectés"
+        if not allow_low_memory:
+            raise RuntimeError(
+                f"Au moins 8 Gio de RAM sont nécessaires pour la console et un émulateur ({detected}). "
+                "Augmentez la RAM allouée à Linux/WSL ou utilisez --allow-low-memory pour accepter une capacité réduite. "
+                "Au moins 4 Gio disponibles restent obligatoires."
+            )
+        print(f"Attention : mémoire totale inférieure aux 8 Gio recommandés ({detected}) ; capacité réduite acceptée.", flush=True)
+    readings = dict(line.split(":", 1) for line in Path("/proc/meminfo").read_text().splitlines())
+    available = int(readings["MemAvailable"].split()[0]) * 1024
+    if available < 4 * 1024**3:
+        raise RuntimeError(
+            f"Libérez au moins 4 Gio de RAM avant de démarrer la console et Android ({available / 1024**3:.2f} Gio disponibles)."
+        )
+
+
+def preflight(*, allow_low_memory: bool = False) -> None:
     if platform.system() != "Linux" or platform.machine() not in ("x86_64", "amd64"):
         raise RuntimeError("L’émulateur local nécessite Linux x86_64 avec KVM. Aucun service n’a été modifié.")
     for executable in ("docker", "bash"):
@@ -54,12 +73,7 @@ def preflight() -> None:
     rootless = any("rootless" in option for option in info.get("SecurityOptions", []))
     if not kvm.exists() or not stat.S_ISCHR(kvm.stat().st_mode) or (rootless and not os.access(kvm, os.R_OK | os.W_OK)):
         raise RuntimeError("KVM inaccessible (/dev/kvm). Activez la virtualisation ; en mode Docker rootless, vérifiez aussi votre appartenance au groupe kvm.")
-    available = int(os.sysconf("SC_PAGE_SIZE")) * int(os.sysconf("SC_PHYS_PAGES"))
-    if available < MIN_MEMORY:
-        raise RuntimeError("Au moins 8 Gio de RAM sont nécessaires pour la console et un émulateur.")
-    readings = dict(line.split(":", 1) for line in Path("/proc/meminfo").read_text().splitlines())
-    if int(readings["MemAvailable"].split()[0]) * 1024 < 4 * 1024**3:
-        raise RuntimeError("Libérez au moins 4 Gio de RAM avant de démarrer la console et Android.")
+    check_memory(allow_low_memory=allow_low_memory)
     docker_root = Path(info.get("DockerRootDir", "/var/lib/docker"))
     for directory in (ROOT, docker_root):
         if directory.exists() and shutil.disk_usage(directory).free < MIN_DISK:
@@ -141,8 +155,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Installer Emulytix et un émulateur local, sans supprimer les données existantes.")
     parser.add_argument("--accept-android-license", action="store_true", help="Accepter les conditions Android SDK : https://developer.android.com/studio/terms")
     parser.add_argument("--check", action="store_true", help="Vérifier uniquement les prérequis, sans installation")
+    parser.add_argument("--allow-low-memory", action="store_true", help="Accepter moins de 8 Gio de RAM totale ; exige toujours 4 Gio disponibles")
     args = parser.parse_args()
-    preflight()
+    preflight(allow_low_memory=args.allow_low_memory)
     if args.check:
         return
     images = runtime_settings()
