@@ -38,6 +38,15 @@ Open **http://localhost:3100**. Use that exact origin; `127.0.0.1` is a differen
 
 This check does not create configuration or start the stack.
 
+The memory diagnostic reports what Linux can actually use. A VM or WSL guest configured with 8 GiB may expose slightly less to Linux and fail the strict 8 GiB total-memory check. Prefer increasing the memory allocated to the guest. To explicitly accept reduced capacity on a smaller host, run:
+
+```bash
+./scripts/install.sh --check --allow-low-memory
+./scripts/install.sh --accept-android-license --allow-low-memory
+```
+
+This option only relaxes the total-memory requirement. At least 4 GiB must still be available at startup; the Docker, KVM and storage checks remain required. Running several emulators may require more memory.
+
 ## First access
 
 In a private terminal, retrieve the temporary access:

@@ -18,7 +18,7 @@ def installer(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "ROOT", tmp_path)
     monkeypatch.setattr(module.sys, "argv", ["install.py"])
     module.original_preflight = module.preflight
-    monkeypatch.setattr(module, "preflight", lambda: None)
+    monkeypatch.setattr(module, "preflight", lambda **options: None)
     monkeypatch.setattr(module, "wait_for_console", lambda: None)
     for name in ("EMULYTIX_MANAGED_IMAGE", "EMULYTIX_BENCH_IMAGE"):
         monkeypatch.delenv(name, raising=False)
@@ -37,6 +37,38 @@ def test_check_does_not_write_or_start_services(installer, monkeypatch):
     module, calls = installer
     monkeypatch.setattr(module.sys, "argv", ["install.py", "--check"])
     module.main()
+    assert not list(module.ROOT.iterdir())
+    assert not calls
+
+
+@pytest.mark.parametrize("total,available,allow_low_memory,error", [
+    (8 * 1024**3, 4 * 1024**3, False, None),
+    (8180621312, 6 * 1024**3, False, "7.62 Gio détectés"),
+    (8180621312, 6 * 1024**3, True, None),
+    (8 * 1024**3, 4 * 1024**3 - 1024, False, "Libérez au moins 4 Gio"),
+    (8180621312, 4 * 1024**3 - 1024, True, "Libérez au moins 4 Gio"),
+])
+def test_memory_override_keeps_the_available_memory_requirement(
+    installer, monkeypatch, capsys, total, available, allow_low_memory, error,
+):
+    module, _ = installer
+    monkeypatch.setattr(module.os, "sysconf", lambda name: 4096 if name == "SC_PAGE_SIZE" else total // 4096)
+    monkeypatch.setattr(module.Path, "read_text", lambda self: f"MemAvailable: {available // 1024} kB\n")
+    if error:
+        with pytest.raises(RuntimeError, match=error):
+            module.check_memory(allow_low_memory=allow_low_memory)
+    else:
+        module.check_memory(allow_low_memory=allow_low_memory)
+    assert ("capacité réduite acceptée" in capsys.readouterr().out) == (allow_low_memory and total < module.MIN_MEMORY)
+
+
+def test_low_memory_check_is_explicit_and_does_not_start_services(installer, monkeypatch):
+    module, calls = installer
+    checked = []
+    monkeypatch.setattr(module, "preflight", lambda **options: checked.append(options))
+    monkeypatch.setattr(module.sys, "argv", ["install.py", "--check", "--allow-low-memory"])
+    module.main()
+    assert checked == [{"allow_low_memory": True}]
     assert not list(module.ROOT.iterdir())
     assert not calls
 
