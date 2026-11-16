@@ -6,7 +6,7 @@ Emulytics is a self-hosted mobile device control plane. The maintained stack is 
 
 - Python 3.12 and Docker Compose for backend tests and disposable PostgreSQL databases.
 - Node.js 22.12 or later and npm 10.9.4 for frontend and documentation work.
-- Go 1.27.3 or later for the Go API and its security fixes.
+- Go 1.27.4 or later for the Go API and its security fixes.
 - Linux x86-64 with KVM for real emulator testing. Ordinary backend tests do not require Android.
 
 ## Run the checks
