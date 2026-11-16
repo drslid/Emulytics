@@ -66,6 +66,8 @@ def required_permission(method: str, path: str) -> str | None:
         return 'devices.read' if read else 'devices.write' if method=='POST' else None
     if path == '/console/applications':
         return 'devices.write' if method=='POST' else None
+    if path == '/console/applications/fdroid':
+        return 'devices.write' if method in {'GET', 'POST'} else None
     if re.fullmatch(r'/console/emulators/[^/]+/(?:configuration|start|prepare|stop)',path):
         return 'devices.write' if method=='POST' else None
     if re.fullmatch(r'/console/devices/[^/]+/screen', path):
@@ -78,6 +80,8 @@ def required_permission(method: str, path: str) -> str | None:
         return 'workflows.write' if method == 'POST' else None
     if path == '/console/recipes/generate':
         return 'workflows.write' if method == 'POST' else None
+    if path == '/console/recipes/providers':
+        return 'self' if read else None
     if path.startswith('/console/recipes'):
         return 'workflows.read' if read else 'workflows.publish' if path.endswith('/publish') else 'workflows.write'
     if path.startswith('/console/schedules'):

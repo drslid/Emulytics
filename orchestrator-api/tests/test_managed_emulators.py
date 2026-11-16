@@ -49,10 +49,15 @@ def test_catalog_exposes_named_presets_without_fabricating_installed_or_availabl
     assert catalog['chrome']['available'] and catalog['chrome']['source']=='system'
     assert all(not catalog[key]['available'] and catalog[key]['size_bytes']==0 for key in catalog if key!='chrome')
     uploaded = store.add_application(artifact())
+    newer = store.add_application(artifact(sha256='b'*64, size_bytes=20))
     catalog = store.list_emulators()['applications']
-    snapchat = next(app for app in catalog if app['id']=='snapchat')
-    assert snapchat['available'] and snapchat['size_bytes']==10
-    assert not any(app['id']==uploaded['id'] for app in catalog)
+    by_id = {app['id']:app for app in catalog}
+    assert by_id['snapchat']['available'] and by_id['snapchat']['size_bytes']==20
+    assert by_id[uploaded['id']]['size_bytes']==10
+    assert by_id[newer['id']]['size_bytes']==20
+    with store.connect() as connection:
+        pinned, = store._resolve(connection, [uploaded['id']], required=True)
+        assert pinned['sha256']=='a'*64
 
 
 def test_only_fresh_explicitly_capable_workers_are_advertised(store):

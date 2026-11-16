@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canonicalizeEmulatorUpload, currentEmulatorLaunchDevice, emulatorCanLaunch, emulatorCanManage, emulatorConnectionDevice, emulatorIntentKey, emulatorOperationActive, mergeEmulatorLaunchDevices, missingEmulatorApplications, parseEmulatorCreation, parseEmulatorOperation } from "../lib/emulators.ts";
+import { canonicalizeEmulatorUpload, currentEmulatorLaunchDevice, emulatorCanLaunch, emulatorCanManage, emulatorConnectionDevice, emulatorIntentKey, emulatorOperationActive, mergeEmulatorLaunchDevices, missingEmulatorApplications, parseEmulatorCreation, parseEmulatorOperation, selectEmulatorApplication } from "../lib/emulators.ts";
 import { isDeviceReady } from "../lib/device-readiness.ts";
 
 const emulator = {state:"ready",availability:"declared",operation_status:null,application_ids:[]};
@@ -23,6 +23,15 @@ test("a custom APK replaces a selected older APK of the same package without mas
   const older={id:key,name:"Custom app",package_name:"com.emulytix.custom",source:"apk",available:true,size_bytes:10};
   const uploaded={...older,id:"00000000-0000-4000-8000-000000000002",size_bytes:20};
   assert.deepEqual(canonicalizeEmulatorUpload(uploaded,[older],[key,"chrome"]),{application:uploaded,selected:[uploaded.id,"chrome"]});
+});
+
+test("selecting an exact store release can replace its package when all twelve slots are in use", () => {
+  const preset = { id: "reader", package_name: "org.example.reader" };
+  const release = { ...preset, id: key };
+  const others = Array.from({ length: 11 }, (_, index) => `app-${index}`);
+  assert.deepEqual(selectEmulatorApplication(release, [preset], [preset.id, ...others]), [release.id, ...others]);
+  const full = ["another-package", ...others];
+  assert.deepEqual(selectEmulatorApplication(release, [preset], full), full);
 });
 
 test("a managed emulator carries its actual device outside the paginated inventory without inventing readiness",()=>{

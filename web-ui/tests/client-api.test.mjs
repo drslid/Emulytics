@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 
 // Keep this boundary test independent of React's locale provider.
-const source = readFileSync(new URL("../lib/client-api.ts", import.meta.url), "utf8").replace(/^import \{ browserT \} from .*;\n/, "const browserT = (source: string) => source;\n");
+const source = readFileSync(new URL("../lib/client-api.ts", import.meta.url), "utf8").replace(/^import \{ browserT \} from .*;\r?\n/, "const browserT = (source: string) => source;\n");
 const compiled = ts.transpileModule(source, {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const { api, ApiError } = await import("data:text/javascript;base64," + Buffer.from(compiled).toString("base64"));
 
@@ -43,6 +43,17 @@ test("unknown conflict codes and backend text remain outside the UI error contra
   await assert.rejects(api("workflows/example/versions/2", undefined, "DELETE"), error => {
     assert.equal(error.code, undefined);
     assert.equal(error.message, "L’état a changé ou cet identifiant est déjà utilisé. Actualisez avant de réessayer.");
+    return true;
+  });
+});
+
+test("recipe generation exposes the known configuration error without raw server diagnostics", async t => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({
+    detail: { code: "provider_unconfigured", message: "private backend diagnostics" },
+  }, { status: 409 }));
+  await assert.rejects(api("console/recipes/generate", { instructions: "Draft a journey", provider: "ollama" }), error => {
+    assert.equal(error.code, "provider_unconfigured");
+    assert.doesNotMatch(error.message, /private backend diagnostics/);
     return true;
   });
 });

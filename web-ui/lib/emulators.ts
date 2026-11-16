@@ -35,7 +35,10 @@ export function missingEmulatorApplications(ids: string[], applications: Emulato
 export function canonicalizeEmulatorUpload(uploaded: EmulatorApplication, applications: EmulatorApplication[], selected: string[]): { application: EmulatorApplication; selected: string[] } {
   const preset = applications.find(application => application.source === "apk" && application.package_name === uploaded.package_name && !uuid.test(application.id));
   const application = preset ? { ...uploaded, id: preset.id, name: preset.name, available: true } : uploaded;
-  const samePackage = new Set([uploaded.id, application.id, ...applications.filter(item => item.package_name === uploaded.package_name).map(item => item.id)]);
+  return { application, selected: selectEmulatorApplication(application, [...applications, uploaded], selected) };
+}
+export function selectEmulatorApplication(application: EmulatorApplication, applications: EmulatorApplication[], selected: string[]): string[] {
+  const samePackage = new Set([application.id, ...applications.filter(item => item.package_name === application.package_name).map(item => item.id)]);
   const next: string[] = [];
   let included = false;
   for (const id of selected) {
@@ -43,7 +46,7 @@ export function canonicalizeEmulatorUpload(uploaded: EmulatorApplication, applic
     else if (!included) { next.push(application.id); included = true; }
   }
   if (!included && next.length < 12) next.push(application.id);
-  return { application, selected: next };
+  return next;
 }
 export function emulatorConnectionDevice(emulator: ManagedEmulator, devices: Device[]): Device | undefined {
   return emulator.device?.device_id === emulator.device_id ? emulator.device : devices.find(device => device.device_id === emulator.device_id);

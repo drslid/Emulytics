@@ -7,7 +7,20 @@ description: Register Android devices, prepare emulator applications and operate
 
 Open **Devices → Create an emulator**, enter a human-readable name, choose a worker host and select applications. Names can contain spaces; technical identifiers are generated for you.
 
-The application catalog includes Chrome, Snapchat, LinkedIn, Instagram and TikTok. Chrome comes from the runtime image. The other entries require compatible standalone APK files that you provide and are authorized to use. Uploading an APK identifies its package; an unavailable file stays visibly unavailable. Play Store access and split APK bundles are not included.
+Chrome comes from the runtime image. The initial Snapchat, LinkedIn, Instagram and TikTok entries require compatible standalone APK files that you provide and are authorized to use. Uploading an APK identifies its package, and an unavailable file stays visibly unavailable. Play Store installation and split APK bundles are outside the current scope.
+
+### Find an APK on F-Droid
+
+1. In **Desired applications**, search F-Droid by application name or package ID.
+2. Select an application and then a release. The picker shows the version, version code and date added to F-Droid, in UTC.
+3. Import the release and complete the emulator configuration. The imported application is selected for this emulator.
+4. Run **Prepare applications** to install the selected APKs and check that they are ready.
+
+![Emulator creation form with the F-Droid search, K-9 Mail and the selected version and date](/Emulytics/brand/console/apk-search.png)
+
+F-Droid search in a demonstration workspace.
+
+Search results show standalone releases compatible with the managed Android 10 runtime. Android rejects a downgrade when a release with a higher version code is already installed. You can also upload a compatible standalone APK from another source. An emulator can have up to 12 selected applications.
 
 The controls have separate effects:
 

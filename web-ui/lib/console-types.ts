@@ -122,6 +122,8 @@ export type Step = {
   verify_after_crash?: Record<string, unknown>;
   [key: string]: unknown;
 };
+export type JourneyModels = Record<"ollama" | "deepseek", string | null>;
+
 export type Recipe = {
   id: string;
   workflow_id: string;

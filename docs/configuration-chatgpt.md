@@ -1,20 +1,44 @@
-# Configuration et connexion personnelle ChatGPT
+# Configuration des fournisseurs IA
 
 ## Interface
 
-L’entrée **Configuration**, dans le menu Administration, est accessible après authentification. Elle rassemble la connexion ChatGPT personnelle et les accès aux réglages existants. Les raccourcis d’administration suivent les permissions de l’utilisateur. Le mot de passe et le 2FA restent dans **Mon profil**, conformément à la navigation existante.
+L’entrée **Configuration**, dans le menu Administration, affiche l’état d’OpenAI, d’Ollama et de DeepSeek. Les raccourcis d’administration suivent les permissions de l’utilisateur. Le mot de passe et le 2FA se gèrent dans **Mon profil**.
 
-ChatGPT est le seul compte externe proposé. La connexion appartient à l’utilisateur Emulytix courant ; elle ne remplace pas le compte des autres utilisateurs et ne configure pas une identité partagée pour les workers. Cette tranche ne transmet aucun parcours, capture ou demande d’inférence à ChatGPT.
+Les parcours de référence Wikipédia et version Android utilisent des règles et modèles de parcours intégrés. Ils fonctionnent sans compte et sans modèle de langage. Pour un autre objectif pris en charge, choisissez un fournisseur configuré dans l’éditeur de parcours. Relisez le brouillon généré avant de le publier et de le tester sur un appareil.
 
-Le bouton de connexion demande un code d’appareil. L’utilisateur ouvre la page officielle, s’authentifie chez OpenAI et saisit ce code. Emulytix attend la confirmation effective ; ouvrir le lien ne suffit pas à déclarer une connexion réussie. Le code disparaît après expiration, annulation ou succès. Une déconnexion retire la connexion de cette installation Emulytix ; elle ne déconnecte pas l’utilisateur du site ChatGPT.
+## OpenAI
 
-## Frontières techniques
+La connexion OpenAI appartient à l’utilisateur Emulytix courant. Dans **Configuration → OpenAI**, demandez un code d’appareil, ouvrez la page officielle, connectez-vous avec votre compte ChatGPT et saisissez le code. Attendez la confirmation dans la console. Le code expire et peut être annulé. La déconnexion retire le lien entre votre compte et cette installation.
 
-Les routes sont personnelles : `GET /console/account/chatgpt`, `POST /console/account/chatgpt/login`, `POST /console/account/chatgpt/cancel` et `DELETE /console/account/chatgpt`. Elles exigent une session complète, avec protection d’origine et CSRF pour les mutations ; le Bearer de service ne suffit pas. Les réponses publiques ne contiennent aucun jeton OAuth.
+### Fonctionnement de la connexion
 
-L’API utilise exclusivement les méthodes de compte du processus officiel **Codex 0.157.1**, via stdio. Le binaire est épinglé dans un verrou npm séparé ; les scripts d’installation sont désactivés. Node sert uniquement au build du binaire. Le flux commence avec `account/login/start` et le type `chatgptDeviceCode`, puis attend `account/login/completed` et relit le compte. Aucune route RPC générale, clé API ou autre fournisseur n’est proposée.
+Les routes personnelles sont `GET /console/account/chatgpt`, `POST /console/account/chatgpt/login`, `POST /console/account/chatgpt/cancel` et `DELETE /console/account/chatgpt`. Elles exigent une session complète, avec protection d’origine et CSRF pour les mutations. Les jetons OAuth restent côté serveur.
+
+Pour cette connexion, l’API utilise le processus officiel Codex via stdio. Le binaire est épinglé dans un verrou npm séparé et les scripts d’installation sont désactivés. Le flux commence avec `account/login/start` et le type `chatgptDeviceCode`, puis attend `account/login/completed` et relit le compte.
 
 Chaque tentative dispose d’un répertoire temporaire privé et d’un environnement isolé. L’API ne monte ni ne lit le répertoire Codex de l’opérateur. Les identifiants terminés sont chiffrés avec la clé de l’authentification Emulytix avant stockage PostgreSQL. Les tentatives sont bornées en durée et en nombre, idempotentes, liées à leur utilisateur et à leur session ; une réponse tardive après annulation ou déconnexion ne restaure pas l’accès. Les journaux gardent uniquement des métadonnées de sécurité autorisées.
+
+## Ollama et DeepSeek
+
+L’administrateur configure ces deux fournisseurs dans `.env.console`. Pour Ollama, démarrez le serveur sur l’hôte, installez le modèle avec `ollama pull <modèle>` et activez `OLLAMA_NO_CLOUD=1` pour une inférence locale. Le nom du modèle doit correspondre au tag installé.
+
+```dotenv
+EMULYTIX_OLLAMA_URL=http://host.docker.internal:11434
+EMULYTIX_OLLAMA_MODEL=your-local-model-tag
+```
+
+En déploiement Docker, l’API utilise l’adresse de passerelle de l’hôte. Si Ollama écoute sur `127.0.0.1` uniquement, configurez `OLLAMA_HOST` sur une adresse accessible depuis Docker. Pour une API démarrée directement sur le même hôte, utilisez `http://127.0.0.1:11434`.
+
+Pour DeepSeek, ajoutez une clé API et sélectionnez un modèle proposé par le fournisseur. L’API Emulytics envoie le texte de la demande à DeepSeek en HTTPS.
+
+```dotenv
+EMULYTIX_DEEPSEEK_API_KEY=your-deepseek-api-key
+EMULYTIX_DEEPSEEK_MODEL=deepseek-flash
+```
+
+Après modification de `.env.console`, redémarrez la console avec `./scripts/start-console.sh`. Vérifiez l’état du fournisseur dans **Configuration**. Les deux fournisseurs reçoivent du texte et proposent des étapes que l’API vérifie avant de les afficher dans le brouillon.
+
+Consultez la [documentation Ollama](https://docs.ollama.com/) et la [documentation DeepSeek](https://api-docs.deepseek.com/).
 
 ## Déploiement et périmètre
 

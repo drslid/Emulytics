@@ -32,7 +32,7 @@ export default defineConfig({
         { label: 'Schedules', slug: 'guides/schedules' },
         { label: 'Monitoring and logs', slug: 'guides/monitoring' },
         { label: 'Users and personal security', slug: 'guides/users' },
-        { label: 'Configuration and ChatGPT', slug: 'guides/configuration' },
+        { label: 'Settings and AI providers', slug: 'guides/configuration' },
       ] },
       { label: 'Reference', items: [
         { label: 'Architecture', slug: 'reference/architecture' },

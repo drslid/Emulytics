@@ -1,13 +1,15 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError } from "../../lib/client-api";
 import { useT } from "../../lib/i18n";
-import type { Recipe, Step, Workflow } from "../../lib/console-types";
+import type { JourneyModels, Recipe, Step, Workflow } from "../../lib/console-types";
 import { duplicateEditorStep, editorActionLabel, freshEditorStep, parseEditorSteps } from "../../lib/workflow-editor";
 import { Dialog, ErrorNotice, workflowName } from "./shared";
 import { Icon } from "./icons";
 import { StepEditor, stepPreview } from "./step-editor";
+
+const providerLabels = { openai: "OpenAI", ollama: "Ollama", deepseek: "DeepSeek" } as const;
 
 export function RecipeEditor({ recipe, templates, onClose, onSaved }: {
   recipe: Recipe | null; templates: Workflow[]; onClose: () => void; onSaved: (recipe?: Recipe) => void;
@@ -22,20 +24,38 @@ export function RecipeEditor({ recipe, templates, onClose, onSaved }: {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"goal" | "expert">(recipe ? "expert" : "goal");
+  const [models, setModels] = useState<JourneyModels | null>(null);
+  const [provider, setProvider] = useState<keyof typeof providerLabels>("openai");
   const [generatedFrom, setGeneratedFrom] = useState("");
   const [expected, setExpected] = useState("");
   const saving = useRef(false);
   const hasGeneration = !!generatedFrom && generatedFrom === instructions.trim();
+  useEffect(() => {
+    if (mode !== "goal") return;
+    let active = true;
+    void api<JourneyModels>("console/recipes/providers").then(value => { if (active) setModels(value); }).catch(() => {});
+    return () => { active = false; };
+  }, [mode]);
   function close() { if (!saving.current) onClose(); }
   async function generate() {
     if (saving.current || instructions.trim().length < 8) return;
     saving.current = true; setBusy(true); setError("");
     try {
-      const result = await api<{recipe: {name: string; steps: Step[]}; expected_result: string}>("console/recipes/generate", {instructions: instructions.trim()});
+      const result = await api<{recipe: {name: string; steps: Step[]}; expected_result: string}>("console/recipes/generate", {instructions: instructions.trim(), provider});
       setName(result.recipe.name); setSteps(result.recipe.steps);
       setJson(JSON.stringify(result.recipe.steps, null, 2)); setAdvanced(false);
       setExpected(result.expected_result); setGeneratedFrom(instructions.trim());
-    } catch (failure) { setError(failure instanceof ApiError && failure.code === "chatgpt_required" ? t("Connectez ChatGPT dans Configuration pour préparer cet objectif libre.") : failure instanceof ApiError && failure.code === "unsupported_goal" ? t("Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android.") : (failure as Error).message); }
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.code === "chatgpt_required") {
+        setError(t("Connectez OpenAI dans Configuration pour préparer cet objectif libre."));
+      } else if (failure instanceof ApiError && failure.code === "unsupported_goal") {
+        setError(t("Cet objectif dépasse les capacités actuelles. Essayez une recherche Wikipédia, l’ouverture d’une application ou la lecture de la version Android."));
+      } else if (failure instanceof ApiError && (failure.code === "provider_unconfigured" || (failure.status === 503 && provider !== "openai"))) {
+        setError(t("{provider} est indisponible. Vérifiez sa configuration puis réessayez.", { provider: providerLabels[provider] }));
+      } else {
+        setError((failure as Error).message);
+      }
+    }
     finally { saving.current = false; setBusy(false); }
   }
   function update(step: Step) { setSteps(items => items.map(item => item.id === step.id ? step : item)); }
@@ -84,7 +104,20 @@ export function RecipeEditor({ recipe, templates, onClose, onSaved }: {
         <label>{t("Instructions et résultat attendu")}<textarea required maxLength={8000} rows={3} value={instructions} onChange={event => setInstructions(event.target.value)} placeholder={t("Ex. Ouvrir Wikipédia, rechercher football et vérifier le titre de l’article.")} />
           <span>{t(mode === "goal" ? "La génération ne lance aucune action. Vérifiez le résumé avant d’enregistrer, puis testez le parcours sur un appareil." : "Les instructions expliquent l’objectif. Les étapes ci-dessous définissent les actions exécutées.")}</span>
         </label>
-        {mode === "goal" && <><button type="button" className="text-button" onClick={() => setInstructions("Ouvrir Wikipédia, rechercher football et vérifier le titre de l’article.")}>{t("Utiliser l’exemple Wikipédia")}</button><button type="button" className="text-button" onClick={() => setInstructions("Ouvre les paramètres du téléphone et donne-moi la version d’Android.")}>{t("Utiliser l’exemple version Android")}</button><p className="small-copy">{t("Les exemples Wikipédia et version Android fonctionnent sans compte externe. Pour un autre objectif, connectez ChatGPT dans Configuration. Les capacités non prises en charge sont signalées.")} <a href="/configuration">{t("Configuration")}</a></p>{hasGeneration && <div className="review-section"><h3>{t("Résultat attendu")}</h3><p>{expected}</p><ol>{steps.map(step => <li key={step.id}>{t(editorActionLabel(step.action))} · <bdi>{stepPreview(step)}</bdi></li>)}</ol><button type="button" className="text-button" onClick={() => setGeneratedFrom("")}>{t("Générer à nouveau")}</button></div>}</>}
+        {mode === "goal" && <>
+          {(models?.ollama || models?.deepseek) && <label>{t("Fournisseur pour les objectifs libres")}
+            <select value={provider} onChange={event => { setProvider(event.target.value as typeof provider); setGeneratedFrom(""); setError(""); }}>
+              <option value="openai">OpenAI</option>
+              {models.ollama && <option value="ollama">Ollama · {models.ollama}</option>}
+              {models.deepseek && <option value="deepseek">DeepSeek · {models.deepseek}</option>}
+            </select>
+            {provider === "deepseek" && <span>{t("Les objectifs libres sont envoyés à DeepSeek.")}</span>}
+          </label>}
+          <button type="button" className="text-button" onClick={() => setInstructions("Ouvrir Wikipédia, rechercher football et vérifier le titre de l’article.")}>{t("Utiliser l’exemple Wikipédia")}</button>
+          <button type="button" className="text-button" onClick={() => setInstructions("Ouvre les paramètres du téléphone et donne-moi la version d’Android.")}>{t("Utiliser l’exemple version Android")}</button>
+          <p className="small-copy">{t("Les exemples Wikipédia et version Android fonctionnent sans IA. Pour un objectif libre, utilisez un fournisseur configuré.")} <a href="/configuration">{t("Configuration")}</a></p>
+          {hasGeneration && <div className="review-section"><h3>{t("Résultat attendu")}</h3><p>{expected}</p><ol>{steps.map(step => <li key={step.id}>{t(editorActionLabel(step.action))} · <bdi>{stepPreview(step)}</bdi></li>)}</ol><button type="button" className="text-button" onClick={() => setGeneratedFrom("")}>{t("Générer à nouveau")}</button></div>}
+        </>}
         {mode === "expert" && <>
         {!recipe && <label>{t("Partir d’un modèle")}<select defaultValue="" onChange={event => {
           const template = templates.find(item => `${item.workflow_id}:${item.version}` === event.target.value);

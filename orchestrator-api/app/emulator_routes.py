@@ -3,11 +3,12 @@ from typing import Annotated
 from uuid import UUID
 import logging
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile
 import psycopg
 from pydantic import Field, field_validator, model_validator
 from starlette.concurrency import run_in_threadpool
 
+from . import apk_catalog, fdroid_catalog
 from .emulator_store import EmulatorStore
 from .emulator_hardware import EmulatorHardware
 from .run_models import Contract, Identifier
@@ -43,6 +44,11 @@ class Operation(Contract):
     idempotency_key: Annotated[str,Field(min_length=1,max_length=128,pattern=r'^\S+$')]
 
 
+class FdroidImport(Contract):
+    package_name: Annotated[str, Field(max_length=200, pattern=f'^{apk_catalog.PACKAGE_NAME_PATTERN}$')]
+    sha256: Annotated[str, Field(pattern=f'^{fdroid_catalog.SHA256_PATTERN}$')]
+
+
 def _actor(request):
     user = getattr(request.state,'auth_user',None)
     return UUID(str(user['id'])) if user else None
@@ -72,18 +78,43 @@ def operation(device_id: Identifier, action: Annotated[str,Field(pattern=r'^(sta
 
 @router.post('/applications',status_code=201)
 async def upload_application(request: Request, store: Store, file: Annotated[UploadFile,File()], name: Annotated[str|None,Form(max_length=160)]=None):
-    from .apk_catalog import discard_rejected_import, ingest_apk
-    metadata = await ingest_apk(file,name)
+    metadata = await apk_catalog.ingest_apk(file,name)
+    return await run_in_threadpool(_publish_application, metadata, request, store)
+
+
+@router.get('/applications/fdroid')
+def search_fdroid_applications(store: Store, q: Annotated[str, Query(min_length=2, max_length=100)]):
+    return fdroid_catalog.search_applications(q)
+
+
+@router.post('/applications/fdroid', status_code=201)
+def import_fdroid_application(payload: FdroidImport, request: Request, response: Response, store: Store):
+    app, release = fdroid_catalog.find_release(payload.package_name, payload.sha256)
+    existing = EmulatorStore(store.dsn).matching_application(payload.package_name, payload.sha256, _actor(request))
+    if existing is not None:
+        response.status_code = 200
+        return existing
+    metadata = fdroid_catalog.import_application(app, release)
+    result = _publish_application(metadata, request, store, reuse_exact=True)
+    if result['id'] != metadata['id']:
+        response.status_code = 200
+    return result
+
+
+def _publish_application(metadata: dict, request: Request, store: Store, *, reuse_exact: bool = False):
     try:
-        return EmulatorStore(store.dsn).add_application(metadata,_actor(request))
+        result = EmulatorStore(store.dsn).add_application(metadata, _actor(request), reuse_exact=reuse_exact)
     except HTTPException as error:
         if error.status_code in {401,403,409,422}:
-            await run_in_threadpool(discard_rejected_import,metadata)
+            apk_catalog.discard_rejected_import(metadata)
         raise
     except psycopg.IntegrityError:
-        await run_in_threadpool(discard_rejected_import,metadata)
+        apk_catalog.discard_rejected_import(metadata)
         raise
     except psycopg.Error:
         # A lost commit acknowledgement can still mean the catalogue row exists.
         logger.warning('APK publication could not be confirmed; imported artifact retained')
         raise
+    if reuse_exact and result['id'] != metadata['id']:
+        apk_catalog.discard_rejected_import(metadata)
+    return result

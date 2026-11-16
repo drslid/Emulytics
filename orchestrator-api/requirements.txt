@@ -1,6 +1,7 @@
 fastapi
 uvicorn[standard]
 httpx
+ijson>=3.3,<4
 docker
 python-multipart
 psycopg[binary]>=3.2,<4

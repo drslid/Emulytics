@@ -216,7 +216,8 @@ def test_model_generated_settings_actions_are_bounded_before_returning_a_draft(
     assert local_goal(goal) is None
     calls = []
 
-    def generated(_provider, _session, instructions):
+    def generated(_provider, _session, instructions, provider):
+        assert provider == 'openai'
         calls.append(instructions)
         return {'supported': True, 'name': 'Android version',
                 'reason': 'The version will be observed during execution.', 'steps_json': json.dumps(steps)}

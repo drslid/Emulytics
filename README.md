@@ -80,8 +80,8 @@ The console and environment variables retain some **Emulytix** names, including 
 
 - Persistent Android emulators with screen, density, RAM, CPU and initial-storage settings.
 - Physical Android registration, named device groups and selected bulk actions.
-- Application preparation with verified standalone APKs; Chrome comes from the runtime image.
-- Natural-language reference journeys and personally connected ChatGPT planning within validated driver capabilities.
+- Application preparation with verified standalone APKs from F-Droid or local uploads. Chrome comes from the runtime image.
+- Built-in reference journeys, plus OpenAI, local Ollama or DeepSeek for other supported natural-language goals.
 - Editable drafts, immutable publications and removal of unused published versions with historical evidence retained.
 - Immediate launches, daily/weekly/monthly scheduling and advanced five-field CRON with explicit timezones.
 - Live screens during active executions, step screenshots, observed device results and controlled retries.
@@ -89,6 +89,21 @@ The console and environment variables retain some **Emulytix** names, including 
 - Five local roles, mandatory password replacement and TOTP enrollment, and personal account security.
 - Scoped personal REST keys and a local stdio MCP adapter.
 - English, French, Simplified Chinese, Hindi, Spanish, Portuguese, Arabic, Russian, Bengali and German in the console.
+
+## Console screenshots
+
+These screenshots show the Emulytics console with demonstration data.
+
+![Dashboard showing the first-journey assistant, run totals and fleet charts](docs-site/public/brand/console/dashboard.png)
+
+<details>
+<summary>APK search and AI provider settings</summary>
+
+![Create an emulator dialog with an F-Droid app and its selected release version and date](docs-site/public/brand/console/apk-search.png)
+
+![Settings showing OpenAI and the configured models for Ollama and DeepSeek](docs-site/public/brand/console/settings.png)
+
+</details>
 
 ## Run your first journey
 
@@ -104,13 +119,17 @@ A Wikipedia reference goal also works without an external account:
 Open Chrome, go to Wikipedia, search for football and verify the article.
 ```
 
-Generation never controls the device or publishes a journey by itself. Other goals use a personal ChatGPT connection and remain limited to supported actions. A provider connection does not make arbitrary social-app workflows, shell commands or invented selectors executable.
+The Android version and Wikipedia reference goals use built-in rules and templates. They run without an external account or language model. For other supported natural-language goals, select a configured provider in the journey editor. OpenAI uses a personal ChatGPT connection. The installation administrator configures Ollama and DeepSeek on the server.
 
-**Detailed procedure:** [First journey](https://drslid.github.io/Emulytics/getting-started/first-journey/) · [Journey lifecycle](https://drslid.github.io/Emulytics/guides/journeys/) · [Execution evidence](https://drslid.github.io/Emulytics/guides/executions/)
+Generated steps stay within the driver's supported actions. Review the draft, then publish and test it on a device.
+
+**Detailed procedure:** [First journey](https://drslid.github.io/Emulytics/getting-started/first-journey/) · [Journey lifecycle](https://drslid.github.io/Emulytics/guides/journeys/) · [AI providers](https://drslid.github.io/Emulytics/guides/configuration/) · [Execution evidence](https://drslid.github.io/Emulytics/guides/executions/)
 
 ## Prepare a device
 
-Create an emulator, choose its applications, then use the separate **Power on**, **Prepare applications** and **Power off** actions. Snapchat, LinkedIn, Instagram and TikTok catalog entries need compatible APKs supplied by the operator; they are not downloaded from the Play Store.
+In **Devices → Create an emulator**, open **Desired applications** to search F-Droid by application name or package ID. Choose a release using its version and date, then import the APK to select it for the emulator. You can also upload a compatible standalone APK supplied by your organization. The catalog's Snapchat, LinkedIn, Instagram and TikTok entries require compatible standalone APKs supplied by the operator.
+
+Use **Prepare applications** to install the selected APKs on the emulator. **Power on** starts Android and **Power off** stops it while preserving its data.
 
 Register an existing phone or emulator with its worker host and exact ADB serial. A device name alone does not establish an Android connection.
 
@@ -187,7 +206,7 @@ npm run dev -- --host 127.0.0.1
 - Keep `.env.console`, API keys, recovery codes, provider tokens and populated data volumes out of version control.
 - Preserve the environment's encryption key with consistent backups; do not remove volumes as a troubleshooting shortcut.
 
-The current runtime is Android 10 / API 29 with its provided Chrome. iOS, split APK bundles, Play Store installation, general social-app automation and resizing initialized Android storage are outside this release. Real authorized ChatGPT generation, broad physical-device compatibility, large-fleet load and full backup/restore validation require separate verification.
+The current runtime is Android 10 / API 29 with its provided Chrome. iOS, split APK bundles, Play Store installation, general social-app automation and resizing initialized Android storage are outside this release. Live provider connections, broad physical-device compatibility, large-fleet load and full backup/restore validation require separate verification.
 
 ## License
 

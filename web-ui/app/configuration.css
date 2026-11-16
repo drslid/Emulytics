@@ -31,6 +31,11 @@
 .chatgpt-help p { color:var(--muted); font-size:11px; line-height:1.8; margin:0; max-width:90ch; }
 .chatgpt-help a { display:inline-flex; align-items:center; gap:6px; justify-self:start; font-size:11px; line-height:1.7; min-height:44px; }
 .chatgpt-help a svg { flex-shrink:0; }
+.journey-provider-list { margin:0; }
+.journey-provider-list>div { display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px 18px; align-items:baseline; border-top:1px solid var(--line); padding-block:12px; }
+.journey-provider-list>div:last-child { padding-bottom:0; }
+.journey-provider-list dt { font-weight:600; }
+.journey-provider-list dd { margin:0; color:var(--muted); overflow-wrap:anywhere; }
 @media(max-width:620px) {
  .configuration-layout { gap:24px; }
  .configuration-setting { padding:18px; gap:12px; }

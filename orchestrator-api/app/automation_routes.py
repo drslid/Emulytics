@@ -29,6 +29,15 @@ def create_recipe(payload: RecipeInput, request: Request, store: Store):
     return AutomationStore(store.dsn).create_recipe(payload, _actor(request))
 
 
+@router.get('/recipes/providers')
+def recipe_providers(request: Request):
+    from .journey_provider import external_planner_settings
+    if _actor(request) is None:
+        raise HTTPException(401, 'Connexion personnelle requise')
+    return {name: settings['model'] if (settings := external_planner_settings(name)) else None
+            for name in ('ollama', 'deepseek')}
+
+
 @router.post('/recipes/generate')
 def generate_recipe(payload: GoalInput, request: Request, store: Store):
     import json
@@ -39,13 +48,14 @@ def generate_recipe(payload: GoalInput, request: Request, store: Store):
     if local:
         return local
     if not auth_enabled():
-        raise HTTPException(503, 'La génération libre exige une connexion personnelle ChatGPT.')
+        raise HTTPException(503, 'La génération libre exige une session personnelle.')
     provider = JourneyProvider(AuthConfig.load())
-    user = provider.current_user(request.cookies.get(SESSION_COOKIE))
+    session = request.cookies.get(SESSION_COOKIE)
+    user = provider.current_user(session)
     if not user:
         raise HTTPException(401, 'Connexion personnelle requise')
     provider.limit('journey-generation', str(user['id']), request.client.host if request.client else 'unknown', maximum=10)
-    output = provider.generate(request.cookies.get(SESSION_COOKIE), payload.instructions)
+    output = provider.generate(session, payload.instructions, payload.provider)
     if (not isinstance(output, dict) or type(output.get('supported')) is not bool
             or not isinstance(output.get('reason'), str) or len(output['reason']) > 1000):
         raise HTTPException(422, 'La génération a produit une réponse invalide. Reformulez votre objectif.')
@@ -62,7 +72,8 @@ def generate_recipe(payload: GoalInput, request: Request, store: Store):
         value = validate_generated_recipe({'name': output['name'], 'steps': steps, 'recovery_budget': 0}, payload.instructions)
     except (ValueError, TypeError, KeyError, AttributeError):
         raise HTTPException(422, 'La génération ne fournit pas un parcours vérifiable. Précisez le résultat attendu.') from None
-    return {'recipe': value, 'source': 'chatgpt', 'expected_result': output['reason'], 'requires_test': True,
+    return {'recipe': value, 'source': 'chatgpt' if payload.provider == 'openai' else payload.provider,
+            'expected_result': output['reason'], 'requires_test': True,
             'capabilities': ['installed_apps', 'chrome', 'wikipedia', 'android_settings', 'android_version']}
 
 

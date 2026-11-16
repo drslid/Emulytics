@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from psycopg.types.json import Jsonb
 
 from .access import audit_event, permissions_for
+from .apk_catalog import application_artifact_valid
 from .console_routes import device_connection
 from .emulator_hardware import DEFAULT_HARDWARE, applied_profile, hardware_config
 from .execution_store import ACTIVE, ExecutionStore
@@ -56,15 +57,12 @@ class EmulatorStore(RunStore):
             applications.append({'id':app_id,'name':name,'package_name':package,'source':source,
                 'filename':artifact['filename'] if artifact else None,'sha256':artifact['sha256'] if artifact else None,
                 'size_bytes':artifact['size_bytes'] if artifact else 0,'available':source=='system' or artifact is not None})
-        preset_packages = {value[1] for value in PRESETS.values() if value[2]=='apk'}
-        applications.extend({**row,'id':str(row['id']),'source':'apk','available':True} for row in uploaded if row['package_name'] not in preset_packages)
-        return applications, uploaded
+        applications.extend({**row,'id':str(row['id']),'source':'apk','available':True} for row in uploaded)
+        return applications
 
     @classmethod
     def _resolve(cls, connection, ids, *, required=False):
-        catalog, uploaded = cls._catalog(connection)
-        lookup = {row['id']:row for row in catalog}
-        lookup.update({str(row['id']):{**row,'id':str(row['id']),'source':'apk','available':True} for row in uploaded})
+        lookup = {row['id']:row for row in cls._catalog(connection)}
         resolved, packages = [], set()
         for app_id in ids:
             row = lookup.get(app_id)
@@ -129,7 +127,7 @@ class EmulatorStore(RunStore):
     def list_emulators(self):
         with self.connect() as connection:
             ids = connection.execute('SELECT device_id FROM managed_emulators ORDER BY updated_at DESC,device_id').fetchall()
-            catalog, _ = self._catalog(connection)
+            catalog = self._catalog(connection)
             hosts = self._hosts(connection)
             workers = self._workers(connection)
             return {'items':[self._record(connection,row['device_id'],workers) for row in ids],
@@ -226,7 +224,25 @@ class EmulatorStore(RunStore):
             audit_event(connection,actor_id,'emulator.operation.queued',device_id,{'run_id':str(run['id'])},category='automation')
             return {'run_id':run['id'],'emulator':self._record(connection,device_id)}
 
-    def add_application(self, metadata, actor_id=None):
+    @staticmethod
+    def _application_view(metadata):
+        return {'id':str(metadata['id']),'name':metadata['name'],'package_name':metadata['package_name'],
+                'source':'apk','size_bytes':metadata['size_bytes'],'available':True}
+
+    @classmethod
+    def _matching_application(cls, connection, package_name, sha256):
+        rows = connection.execute(
+            'SELECT * FROM applications WHERE package_name=%s AND sha256=%s ORDER BY created_at DESC,id DESC',
+            (package_name, sha256),
+        ).fetchall()
+        return next((cls._application_view(row) for row in rows if application_artifact_valid(row)), None)
+
+    def matching_application(self, package_name, sha256, actor_id=None):
+        with self.connect() as connection:
+            self._actor(connection, actor_id)
+            return self._matching_application(connection, package_name, sha256)
+
+    def add_application(self, metadata, actor_id=None, *, reuse_exact=False):
         try:
             app_id = UUID(str(metadata['id']))
             if metadata['filename']!=str(app_id)+'.apk' or not re.fullmatch(r'[a-f0-9]{64}',metadata['sha256']) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_.]{1,199}',metadata['package_name']):
@@ -237,10 +253,16 @@ class EmulatorStore(RunStore):
             raise HTTPException(422,'Invalid application metadata') from None
         with self.connect() as connection:
             self._actor(connection,actor_id)
+            if reuse_exact:
+                package, sha256 = metadata['package_name'], metadata['sha256']
+                connection.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))', (f'application:{package}:{sha256}',))
+                existing = self._matching_application(connection, package, sha256)
+                if existing is not None:
+                    return existing
             connection.execute('INSERT INTO applications(id,filename,sha256,package_name,name,size_bytes,created_by) VALUES(%s,%s,%s,%s,%s,%s,%s)',
                 (app_id,metadata['filename'],metadata['sha256'],metadata['package_name'],metadata['name'],metadata['size_bytes'],actor_id))
             audit_event(connection,actor_id,'application.uploaded',str(app_id),category='automation')
-            return {'id':str(app_id),'name':metadata['name'],'package_name':metadata['package_name'],'source':'apk','size_bytes':metadata['size_bytes'],'available':True}
+            return self._application_view(metadata)
 
     def managed_device(self, device_id):
         with self.connect() as connection:

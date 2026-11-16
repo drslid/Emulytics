@@ -27,7 +27,7 @@ The Android worker must use the worker Compose profile and its private Android n
 
 ## An objective is unsupported
 
-Start with one of the [reference objectives](/Emulytics/getting-started/first-journey/). Other goals require a personal ChatGPT connection and must fit supported driver capabilities. A connected account does not add arbitrary Android commands, selectors or application workflows.
+Start with one of the [reference objectives](/Emulytics/getting-started/first-journey/), which use built-in templates. For other natural-language goals, check that the selected [AI provider](/Emulytics/guides/configuration/) is configured and reachable, and that the objective fits the driver's supported actions.
 
 Describe the complete expected result. The generator refuses extra unsupported actions rather than accepting only part of the instruction.
 

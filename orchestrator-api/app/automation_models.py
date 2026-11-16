@@ -1,6 +1,6 @@
 """Editable recipes and frozen, timezone-aware execution schedules."""
 
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, field_validator, model_validator
 
@@ -31,6 +31,7 @@ class RecipeUpdate(RecipeInput):
 
 class GoalInput(Contract):
     instructions: Annotated[str, Field(min_length=8, max_length=8000)]
+    provider: Literal['openai', 'ollama', 'deepseek'] = 'openai'
 
     @field_validator('instructions', mode='before')
     @classmethod

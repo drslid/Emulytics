@@ -39,6 +39,8 @@ services:
     build:
       context: ./orchestrator-api
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment: &console_api_env
       EMULYTIX_DATABASE_URL: ${EMULYTIX_DATABASE_URL:?Run scripts/start-console.sh first}
       EMULYTIX_CONTROL_TOKEN: ${EMULYTIX_CONTROL_TOKEN:?Run scripts/start-console.sh first}
@@ -52,6 +54,10 @@ services:
       EMULYTIX_ARTIFACT_ROOT: /storage/runs
       EMULYTIX_APK_ROOT: /apks
       EMULYTIX_CHATGPT_ENABLED: "true"
+      EMULYTIX_OLLAMA_URL: ${EMULYTIX_OLLAMA_URL:-}
+      EMULYTIX_OLLAMA_MODEL: ${EMULYTIX_OLLAMA_MODEL:-}
+      EMULYTIX_DEEPSEEK_API_KEY: ${EMULYTIX_DEEPSEEK_API_KEY:-}
+      EMULYTIX_DEEPSEEK_MODEL: ${EMULYTIX_DEEPSEEK_MODEL:-deepseek-flash}
     volumes:
       - ./storage/runs:/storage/runs:ro
       - ./storage/runtime-apks:/apks
@@ -105,7 +111,9 @@ services:
     build:
       context: ./orchestrator-api
     command: ["python", "-m", "app.migrate"]
-    environment: *console_api_env
+    environment:
+      <<: *console_api_env
+      EMULYTIX_DEEPSEEK_API_KEY: ""
     depends_on:
       console-postgres:
         condition: service_healthy

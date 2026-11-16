@@ -27,7 +27,7 @@ Another reference objective is:
 Open Chrome, go to Wikipedia, search for football and verify the article.
 ```
 
-These two reference cases work without a ChatGPT account. Other objectives require the personal connection described in [Configuration](/Emulytics/guides/configuration/) and must remain within supported capabilities.
+These two reference cases use built-in rules and templates without an account or language model. For other natural-language objectives, choose a configured [AI provider](/Emulytics/guides/configuration/) and work within the Android driver's supported actions.
 
 ## 3. Review, publish and launch
 

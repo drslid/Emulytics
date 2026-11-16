@@ -27,12 +27,12 @@ Emulytics is an early self-hosted release. The repository combines implemented c
 | Other mobile platforms | iOS is planned, not implemented |
 | Natural-language generation | Bounded driver capabilities, not universal app automation |
 | Social applications | APK preparation entries exist; arbitrary social workflows are not verified |
-| Application distribution | Standalone APKs; no Play Store or split-bundle installation |
+| Application distribution | Standalone APKs from F-Droid or uploads. Play Store and split-bundle installation are outside current scope |
 | Existing Android storage | Preserved volumes; no supported resizing after initialization |
 | Workspace model | Role-based shared workspace, not customer tenancy |
 | Parallelism | One active journey per worker process and one per device; host capacity still matters |
 | Go migration | Selected reads only; Python remains part of the control plane |
-| ChatGPT | Local reference goals are tested independently; a real authorized provider account requires its own end-to-end validation |
+| AI providers | Local reference goals use templates. Live OpenAI, Ollama and DeepSeek connections require provider-specific validation |
 
 Local regressions use disposable databases and controlled browser checks. They do not establish a large-fleet benchmark, broad OEM compatibility, physical-phone certification, complete backup/restore validation or universal third-party app compatibility.
 

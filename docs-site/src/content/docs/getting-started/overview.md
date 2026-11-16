@@ -11,11 +11,16 @@ Emulytics is a self-hosted control console for Android devices and persistent em
 
 The application currently displays the Emulytix name in parts of its console and uses `EMULYTIX_` configuration variables. The public repository and documentation use **Emulytics**. Those technical names are intentional; changing an environment variable's spelling will not rename the product.
 
+![Dashboard showing the first-journey assistant, run totals and fleet charts](/Emulytics/brand/console/dashboard.png)
+
+The dashboard in a demonstration workspace.
+
 ## What is available
 
 - Persistent Android emulators, physical device registration, groups and selected bulk actions.
-- Natural-language reference journeys for Wikipedia searches and reading Android's version, without an external account.
-- Personal ChatGPT connection for other goals that fit the driver's validated capabilities.
+- Built-in reference journeys for Wikipedia searches and reading Android's version, without an account or language model.
+- OpenAI, local Ollama and DeepSeek for other goals that fit the driver's supported actions.
+- Search and import standalone APK releases from F-Droid, or upload APKs you already have.
 - Versioned journeys, immediate launches, timezone-aware schedules and PostgreSQL-backed work queues.
 - Execution screenshots, an observed Android-version result, live screens during active runs and controlled retries.
 - Dashboard charts, a component map, service metrics and an audit journal.

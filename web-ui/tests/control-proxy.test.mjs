@@ -58,6 +58,25 @@ test("managed emulator routes preserve session and refuse arbitrary Docker endpo
   }
 });
 
+test("F-Droid search forwards the query and import requires a same-origin JSON request", async () => {
+  const endpoint = "console/applications/fdroid";
+  const path = endpoint.split("/");
+  const search = await proxyControl(request(`${endpoint}?q=Simple+Notes&url=https%3A%2F%2Fignored.test`), path, async url => {
+    assert.equal(url, `http://api.internal:8010/${endpoint}?q=Simple+Notes`);
+    return Response.json({ items: [] });
+  });
+  assert.equal(search.status, 200);
+  const choice = { package_name: "org.example.notes", sha256: "a".repeat(64) };
+  const imported = await proxyControl(request(endpoint, post(JSON.stringify(choice))), path, async (url, options) => {
+    assert.equal(url, `http://api.internal:8010/${endpoint}?`);
+    assert.deepEqual(JSON.parse(new TextDecoder().decode(options.body)), choice);
+    return Response.json({ id: "release" }, { status: 201 });
+  });
+  assert.equal(imported.status, 201);
+  const rejected = await proxyControl(request(endpoint, post("{}", "https://other.test")), path, () => assert.fail("Unexpected import"));
+  assert.equal(rejected.status, 403);
+});
+
 test("APK multipart uploads retain their boundary and use only the exact protected upload route", async () => {
   const body = new FormData();
   body.set('file', new File(['apk-test-bytes'], 'linkedin.apk', { type: 'application/vnd.android.package-archive' }));

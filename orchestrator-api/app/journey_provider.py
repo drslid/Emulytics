@@ -1,15 +1,19 @@
-"""Text-only planning with the signed-in user's official Codex runtime."""
+"""Bounded, text-only planning through OpenAI, Ollama or DeepSeek."""
+from ipaddress import ip_address
 import json
 import os
 from pathlib import Path
+import re
 import selectors
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+from urllib.parse import urlsplit
 
 from fastapi import HTTPException
+import httpx
 
 from .access import permissions_for
 from .auth import digest
@@ -52,6 +56,72 @@ For Wikipedia search, use Chrome and an HTTPS Wikipedia Special:Search URL with 
 the final assertion must verify the expected article URL. Explain redirects/ambiguous article titles if unknown.
 Use the user's language for the short name and reason. Name max120 chars. Never return credentials.
 Goal follows as JSON string:\n'''
+
+
+def external_planner_settings(provider):
+    if provider == 'ollama':
+        base = os.getenv('EMULYTIX_OLLAMA_URL', '').strip()
+        model = os.getenv('EMULYTIX_OLLAMA_MODEL', '').strip()
+        try:
+            endpoint = urlsplit(base)
+            port = endpoint.port
+            host = endpoint.hostname
+            local = host in {'localhost', 'host.docker.internal', 'ollama'} or bool(host and ip_address(host).is_loopback)
+        except ValueError:
+            return None
+        if (not local or endpoint.scheme not in {'http', 'https'} or port == 0
+                or endpoint.username is not None or endpoint.password is not None
+                or endpoint.path not in {'', '/'} or endpoint.query or endpoint.fragment
+                or re.search(r'(?:[:\-]cloud)(?::|$)', model, re.I)):
+            return None
+        url = httpx.URL(scheme=endpoint.scheme, host=host, port=port, path='/api/chat')
+        headers = {}
+    elif provider == 'deepseek':
+        key = os.getenv('EMULYTIX_DEEPSEEK_API_KEY', '').strip()
+        if not key:
+            return None
+        model = os.getenv('EMULYTIX_DEEPSEEK_MODEL', '').strip() or 'deepseek-flash'
+        url = 'https://api.deepseek.com/chat/completions'
+        headers = {'Authorization': f'Bearer {key}'}
+    else:
+        return None
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}', model):
+        return None
+    return {'model': model, 'url': url, 'headers': headers}
+
+
+def run_external_planner(provider, instructions, settings):
+    payload = {'model': settings['model'], 'stream': False, 'messages': [
+        {'role': 'system', 'content': PROMPT.removesuffix('Goal follows as JSON string:\n')
+         + 'Return one JSON object with this schema: ' + json.dumps(SCHEMA)},
+        {'role': 'user', 'content': json.dumps(instructions, ensure_ascii=False)},
+    ]}
+    if provider == 'ollama':
+        payload.update(format=SCHEMA, options={'temperature': 0, 'num_predict': 4096})
+    else:
+        payload.update(response_format={'type': 'json_object'}, thinking={'type': 'disabled'}, max_tokens=4096)
+    try:
+        deadline = time.monotonic() + 90
+        body = bytearray()
+        headers = {'Accept-Encoding': 'identity', **settings['headers']}
+        with httpx.stream('POST', settings['url'], headers=headers, json=payload,
+                          timeout=httpx.Timeout(90, connect=5), trust_env=False, follow_redirects=False) as response:
+            response.raise_for_status()
+            for chunk in response.iter_raw():
+                if time.monotonic() > deadline:
+                    raise TimeoutError
+                if len(body) + len(chunk) > 131072:
+                    raise ValueError('Planner output limit')
+                body.extend(chunk)
+        data = json.loads(body)
+        content = data['message']['content'] if provider == 'ollama' else data['choices'][0]['message']['content']
+        if not isinstance(content, str) or len(content.encode()) > 65536:
+            raise ValueError('Invalid planner output')
+        return json.loads(content)
+    except (httpx.TimeoutException, TimeoutError):
+        raise HTTPException(504, 'La génération a expiré. Réessayez.') from None
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError, RecursionError):
+        raise HTTPException(503, 'Le fournisseur de génération est indisponible.') from None
 
 
 def command(binary, private_root, workspace, schema, result):
@@ -139,8 +209,8 @@ class JourneyProvider(ChatGPTStore):
                 raise HTTPException(409, 'La connexion ChatGPT a changé. Relancez la génération.')
             self._live_session(connection, current)
 
-    def generate(self, session, instructions):
-        if not ChatGPTManager().available:
+    def generate(self, session, instructions, provider='openai'):
+        if provider == 'openai' and not ChatGPTManager().available:
             raise HTTPException(503, 'La génération ChatGPT est désactivée sur cette installation.')
         if not GATES.acquire(blocking=False):
             raise HTTPException(429, 'Deux générations sont déjà en cours. Réessayez dans un instant.')
@@ -154,6 +224,16 @@ class JourneyProvider(ChatGPTStore):
                 lock = int(digest('journey:' + str(user['id']))[:15], 16)
                 if not guard.execute('SELECT pg_try_advisory_xact_lock(%s) AS ok', (lock,)).fetchone()['ok']:
                     raise HTTPException(429, 'Une génération est déjà en cours pour votre compte.')
+                if provider != 'openai':
+                    settings = external_planner_settings(provider)
+                    if not settings:
+                        raise HTTPException(409, {'code': 'provider_unconfigured'})
+                    output = run_external_planner(provider, instructions, settings)
+                    with self.connect() as connection:
+                        current = self._session_user(connection, session)
+                        if current['id'] != user['id'] or 'workflows.write' not in permissions_for(current['role']):
+                            raise HTTPException(403, 'Droits insuffisants')
+                    return output
                 row = guard.execute('SELECT credentials_ciphertext FROM chatgpt_connections WHERE user_id=%s', (user['id'],)).fetchone()
                 if not row or not row['credentials_ciphertext']:
                     raise HTTPException(409, {'code': 'chatgpt_required'})
@@ -173,6 +253,6 @@ class JourneyProvider(ChatGPTStore):
             raise
         except Exception:
             # Never expose subprocess/provider errors or decrypted credential material.
-            raise HTTPException(503, 'Génération indisponible. Vérifiez votre connexion ChatGPT dans Configuration.') from None
+            raise HTTPException(503, 'Génération indisponible. Vérifiez le fournisseur dans Configuration.') from None
         finally:
             GATES.release()

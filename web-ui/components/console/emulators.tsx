@@ -4,13 +4,14 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNod
 import { api, ApiError } from "../../lib/client-api";
 import type { Device } from "../../lib/console-types";
 import { isDeviceReady } from "../../lib/device-readiness";
-import { canonicalizeEmulatorUpload, emulatorCanLaunch, emulatorCanManage, emulatorConnectionDevice, emulatorIntentKey, emulatorOperationActive, MAX_APK_BYTES, missingEmulatorApplications, parseEmulatorCreation, parseEmulatorOperation, type EmulatorAction, type EmulatorApplication, type EmulatorCatalog, type EmulatorCreation, type EmulatorOperation, type ManagedEmulator } from "../../lib/emulators";
+import { canonicalizeEmulatorUpload, emulatorCanLaunch, emulatorCanManage, emulatorConnectionDevice, emulatorIntentKey, emulatorOperationActive, MAX_APK_BYTES, missingEmulatorApplications, parseEmulatorCreation, parseEmulatorOperation, selectEmulatorApplication, type EmulatorAction, type EmulatorApplication, type EmulatorCatalog, type EmulatorCreation, type EmulatorOperation, type ManagedEmulator } from "../../lib/emulators";
 import { useLocale } from "../../lib/i18n";
 import { Badge, Dialog, ErrorNotice, date } from "./shared";
 import { Icon } from "./icons";
 import { DEFAULT_HARDWARE, hardwareEditable, parseHardware, sameAppliedHardware, sameHardware, type EmulatorHardware } from "../../lib/emulator-hardware";
 import { hardwareCopy, hardwareStorageCopy } from "../../lib/emulator-hardware-copy";
 import { EmulatorHardwareFields, HardwareSummary } from "./emulator-hardware-fields";
+import { FDroidPicker } from "./fdroid-picker";
 
 const labels = { created: "À préparer", starting: "Démarrage en cours", running: "Allumé · à préparer", ready: "Prêt", stopped: "Arrêté", preparing: "Préparation en cours", failed: "Échec de préparation", unknown: "État non confirmé" };
 const definite = (failure: unknown) => failure instanceof ApiError && [401, 403, 404, 409, 422].includes(failure.status);
@@ -122,12 +123,18 @@ function EmulatorActions({ emulator, applications, canManage, canLaunch, ready, 
 
 function ApplicationPicker({ applications, selected, onChange, disabled, onUploaded, onUploading }: { applications: EmulatorApplication[]; selected: string[]; onChange: (ids: string[]) => void; disabled: boolean; onUploaded: (application: EmulatorApplication) => void; onUploading: (busy: boolean) => void }) {
   const { t, locale } = useLocale(), fileInput = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false), [error, setError] = useState("");
+  const [importSource, setImportSource] = useState<"file" | "fdroid" | null>(null);
+  const [error, setError] = useState(""), [imported, setImported] = useState("");
+  const uploading = importSource !== null;
+  const canSelectPackage = (packageName: string) => selected.length < 12 ||
+    applications.some(application => application.package_name === packageName && selected.includes(application.id));
+
   async function upload(file: File | undefined) {
     if (!file || uploading || disabled) return;
     setError("");
+    setImported("");
     if (!file.name.toLowerCase().endsWith(".apk") || file.size === 0 || file.size > MAX_APK_BYTES) { setError(t("Choisissez un fichier APK de moins de 128 Mio.")); if (fileInput.current) fileInput.current.value = ""; return; }
-    setUploading(true); onUploading(true);
+    setImportSource("file"); onUploading(true);
     try {
       const body = new FormData(); body.append("file", file);
       const response = await fetch("/api/control/console/applications", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "X-Emulytix-Client": "console" }, body });
@@ -137,9 +144,54 @@ function ApplicationPicker({ applications, selected, onChange, disabled, onUploa
       const result = canonicalizeEmulatorUpload(uploaded, applications, selected);
       onUploaded(result.application); onChange(result.selected);
     } catch (failure) { setError(failure instanceof ApiError ? failure.message : t("L’importation a échoué. Vérifiez le fichier APK puis réessayez.")); }
-    finally { setUploading(false); onUploading(false); if (fileInput.current) fileInput.current.value = ""; }
+    finally { setImportSource(null); onUploading(false); if (fileInput.current) fileInput.current.value = ""; }
   }
-  return <div className="emulator-application-picker"><fieldset disabled={disabled || uploading}><legend>{t("Applications souhaitées")}</legend><p className="small-copy">{t("Sélectionnez jusqu’à {count} applications.", { count: 12 })}</p><div className="emulator-application-options">{applications.map(application => <label className="emulator-app-option" key={application.id}><input type="checkbox" checked={selected.includes(application.id)} disabled={!selected.includes(application.id) && selected.length >= 12} onChange={() => onChange(selected.includes(application.id) ? selected.filter(id => id !== application.id) : [...selected, application.id])} /><span><strong>{application.name}</strong><small className={!application.available ? "emulator-apk-missing" : undefined}>{t(application.source === "system" ? "Application fournie avec Android" : application.available ? "APK disponible" : "APK à importer")}{application.source === "apk" && application.available && application.size_bytes > 0 ? ` · ${t("{n} Mio", { n: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(application.size_bytes / 1048576) })}` : ""}</small></span></label>)}</div></fieldset>{error && <ErrorNotice message={error} />}{!disabled && <><input ref={fileInput} className="sr-only" type="file" accept=".apk,application/vnd.android.package-archive" tabIndex={-1} aria-hidden="true" onChange={event => void upload(event.target.files?.[0])} /><button type="button" className="button button--secondary" disabled={uploading} onClick={() => fileInput.current?.click()}><Icon name="plus" size={16} />{t(uploading ? "Importation en cours…" : "Importer un APK")}</button><p className="small-copy">{t("L’application est reconnue automatiquement. Importez un APK compatible avec la version Android et l’architecture de l’émulateur.")}</p></>}</div>;
+
+  async function importRelease(packageName: string, sha256: string) {
+    if (uploading || disabled || !canSelectPackage(packageName)) return;
+    setImportSource("fdroid"); onUploading(true); setError(""); setImported("");
+    try {
+      const application = await api<EmulatorApplication>("console/applications/fdroid", { package_name: packageName, sha256 });
+      onUploaded(application);
+      onChange(selectEmulatorApplication(application, applications, selected));
+      setImported(application.name);
+    } catch (failure) {
+      setError(failure instanceof ApiError && failure.status === 404
+        ? t("Cette version n’est plus disponible. Relancez la recherche.")
+        : t("L’importation depuis F-Droid a échoué. Réessayez."));
+    } finally {
+      setImportSource(null); onUploading(false);
+    }
+  }
+  const size = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
+  return <div className="emulator-application-picker">
+    <fieldset disabled={disabled || uploading}>
+      <legend>{t("Applications souhaitées")}</legend>
+      <p className="small-copy">{t("Sélectionnez jusqu’à {count} applications.", { count: 12 })}</p>
+      <div className="emulator-application-options">{applications.map(application => {
+        const checked = selected.includes(application.id);
+        return <label className="emulator-app-option" key={application.id}>
+          <input type="checkbox" checked={checked} disabled={!checked && !canSelectPackage(application.package_name)}
+            onChange={() => onChange(checked ? selected.filter(id => id !== application.id) : selectEmulatorApplication(application, applications, selected))} />
+          <span><strong>{application.name}</strong><small className={!application.available ? "emulator-apk-missing" : undefined}>
+            {t(application.source === "system" ? "Application fournie avec Android" : application.available ? "APK disponible" : "APK à importer")}
+            {application.source === "apk" && application.available && application.size_bytes > 0 && ` · ${t("{n} Mio", { n: size.format(application.size_bytes / 1048576) })}`}
+          </small></span>
+        </label>;
+      })}</div>
+    </fieldset>
+    {!disabled && <>
+      <FDroidPicker busy={uploading} importing={importSource === "fdroid"} canSelectPackage={canSelectPackage}
+        onImport={(packageName, sha256) => void importRelease(packageName, sha256)} />
+      {imported && <p className="small-copy" role="status">{t("{name} a été ajouté à la sélection.", { name: imported })}</p>}
+      {error && <ErrorNotice message={error} />}
+      <input ref={fileInput} className="sr-only" type="file" accept=".apk,application/vnd.android.package-archive" tabIndex={-1} aria-hidden="true" onChange={event => void upload(event.target.files?.[0])} />
+      <button type="button" className="button button--secondary" disabled={uploading} onClick={() => fileInput.current?.click()}>
+        <Icon name="plus" size={16} />{t(importSource === "file" ? "Importation en cours…" : "Importer un APK")}
+      </button>
+      <p className="small-copy">{t("L’application est reconnue automatiquement. Importez un APK compatible avec la version Android et l’architecture de l’émulateur.")}</p>
+    </>}
+  </div>;
 }
 
 function EmulatorForm({ userId, catalog, onClose, onUploaded, onCreated }: { userId: string; catalog: EmulatorCatalog; onClose: () => void; onUploaded: (application: EmulatorApplication) => void; onCreated: (emulator: ManagedEmulator) => void }) {

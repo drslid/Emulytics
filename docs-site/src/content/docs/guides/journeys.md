@@ -9,7 +9,7 @@ Use **Workflows → Create a workflow** and describe the desired action and obse
 
 Editing the objective invalidates the earlier generation. Generation does not run commands, install an application or publish a version.
 
-The local reference cases are Wikipedia searches and reading the Android version. Other goals use your personal ChatGPT connection and are checked against the existing driver. Unsupported actions are rejected rather than silently omitted.
+Wikipedia searches and reading the Android version use built-in rules and templates. No language model is involved. For other natural-language objectives, select a configured [AI provider](/Emulytics/guides/configuration/) in the journey editor. The console checks the generated steps against the driver's supported actions before giving you a draft to review.
 
 The generator is not a universal agent for every Android application. It does not invent selectors for an unobserved application, accept arbitrary shell commands, generate social posts or carry out financial operations.
 
