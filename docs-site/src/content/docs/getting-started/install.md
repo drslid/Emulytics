@@ -26,7 +26,7 @@ cd Emulytics
 
 `--accept-android-license` confirms acceptance of the [Android SDK terms](https://developer.android.com/studio/terms). Review those terms before running the command. The first build downloads roughly 1.8 GB of Android archives, plus application and container dependencies.
 
-The command verifies prerequisites, creates private configuration only when it is missing, builds the Android image from verified archives, applies database migrations and starts the console, scheduler and worker. It preserves existing configuration, accounts and Android volumes on a retry.
+The command verifies prerequisites, creates private configuration only when it is missing, builds the Android image from verified archives, applies database migrations and starts the console, scheduler and worker. It preserves existing configuration, accounts and Android volumes on a retry. It enables the local updater when a systemd user session is available.
 
 Open **http://localhost:3100**. Use that exact origin; `127.0.0.1` is a different browser origin.
 
@@ -56,6 +56,32 @@ In a private terminal, retrieve the temporary access:
 ```
 
 Continue with [First sign-in](/Emulytics/getting-started/first-sign-in/). Ordinary installation logs do not print the password.
+
+## Update Emulytics
+
+Sign in as an administrator and open **Settings → Updates**. Emulytics compares the running version with the latest stable GitHub release. When a newer release is available, open its notes or choose **Update**. Wait for the running journeys to finish before installing. The console may be briefly unavailable while it restarts.
+
+The host checks the selected release against GitHub, prepares the new images and starts the updated services with the same Compose project, configuration and data. The update button supports the standard local Compose database. Use a clean Git checkout of the Emulytics repository so the host can switch to the exact release tag.
+
+For a deployment that already has the update feature but shows that its installer is unavailable, run the following as the user who manages Docker for this installation:
+
+```bash
+python3 scripts/update.py enable
+```
+
+The user timer is named `emulytics-update.timer`. Its service runs as the installation user, so that user needs access to the local Docker Engine. To keep it running before login or after logout, configure systemd user lingering on the host. Use the manual update below for installations with an external database or without a systemd user session.
+
+### Update an older installation manually
+
+Choose the latest stable tag on the [GitHub releases page](https://github.com/drslid/Emulytics/releases). In the installation's existing directory, fetch and check out that tag, then rerun the installer. Replace `v0.1.0` with the tag you chose.
+
+```bash
+git fetch origin tag v0.1.0
+git switch --no-overwrite-ignore --detach v0.1.0
+./scripts/install.sh
+```
+
+If Docker needs to rebuild Android and the installer asks for SDK acceptance, use the Android SDK option described above. Keep the existing `.env.console` and Compose storage.
 
 ## Existing installations
 

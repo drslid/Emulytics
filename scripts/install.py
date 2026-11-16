@@ -182,6 +182,14 @@ def main() -> None:
         runtime_environment.update(images)
         run(["bash", "scripts/start-console-android.sh"], env=runtime_environment)
         wait_for_console()
+    try:
+        enabled = subprocess.run(
+            [sys.executable, "scripts/update.py", "enable"], cwd=ROOT, capture_output=True, timeout=30,
+        ).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        enabled = False
+    if not enabled:
+        print("Pour activer les mises à jour dans la console : python3 scripts/update.py enable (service systemd utilisateur).", flush=True)
     print("Emulytix est prêt : http://localhost:3100\nPremier accès : scripts/account.sh initial-access\nChangez le mot de passe temporaire, activez le 2FA, puis préparez votre premier parcours.", flush=True)
 
 

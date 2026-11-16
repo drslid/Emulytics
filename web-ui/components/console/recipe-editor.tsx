@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError } from "../../lib/client-api";
 import { useT } from "../../lib/i18n";
-import type { JourneyModels, Recipe, Step, Workflow } from "../../lib/console-types";
+import type { JourneyModels, JourneyProviderId, Recipe, Step, Workflow } from "../../lib/console-types";
 import { duplicateEditorStep, editorActionLabel, freshEditorStep, parseEditorSteps } from "../../lib/workflow-editor";
 import { Dialog, ErrorNotice, workflowName } from "./shared";
 import { Icon } from "./icons";
@@ -24,8 +24,11 @@ export function RecipeEditor({ recipe, templates, onClose, onSaved }: {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"goal" | "expert">(recipe ? "expert" : "goal");
-  const [models, setModels] = useState<JourneyModels | null>(null);
-  const [provider, setProvider] = useState<keyof typeof providerLabels>("openai");
+  const [providerDiscovery, setProviderDiscovery] = useState<JourneyModels | "failed" | null>(null);
+  const [providerAttempt, setProviderAttempt] = useState(0);
+  const [providerOverride, setProviderOverride] = useState<JourneyProviderId | null>(null);
+  const models = providerDiscovery === "failed" ? null : providerDiscovery;
+  const provider = providerOverride ?? models?.active_provider;
   const [generatedFrom, setGeneratedFrom] = useState("");
   const [expected, setExpected] = useState("");
   const saving = useRef(false);
@@ -33,15 +36,24 @@ export function RecipeEditor({ recipe, templates, onClose, onSaved }: {
   useEffect(() => {
     if (mode !== "goal") return;
     let active = true;
-    void api<JourneyModels>("console/recipes/providers").then(value => { if (active) setModels(value); }).catch(() => {});
+    setProviderDiscovery(null);
+    void api<JourneyModels>("console/recipes/providers")
+      .then(value => {
+        if (!active) return;
+        const providerId = value?.active_provider;
+        setProviderDiscovery(typeof providerId === "string" && Object.hasOwn(providerLabels, providerId) ? value : "failed");
+      })
+      .catch(() => { if (active) setProviderDiscovery("failed"); });
     return () => { active = false; };
-  }, [mode]);
+  }, [mode, providerAttempt]);
   function close() { if (!saving.current) onClose(); }
   async function generate() {
-    if (saving.current || instructions.trim().length < 8) return;
+    if (!models || !provider || saving.current || instructions.trim().length < 8) return;
     saving.current = true; setBusy(true); setError("");
     try {
-      const result = await api<{recipe: {name: string; steps: Step[]}; expected_result: string}>("console/recipes/generate", {instructions: instructions.trim(), provider});
+      const result = await api<{recipe: {name: string; steps: Step[]}; expected_result: string}>("console/recipes/generate", {
+        instructions: instructions.trim(), provider
+      });
       setName(result.recipe.name); setSteps(result.recipe.steps);
       setJson(JSON.stringify(result.recipe.steps, null, 2)); setAdvanced(false);
       setExpected(result.expected_result); setGeneratedFrom(instructions.trim());
@@ -105,14 +117,18 @@ export function RecipeEditor({ recipe, templates, onClose, onSaved }: {
           <span>{t(mode === "goal" ? "La génération ne lance aucune action. Vérifiez le résumé avant d’enregistrer, puis testez le parcours sur un appareil." : "Les instructions expliquent l’objectif. Les étapes ci-dessous définissent les actions exécutées.")}</span>
         </label>
         {mode === "goal" && <>
-          {(models?.ollama || models?.deepseek) && <label>{t("Fournisseur pour les objectifs libres")}
-            <select value={provider} onChange={event => { setProvider(event.target.value as typeof provider); setGeneratedFrom(""); setError(""); }}>
+          {models && <label>{t("Fournisseur pour les objectifs libres")}
+            <select value={provider} onChange={event => { setProviderOverride(event.target.value as JourneyProviderId); setGeneratedFrom(""); setError(""); }}>
               <option value="openai">OpenAI</option>
-              {models.ollama && <option value="ollama">Ollama · {models.ollama}</option>}
-              {models.deepseek && <option value="deepseek">DeepSeek · {models.deepseek}</option>}
+              {(models.ollama || provider === "ollama") && <option value="ollama">Ollama · {models.ollama ?? t("Non configuré")}</option>}
+              {(models.deepseek || provider === "deepseek") && <option value="deepseek">DeepSeek · {models.deepseek ?? t("Non configuré")}</option>}
             </select>
             {provider === "deepseek" && <span>{t("Les objectifs libres sont envoyés à DeepSeek.")}</span>}
           </label>}
+          {providerDiscovery === "failed" ? <>
+            <ErrorNotice message={t("Impossible de charger les fournisseurs IA.")} />
+            <button type="button" className="text-button" onClick={() => setProviderAttempt(attempt => attempt + 1)}>{t("Réessayer")}</button>
+          </> : !models && <p className="small-copy" role="status">{t("Chargement…")}</p>}
           <button type="button" className="text-button" onClick={() => setInstructions("Ouvrir Wikipédia, rechercher football et vérifier le titre de l’article.")}>{t("Utiliser l’exemple Wikipédia")}</button>
           <button type="button" className="text-button" onClick={() => setInstructions("Ouvre les paramètres du téléphone et donne-moi la version d’Android.")}>{t("Utiliser l’exemple version Android")}</button>
           <p className="small-copy">{t("Les exemples Wikipédia et version Android fonctionnent sans IA. Pour un objectif libre, utilisez un fournisseur configuré.")} <a href="/configuration">{t("Configuration")}</a></p>
@@ -156,7 +172,7 @@ export function RecipeEditor({ recipe, templates, onClose, onSaved }: {
       </fieldset>
       <div className="dialog-footer">
         <button type="button" className="button button--secondary" onClick={close} disabled={busy}>{t("Annuler")}</button>
-        <button className="button button--primary" disabled={busy || instructions.trim().length < 8}>{t(busy ? "Chargement…" : mode === "goal" && !hasGeneration ? "Préparer mon parcours" : "Enregistrer le brouillon")}</button>
+        <button className="button button--primary" disabled={busy || instructions.trim().length < 8 || (mode === "goal" && !models)}>{t(busy ? "Chargement…" : mode === "goal" && !hasGeneration ? "Préparer mon parcours" : "Enregistrer le brouillon")}</button>
       </div>
     </form>
   </Dialog>;

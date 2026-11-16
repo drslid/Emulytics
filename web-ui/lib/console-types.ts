@@ -122,7 +122,14 @@ export type Step = {
   verify_after_crash?: Record<string, unknown>;
   [key: string]: unknown;
 };
-export type JourneyModels = Record<"ollama" | "deepseek", string | null>;
+export type JourneyProviderId = "openai" | "ollama" | "deepseek";
+export type JourneyModels = { active_provider: JourneyProviderId; ollama: string | null; deepseek: string | null };
+export type AIProviderSettings = {
+  active_provider: JourneyProviderId;
+  can_edit: boolean;
+  ollama: { url: string | null; model: string | null; configured: boolean };
+  deepseek: { model: string; has_key: boolean; has_saved_key: boolean };
+};
 
 export type Recipe = {
   id: string;

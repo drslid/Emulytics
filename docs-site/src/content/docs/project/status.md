@@ -27,7 +27,7 @@ Emulytics is an early self-hosted release. The repository combines implemented c
 | Other mobile platforms | iOS is planned, not implemented |
 | Natural-language generation | Bounded driver capabilities, not universal app automation |
 | Social applications | APK preparation entries exist; arbitrary social workflows are not verified |
-| Application distribution | Standalone APKs from F-Droid or uploads. Play Store and split-bundle installation are outside current scope |
+| Application distribution | Standalone APKs from F-Droid, Aptoide or uploads. Store releases must support Android 10 x86 |
 | Existing Android storage | Preserved volumes; no supported resizing after initialization |
 | Workspace model | Role-based shared workspace, not customer tenancy |
 | Parallelism | One active journey per worker process and one per device; host capacity still matters |

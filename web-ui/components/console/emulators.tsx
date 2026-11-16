@@ -4,14 +4,14 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNod
 import { api, ApiError } from "../../lib/client-api";
 import type { Device } from "../../lib/console-types";
 import { isDeviceReady } from "../../lib/device-readiness";
-import { canonicalizeEmulatorUpload, emulatorCanLaunch, emulatorCanManage, emulatorConnectionDevice, emulatorIntentKey, emulatorOperationActive, MAX_APK_BYTES, missingEmulatorApplications, parseEmulatorCreation, parseEmulatorOperation, selectEmulatorApplication, type EmulatorAction, type EmulatorApplication, type EmulatorCatalog, type EmulatorCreation, type EmulatorOperation, type ManagedEmulator } from "../../lib/emulators";
+import { canonicalizeEmulatorUpload, emulatorCanLaunch, emulatorCanManage, emulatorConnectionDevice, emulatorIntentKey, emulatorOperationActive, importedEmulatorApplications, MAX_APK_BYTES, MAX_EMULATOR_APPLICATIONS, missingEmulatorApplications, parseEmulatorCreation, parseEmulatorOperation, selectEmulatorApplication, type EmulatorAction, type EmulatorApplication, type EmulatorCatalog, type EmulatorCreation, type EmulatorOperation, type ManagedEmulator } from "../../lib/emulators";
 import { useLocale } from "../../lib/i18n";
 import { Badge, Dialog, ErrorNotice, date } from "./shared";
 import { Icon } from "./icons";
 import { DEFAULT_HARDWARE, hardwareEditable, parseHardware, sameAppliedHardware, sameHardware, type EmulatorHardware } from "../../lib/emulator-hardware";
 import { hardwareCopy, hardwareStorageCopy } from "../../lib/emulator-hardware-copy";
 import { EmulatorHardwareFields, HardwareSummary } from "./emulator-hardware-fields";
-import { FDroidPicker } from "./fdroid-picker";
+import { ApkStorePicker, apkStoreNames, type ApkStore } from "./apk-store-picker";
 
 const labels = { created: "À préparer", starting: "Démarrage en cours", running: "Allumé · à préparer", ready: "Prêt", stopped: "Arrêté", preparing: "Préparation en cours", failed: "Échec de préparation", unknown: "État non confirmé" };
 const definite = (failure: unknown) => failure instanceof ApiError && [401, 403, 404, 409, 422].includes(failure.status);
@@ -122,12 +122,16 @@ function EmulatorActions({ emulator, applications, canManage, canLaunch, ready, 
 }
 
 function ApplicationPicker({ applications, selected, onChange, disabled, onUploaded, onUploading }: { applications: EmulatorApplication[]; selected: string[]; onChange: (ids: string[]) => void; disabled: boolean; onUploaded: (application: EmulatorApplication) => void; onUploading: (busy: boolean) => void }) {
-  const { t, locale } = useLocale(), fileInput = useRef<HTMLInputElement>(null);
-  const [importSource, setImportSource] = useState<"file" | "fdroid" | null>(null);
+  const { t } = useLocale(), fileInput = useRef<HTMLInputElement>(null);
+  const [importSource, setImportSource] = useState<"file" | "store" | null>(null);
   const [error, setError] = useState(""), [imported, setImported] = useState("");
+  const [libraryId, setLibraryId] = useState("");
   const uploading = importSource !== null;
-  const canSelectPackage = (packageName: string) => selected.length < 12 ||
+  const full = selected.length >= MAX_EMULATOR_APPLICATIONS;
+  const canSelectPackage = (packageName: string) => !full ||
     applications.some(application => application.package_name === packageName && selected.includes(application.id));
+  const library = importedEmulatorApplications(applications).filter(application => !selected.includes(application.id));
+  const libraryApplication = library.find(application => application.id === libraryId);
 
   async function upload(file: File | undefined) {
     if (!file || uploading || disabled) return;
@@ -147,51 +151,67 @@ function ApplicationPicker({ applications, selected, onChange, disabled, onUploa
     finally { setImportSource(null); onUploading(false); if (fileInput.current) fileInput.current.value = ""; }
   }
 
-  async function importRelease(packageName: string, sha256: string) {
+  async function importRelease(store: ApkStore, packageName: string, releaseId: string) {
     if (uploading || disabled || !canSelectPackage(packageName)) return;
-    setImportSource("fdroid"); onUploading(true); setError(""); setImported("");
+    setImportSource("store"); onUploading(true); setError(""); setImported("");
     try {
-      const application = await api<EmulatorApplication>("console/applications/fdroid", { package_name: packageName, sha256 });
+      const release = store === "fdroid" ? { sha256: releaseId } : { version_id: releaseId };
+      const application = await api<EmulatorApplication>(`console/applications/${store}`, { package_name: packageName, ...release });
       onUploaded(application);
       onChange(selectEmulatorApplication(application, applications, selected));
       setImported(application.name);
     } catch (failure) {
       setError(failure instanceof ApiError && failure.status === 404
         ? t("Cette version n’est plus disponible. Relancez la recherche.")
-        : t("L’importation depuis F-Droid a échoué. Réessayez."));
+        : t("L’importation depuis {store} a échoué. Réessayez.", { store: apkStoreNames[store] }));
     } finally {
       setImportSource(null); onUploading(false);
     }
   }
-  const size = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
-  return <div className="emulator-application-picker">
-    <fieldset disabled={disabled || uploading}>
-      <legend>{t("Applications souhaitées")}</legend>
-      <p className="small-copy">{t("Sélectionnez jusqu’à {count} applications.", { count: 12 })}</p>
-      <div className="emulator-application-options">{applications.map(application => {
-        const checked = selected.includes(application.id);
-        return <label className="emulator-app-option" key={application.id}>
-          <input type="checkbox" checked={checked} disabled={!checked && !canSelectPackage(application.package_name)}
-            onChange={() => onChange(checked ? selected.filter(id => id !== application.id) : selectEmulatorApplication(application, applications, selected))} />
-          <span><strong>{application.name}</strong><small className={!application.available ? "emulator-apk-missing" : undefined}>
-            {t(application.source === "system" ? "Application fournie avec Android" : application.available ? "APK disponible" : "APK à importer")}
-            {application.source === "apk" && application.available && application.size_bytes > 0 && ` · ${t("{n} Mio", { n: size.format(application.size_bytes / 1048576) })}`}
-          </small></span>
-        </label>;
-      })}</div>
-    </fieldset>
+  return <fieldset className="emulator-application-picker" disabled={disabled || uploading}>
+    <legend>{t("Applications souhaitées")}</legend>
     {!disabled && <>
-      <FDroidPicker busy={uploading} importing={importSource === "fdroid"} canSelectPackage={canSelectPackage}
-        onImport={(packageName, sha256) => void importRelease(packageName, sha256)} />
-      {imported && <p className="small-copy" role="status">{t("{name} a été ajouté à la sélection.", { name: imported })}</p>}
-      {error && <ErrorNotice message={error} />}
+      <ApkStorePicker busy={uploading} importing={importSource === "store"} canSelectPackage={canSelectPackage}
+        onImport={(store, packageName, releaseId) => void importRelease(store, packageName, releaseId)} />
       <input ref={fileInput} className="sr-only" type="file" accept=".apk,application/vnd.android.package-archive" tabIndex={-1} aria-hidden="true" onChange={event => void upload(event.target.files?.[0])} />
       <button type="button" className="button button--secondary" disabled={uploading} onClick={() => fileInput.current?.click()}>
         <Icon name="plus" size={16} />{t(importSource === "file" ? "Importation en cours…" : "Importer un APK")}
       </button>
-      <p className="small-copy">{t("L’application est reconnue automatiquement. Importez un APK compatible avec la version Android et l’architecture de l’émulateur.")}</p>
+      {library.length > 0 && <details className="emulator-apk-library">
+        <summary>{t("APK déjà importés")}</summary>
+        <div className="emulator-apk-library-fields">
+          <label>{t("Choisir un APK")}<select value={libraryApplication?.id ?? ""} onChange={event => setLibraryId(event.target.value)}>
+            <option value="" disabled>{t("Choisir un APK")}</option>
+            {library.map(application => <option key={application.id} value={application.id} disabled={!canSelectPackage(application.package_name)}>{application.name} · {application.package_name}</option>)}
+          </select></label>
+          <button type="button" className="button button--secondary" disabled={!libraryApplication || !canSelectPackage(libraryApplication.package_name)} onClick={() => {
+            if (!libraryApplication) return;
+            onChange(selectEmulatorApplication(libraryApplication, applications, selected));
+            setImported(libraryApplication.name);
+            setLibraryId("");
+          }}>{t("Ajouter à la sélection")}</button>
+        </div>
+      </details>}
+      {full && <p className="small-copy">{t("La sélection est complète. Retirez une application pour en ajouter une autre.")}</p>}
+      {imported && <p className="small-copy" role="status">{t("{name} a été ajouté à la sélection.", { name: imported })}</p>}
+      {error && <ErrorNotice message={error} />}
     </>}
-  </div>;
+    {selected.length > 0 ? <ul className="emulator-selected-apps" aria-label={t("Applications sélectionnées")}>
+      {selected.map(id => {
+        const application = applications.find(item => item.id === id);
+        const name = application?.name ?? t("Application inconnue");
+        return <li key={id}>
+          <div><strong>{name}</strong>
+            {application?.available ? <small><bdi>{application.package_name}</bdi></small> : <small className="emulator-apk-missing">{t("APK à importer")}</small>}
+          </div>
+          {!disabled && <button type="button" className="icon-button" aria-label={t("Retirer {name}", { name })} onClick={() => {
+            setImported("");
+            onChange(selected.filter(item => item !== id));
+          }}><Icon name="close" size={18} /></button>}
+        </li>;
+      })}
+    </ul> : disabled && <p className="small-copy">{t("Aucune application sélectionnée")}</p>}
+  </fieldset>;
 }
 
 function EmulatorForm({ userId, catalog, onClose, onUploaded, onCreated }: { userId: string; catalog: EmulatorCatalog; onClose: () => void; onUploaded: (application: EmulatorApplication) => void; onCreated: (emulator: ManagedEmulator) => void }) {

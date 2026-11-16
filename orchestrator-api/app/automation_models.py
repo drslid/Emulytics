@@ -31,7 +31,7 @@ class RecipeUpdate(RecipeInput):
 
 class GoalInput(Contract):
     instructions: Annotated[str, Field(min_length=8, max_length=8000)]
-    provider: Literal['openai', 'ollama', 'deepseek'] = 'openai'
+    provider: Literal['openai', 'ollama', 'deepseek'] | None = None
 
     @field_validator('instructions', mode='before')
     @classmethod

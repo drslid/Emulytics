@@ -7,12 +7,12 @@ description: Register Android devices, prepare emulator applications and operate
 
 Open **Devices → Create an emulator**, enter a human-readable name, choose a worker host and select applications. Names can contain spaces; technical identifiers are generated for you.
 
-Chrome comes from the runtime image. The initial Snapchat, LinkedIn, Instagram and TikTok entries require compatible standalone APK files that you provide and are authorized to use. Uploading an APK identifies its package, and an unavailable file stays visibly unavailable. Play Store installation and split APK bundles are outside the current scope.
+Chrome comes from the runtime image. Uploading a standalone APK identifies its package. The dialog shows the applications selected for this emulator and lets you remove them individually.
 
-### Find an APK on F-Droid
+### Find an APK in a store
 
-1. In **Desired applications**, search F-Droid by application name or package ID.
-2. Select an application and then a release. The picker shows the version, version code and date added to F-Droid, in UTC.
+1. In **Desired applications**, choose **F-Droid** or **Aptoide**, then search by application name or package ID.
+2. Select an application and then a compatible release. The picker shows the version, version code and date from the selected store.
 3. Import the release and complete the emulator configuration. The imported application is selected for this emulator.
 4. Run **Prepare applications** to install the selected APKs and check that they are ready.
 
@@ -20,7 +20,7 @@ Chrome comes from the runtime image. The initial Snapchat, LinkedIn, Instagram a
 
 F-Droid search in a demonstration workspace.
 
-Search results show standalone releases compatible with the managed Android 10 runtime. Android rejects a downgrade when a release with a higher version code is already installed. You can also upload a compatible standalone APK from another source. An emulator can have up to 12 selected applications.
+Use Aptoide to look for applications such as Snapchat and LinkedIn. A listed application may have no verified standalone build compatible with Android 10 x86. The **Web** label identifies the Snapchat web wrapper. Emulytics checks the APK and its signing certificate for Aptoide imports. Android rejects a downgrade when a release with a higher version code is already installed. You can upload a compatible standalone APK directly.
 
 The controls have separate effects:
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canonicalizeEmulatorUpload, currentEmulatorLaunchDevice, emulatorCanLaunch, emulatorCanManage, emulatorConnectionDevice, emulatorIntentKey, emulatorOperationActive, mergeEmulatorLaunchDevices, missingEmulatorApplications, parseEmulatorCreation, parseEmulatorOperation, selectEmulatorApplication } from "../lib/emulators.ts";
+import { canonicalizeEmulatorUpload, currentEmulatorLaunchDevice, emulatorCanLaunch, emulatorCanManage, emulatorConnectionDevice, emulatorIntentKey, emulatorOperationActive, importedEmulatorApplications, mergeEmulatorLaunchDevices, missingEmulatorApplications, parseEmulatorCreation, parseEmulatorOperation, selectEmulatorApplication } from "../lib/emulators.ts";
 import { isDeviceReady } from "../lib/device-readiness.ts";
 
 const emulator = {state:"ready",availability:"declared",operation_status:null,application_ids:[]};
@@ -32,6 +32,13 @@ test("selecting an exact store release can replace its package when all twelve s
   assert.deepEqual(selectEmulatorApplication(release, [preset], [preset.id, ...others]), [release.id, ...others]);
   const full = ["another-package", ...others];
   assert.deepEqual(selectEmulatorApplication(release, [preset], full), full);
+});
+
+test("the imported library offers available APK artifacts without duplicate preset aliases", () => {
+  const preset = { id: "linkedin", source: "apk", available: true, package_name: "com.linkedin.android" };
+  const release = { ...preset, id: key };
+  const system = { id: "chrome", source: "system", available: true };
+  assert.deepEqual(importedEmulatorApplications([system, preset, { ...release, available: false }, release]), [release]);
 });
 
 test("a managed emulator carries its actual device outside the paginated inventory without inventing readiness",()=>{

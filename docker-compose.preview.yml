@@ -49,6 +49,7 @@ services:
       EMULYTIX_PUBLIC_ORIGIN: ${EMULYTIX_PUBLIC_ORIGIN:-http://localhost:3100}
       EMULYTIX_COOKIE_SECURE: ${EMULYTIX_COOKIE_SECURE:-true}
       EMULYTIX_UI_INTERNAL_URL: http://validation-ui:3000/connexion
+      EMULYTIX_VERSION: ${EMULYTIX_VERSION:-}
       EMULYTIX_TELEMETRY_ENABLED: "true"
       EMULYTIX_STORAGE_ROOT: /storage
       EMULYTIX_ARTIFACT_ROOT: /storage/runs
@@ -62,6 +63,8 @@ services:
       - ./storage/runs:/storage/runs:ro
       - ./storage/runtime-apks:/apks
       - ./workflows:/workflows:ro
+      - ./storage/updates/requests:/updates/requests
+      - ./storage/updates/status:/updates/status:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health', timeout=2)"]
       interval: 5s

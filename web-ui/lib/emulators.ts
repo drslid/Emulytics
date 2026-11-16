@@ -12,6 +12,7 @@ export type EmulatorAction = "start" | "prepare" | "stop";
 export type EmulatorOperation = { action: EmulatorAction; idempotency_key: string };
 export type EmulatorCreation = { name: string; host_id: string; application_ids: string[]; idempotency_key: string; hardware?: EmulatorHardware };
 export const MAX_APK_BYTES = 128 * 1024 * 1024;
+export const MAX_EMULATOR_APPLICATIONS = 12;
 
 const active = new Set(["queued", "leased", "running", "recovering", "verifying_state", "waiting_auth"]);
 const identifier = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
@@ -32,6 +33,9 @@ export function emulatorCanLaunch(emulator: ManagedEmulator, deviceReady: boolea
 export function missingEmulatorApplications(ids: string[], applications: EmulatorApplication[]): string[] {
   return ids.filter(id => !applications.some(application => application.id === id && application.available));
 }
+export function importedEmulatorApplications(applications: EmulatorApplication[]): EmulatorApplication[] {
+  return applications.filter(application => application.source === "apk" && application.available && uuid.test(application.id));
+}
 export function canonicalizeEmulatorUpload(uploaded: EmulatorApplication, applications: EmulatorApplication[], selected: string[]): { application: EmulatorApplication; selected: string[] } {
   const preset = applications.find(application => application.source === "apk" && application.package_name === uploaded.package_name && !uuid.test(application.id));
   const application = preset ? { ...uploaded, id: preset.id, name: preset.name, available: true } : uploaded;
@@ -45,7 +49,7 @@ export function selectEmulatorApplication(application: EmulatorApplication, appl
     if (!samePackage.has(id)) next.push(id);
     else if (!included) { next.push(application.id); included = true; }
   }
-  if (!included && next.length < 12) next.push(application.id);
+  if (!included && next.length < MAX_EMULATOR_APPLICATIONS) next.push(application.id);
   return next;
 }
 export function emulatorConnectionDevice(emulator: ManagedEmulator, devices: Device[]): Device | undefined {
@@ -74,7 +78,7 @@ export function parseEmulatorCreation(value: unknown): EmulatorCreation | null {
   const hardware = input.hardware === undefined ? undefined : parseHardware(input.hardware);
   return typeof input.name === "string" && input.name.trim().length > 0 && input.name.length <= 160 &&
     typeof input.host_id === "string" && identifier.test(input.host_id) && typeof input.idempotency_key === "string" && uuid.test(input.idempotency_key) &&
-    Array.isArray(input.application_ids) && input.application_ids.length <= 12 && input.application_ids.every(id => typeof id === "string" && identifier.test(id)) && new Set(input.application_ids).size === input.application_ids.length && hardware !== null
+    Array.isArray(input.application_ids) && input.application_ids.length <= MAX_EMULATOR_APPLICATIONS && input.application_ids.every(id => typeof id === "string" && identifier.test(id)) && new Set(input.application_ids).size === input.application_ids.length && hardware !== null
     ? { name: input.name, host_id: input.host_id, application_ids: input.application_ids, idempotency_key: input.idempotency_key, ...(hardware ? { hardware } : {}) } : null;
 }
 import type { Device } from "./console-types";

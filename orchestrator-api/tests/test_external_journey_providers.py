@@ -5,7 +5,7 @@ import httpx
 import pytest
 from fastapi import HTTPException, Request
 
-from app import auth, journey_provider
+from app import ai_provider_settings, auth, journey_provider
 from app.automation_models import GoalInput
 from app.automation_routes import generate_recipe, recipe_providers
 
@@ -48,17 +48,17 @@ def test_external_planner_sends_only_the_goal_and_gets_structured_result(monkeyp
         assert journey_provider.run_external_planner(provider, goal, settings) == result
 
 
-def test_local_only_ollama_and_public_provider_status(monkeypatch):
-    monkeypatch.setenv('EMULYTIX_DEEPSEEK_API_KEY', 'fixture-secret')
-    monkeypatch.setenv('EMULYTIX_DEEPSEEK_MODEL', 'deepseek-flash')
-    monkeypatch.setenv('EMULYTIX_OLLAMA_MODEL', 'qwen3:8b')
-    for url in ('https://ollama.com', 'http://user@localhost:11434', 'http://localhost/another-path'):
-        monkeypatch.setenv('EMULYTIX_OLLAMA_URL', url)
-        assert journey_provider.external_planner_settings('ollama') is None
-    monkeypatch.setenv('EMULYTIX_OLLAMA_URL', 'http://127.0.0.1:11434')
-    monkeypatch.setenv('EMULYTIX_OLLAMA_MODEL', 'qwen3:cloud')
+def test_personal_recipe_provider_status(monkeypatch):
+    class Settings:
+        def status(self, session):
+            assert session == 'fixture-session'
+            return {'active_provider': 'deepseek', 'ollama': {'model': 'qwen3:8b', 'configured': False},
+                    'deepseek': {'model': 'deepseek-flash', 'has_key': True}}
+
+    monkeypatch.setattr(ai_provider_settings, 'ai_provider_store', Settings)
     state = {'auth_user': {'id': uuid4()}}
-    assert recipe_providers(Request({'type': 'http', 'state': state})) == {'ollama': None, 'deepseek': 'deepseek-flash'}
+    request = Request({'type': 'http', 'state': state, 'headers': [(b'cookie', b'emulytix_session=fixture-session')]})
+    assert recipe_providers(request) == {'active_provider': 'deepseek', 'ollama': None, 'deepseek': 'deepseek-flash'}
     with pytest.raises(HTTPException) as error:
         recipe_providers(Request({'type': 'http'}))
     assert error.value.status_code == 401
@@ -73,7 +73,8 @@ def test_builtin_goal_does_not_contact_selected_provider(monkeypatch):
 @pytest.mark.parametrize('selected, action, expected_source', [
     ('ollama', 'screenshot', 'ollama'),
     ('deepseek', 'screenshot', 'deepseek'),
-    (None, 'screenshot', 'chatgpt'),
+    (None, 'screenshot', 'deepseek'),
+    ('openai', 'screenshot', 'chatgpt'),
     ('ollama', 'install_apk', None),
 ])
 def test_selected_provider_reuses_journey_validation(monkeypatch, selected, action, expected_source):
@@ -93,8 +94,12 @@ def test_selected_provider_reuses_journey_validation(monkeypatch, selected, acti
         def limit(self, *args, **kwargs):
             assert args[:2] == ('journey-generation', str(actor_id))
 
+        def active_provider(self):
+            assert selected is None
+            return 'deepseek'
+
         def generate(self, session, instructions, provider):
-            assert (session, instructions, provider) == ('fixture-session', goal, selected or 'openai')
+            assert (session, instructions, provider) == ('fixture-session', goal, selected or 'deepseek')
             assertion = {'type': 'package', 'value': 'com.example.calculator'}
             return {'name': 'Calculatrice', 'reason': 'Calculatrice ouverte', 'supported': True, 'steps_json': json.dumps([
                 {'id': 'open', 'action': 'open_app', 'args': {'package_name': 'com.example.calculator'}, 'assert': assertion},

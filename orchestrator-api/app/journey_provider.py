@@ -1,21 +1,19 @@
 """Bounded, text-only planning through OpenAI, Ollama or DeepSeek."""
-from ipaddress import ip_address
 import json
 import os
 from pathlib import Path
-import re
 import selectors
 import subprocess
 import sys
 import tempfile
 import threading
 import time
-from urllib.parse import urlsplit
 
 from fastapi import HTTPException
 import httpx
 
 from .access import permissions_for
+from .ai_provider_settings import external_planner_settings, provider_row
 from .auth import digest
 from .chatgpt_process import ChatGPTManager, read_credentials
 from .chatgpt_store import ChatGPTStore
@@ -56,38 +54,6 @@ For Wikipedia search, use Chrome and an HTTPS Wikipedia Special:Search URL with 
 the final assertion must verify the expected article URL. Explain redirects/ambiguous article titles if unknown.
 Use the user's language for the short name and reason. Name max120 chars. Never return credentials.
 Goal follows as JSON string:\n'''
-
-
-def external_planner_settings(provider):
-    if provider == 'ollama':
-        base = os.getenv('EMULYTIX_OLLAMA_URL', '').strip()
-        model = os.getenv('EMULYTIX_OLLAMA_MODEL', '').strip()
-        try:
-            endpoint = urlsplit(base)
-            port = endpoint.port
-            host = endpoint.hostname
-            local = host in {'localhost', 'host.docker.internal', 'ollama'} or bool(host and ip_address(host).is_loopback)
-        except ValueError:
-            return None
-        if (not local or endpoint.scheme not in {'http', 'https'} or port == 0
-                or endpoint.username is not None or endpoint.password is not None
-                or endpoint.path not in {'', '/'} or endpoint.query or endpoint.fragment
-                or re.search(r'(?:[:\-]cloud)(?::|$)', model, re.I)):
-            return None
-        url = httpx.URL(scheme=endpoint.scheme, host=host, port=port, path='/api/chat')
-        headers = {}
-    elif provider == 'deepseek':
-        key = os.getenv('EMULYTIX_DEEPSEEK_API_KEY', '').strip()
-        if not key:
-            return None
-        model = os.getenv('EMULYTIX_DEEPSEEK_MODEL', '').strip() or 'deepseek-flash'
-        url = 'https://api.deepseek.com/chat/completions'
-        headers = {'Authorization': f'Bearer {key}'}
-    else:
-        return None
-    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}', model):
-        return None
-    return {'model': model, 'url': url, 'headers': headers}
 
 
 def run_external_planner(provider, instructions, settings):
@@ -209,6 +175,10 @@ class JourneyProvider(ChatGPTStore):
                 raise HTTPException(409, 'La connexion ChatGPT a changé. Relancez la génération.')
             self._live_session(connection, current)
 
+    def active_provider(self):
+        with self.connect() as connection:
+            return provider_row(connection)['active_provider']
+
     def generate(self, session, instructions, provider='openai'):
         if provider == 'openai' and not ChatGPTManager().available:
             raise HTTPException(503, 'La génération ChatGPT est désactivée sur cette installation.')
@@ -225,7 +195,7 @@ class JourneyProvider(ChatGPTStore):
                 if not guard.execute('SELECT pg_try_advisory_xact_lock(%s) AS ok', (lock,)).fetchone()['ok']:
                     raise HTTPException(429, 'Une génération est déjà en cours pour votre compte.')
                 if provider != 'openai':
-                    settings = external_planner_settings(provider)
+                    settings = external_planner_settings(provider, provider_row(guard), cipher=self.config.cipher)
                     if not settings:
                         raise HTTPException(409, {'code': 'provider_unconfigured'})
                     output = run_external_planner(provider, instructions, settings)

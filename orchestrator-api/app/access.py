@@ -9,7 +9,7 @@ from psycopg.types.json import Jsonb
 
 READ_PERMISSIONS = {'devices.read', 'workflows.read', 'runs.read', 'schedules.read', 'monitor.read'}
 ROLE_PERMISSIONS = {
-    'admin': READ_PERMISSIONS | {'devices.write', 'workflows.write', 'workflows.publish', 'runs.execute', 'runs.cancel', 'schedules.write', 'logs.read', 'users.manage'},
+    'admin': READ_PERMISSIONS | {'devices.write', 'workflows.write', 'workflows.publish', 'runs.execute', 'runs.cancel', 'schedules.write', 'logs.read', 'users.manage', 'updates.manage'},
     'builder': READ_PERMISSIONS | {'workflows.write', 'workflows.publish', 'runs.execute', 'runs.cancel', 'schedules.write'},
     'operator': READ_PERMISSIONS | {'devices.write', 'runs.execute', 'runs.cancel', 'schedules.write'},
     'viewer': READ_PERMISSIONS,
@@ -47,6 +47,7 @@ def required_permission(method: str, path: str) -> str | None:
         '/console/account/chatgpt/login': {'POST'},
         '/console/account/chatgpt/cancel': {'POST'},
         '/console/account/api-keys': {'GET', 'HEAD', 'POST'},
+        '/console/account/ai-providers': {'GET', 'HEAD', 'PATCH'},
     }
     if path in account_methods:
         return 'self' if method in account_methods[path] else None
@@ -54,6 +55,8 @@ def required_permission(method: str, path: str) -> str | None:
         return 'self' if method == 'DELETE' else None
     if path == '/auth/me':
         return 'self'
+    if path == '/console/updates':
+        return 'updates.manage' if method in {'GET', 'HEAD', 'POST'} else None
     if path == '/devices' or path == '/console/fleet':
         return 'devices.read' if read else 'devices.write'
     if path == '/console/fleet/capacity':
@@ -66,8 +69,10 @@ def required_permission(method: str, path: str) -> str | None:
         return 'devices.read' if read else 'devices.write' if method=='POST' else None
     if path == '/console/applications':
         return 'devices.write' if method=='POST' else None
-    if path == '/console/applications/fdroid':
+    if path in {'/console/applications/fdroid', '/console/applications/aptoide'}:
         return 'devices.write' if method in {'GET', 'POST'} else None
+    if path == '/console/applications/aptoide/versions':
+        return 'devices.write' if method == 'GET' else None
     if re.fullmatch(r'/console/emulators/[^/]+/(?:configuration|start|prepare|stop)',path):
         return 'devices.write' if method=='POST' else None
     if re.fullmatch(r'/console/devices/[^/]+/screen', path):

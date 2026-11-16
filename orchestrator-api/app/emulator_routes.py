@@ -8,7 +8,7 @@ import psycopg
 from pydantic import Field, field_validator, model_validator
 from starlette.concurrency import run_in_threadpool
 
-from . import apk_catalog, fdroid_catalog
+from . import apk_catalog, aptoide_catalog, fdroid_catalog
 from .emulator_store import EmulatorStore
 from .emulator_hardware import EmulatorHardware
 from .run_models import Contract, Identifier
@@ -47,6 +47,11 @@ class Operation(Contract):
 class FdroidImport(Contract):
     package_name: Annotated[str, Field(max_length=200, pattern=f'^{apk_catalog.PACKAGE_NAME_PATTERN}$')]
     sha256: Annotated[str, Field(pattern=f'^{fdroid_catalog.SHA256_PATTERN}$')]
+
+
+class AptoideImport(Contract):
+    package_name: Annotated[str, Field(max_length=200, pattern=f'^{apk_catalog.PACKAGE_NAME_PATTERN}$')]
+    version_id: Annotated[str, Field(pattern=r'^[1-9][0-9]{0,11}:[a-f0-9]{32}$')]
 
 
 def _actor(request):
@@ -95,6 +100,31 @@ def import_fdroid_application(payload: FdroidImport, request: Request, response:
         response.status_code = 200
         return existing
     metadata = fdroid_catalog.import_application(app, release)
+    result = _publish_application(metadata, request, store, reuse_exact=True)
+    if result['id'] != metadata['id']:
+        response.status_code = 200
+    return result
+
+
+@router.get('/applications/aptoide')
+def search_aptoide_applications(store: Store, q: Annotated[str, Query(min_length=2, max_length=100)]):
+    return aptoide_catalog.search_applications(q)
+
+
+@router.get('/applications/aptoide/versions')
+def list_aptoide_versions(store: Store, q: Annotated[str, Query(max_length=200, pattern=f'^{apk_catalog.PACKAGE_NAME_PATTERN}$')]):
+    return aptoide_catalog.list_versions(q)
+
+
+@router.post('/applications/aptoide', status_code=201)
+def import_aptoide_application(payload: AptoideImport, request: Request, response: Response, store: Store):
+    release = aptoide_catalog.find_release(payload.package_name, payload.version_id)
+    label = f'{release.name[:157-len(release.version_name)]} ({release.version_name})'
+    expected = apk_catalog.ExpectedApk(
+        release.package_name, release.version_code, None, release.size_bytes,
+        md5=release.md5, signer_sha1=release.signer_sha1, signer_sha256=release.signer_sha256,
+    )
+    metadata = apk_catalog.download_store_apk(release.url, label, expected)
     result = _publish_application(metadata, request, store, reuse_exact=True)
     if result['id'] != metadata['id']:
         response.status_code = 200

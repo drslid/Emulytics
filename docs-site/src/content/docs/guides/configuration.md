@@ -1,6 +1,6 @@
 ---
 title: Settings and AI providers
-description: Configure OpenAI, local Ollama or DeepSeek to draft supported journeys.
+description: Manage console updates and configure OpenAI, local Ollama or DeepSeek.
 ---
 
 Open **Settings** to see the available AI providers and connection status. Passwords and second factors are managed under **My profile**.
@@ -8,6 +8,10 @@ Open **Settings** to see the available AI providers and connection status. Passw
 ![Settings showing OpenAI and the configured models for Ollama and DeepSeek](/Emulytics/brand/console/settings.png)
 
 Settings in a demonstration workspace.
+
+## Updates
+
+Administrators can see the installed version, the latest stable release and the installation status under **Settings → Updates**. When a newer release is available, choose **Update** and confirm the restart. Keep the console open or return to Settings to read the result. [Set up the host updater](/Emulytics/getting-started/install/#update-emulytics).
 
 ## Connect OpenAI
 
@@ -20,27 +24,17 @@ Wait for confirmation in the console. A pending code expires or can be canceled.
 
 Each OpenAI connection belongs to one local user. The server uses an isolated official Codex process and encrypted storage.
 
-## Configure Ollama or DeepSeek
+## Configure and activate an AI provider
 
-An installation administrator configures these providers in the private `.env.console` file. The configuration is shared across the installation and is used from the control API.
+In **Settings**, administrators select **OpenAI**, **DeepSeek**, or **Ollama** as the default for the installation. Users can see the default and select another available provider for a specific draft in the journey editor. Each user connects their own OpenAI account to generate journeys with OpenAI.
 
-For **Ollama**, start your local Ollama server and download the model with `ollama pull <model>`. To keep inference local, enable `OLLAMA_NO_CLOUD=1` in the Ollama server environment. Use the URL reachable by the control API and the exact model tag installed in Ollama.
+For **DeepSeek**, an administrator enters the shared API key and the model name. The server encrypts the key and Settings displays a saved indicator. Leave the key field blank to keep the current key. DeepSeek receives the text of the generation request over HTTPS. [DeepSeek API documentation](https://api-docs.deepseek.com/)
 
-```dotenv
-EMULYTIX_OLLAMA_URL=http://host.docker.internal:11434
-EMULYTIX_OLLAMA_MODEL=your-local-model-tag
-```
+For **Ollama**, an administrator downloads the model with `ollama pull <model>` and enters its exact tag and the shared server URL reachable from Emulytics. For Ollama running on the Docker host, use `http://host.docker.internal:11434`. If it listens only on `127.0.0.1`, set `OLLAMA_HOST` to an address reachable from the Docker network and restart Ollama. Use a private IP address for a server on your local network. To keep inference local, set `OLLAMA_NO_CLOUD=1` on the Ollama server. [Ollama documentation](https://docs.ollama.com/)
 
-With Docker, `host.docker.internal` resolves to the host gateway. If Ollama listens only on `127.0.0.1`, set `OLLAMA_HOST` to an address reachable from the Docker network and restart Ollama. For a control API running directly on the same host, use `http://127.0.0.1:11434`.
+The installer can also provide defaults through the existing `EMULYTIX_OLLAMA_URL`, `EMULYTIX_OLLAMA_MODEL`, `EMULYTIX_DEEPSEEK_API_KEY`, and `EMULYTIX_DEEPSEEK_MODEL` settings in `.env.console`.
 
-For **DeepSeek**, add a DeepSeek API key and choose a supported model. DeepSeek receives the text of the generation request over HTTPS. Keep the key on the server.
-
-```dotenv
-EMULYTIX_DEEPSEEK_API_KEY=your-deepseek-api-key
-EMULYTIX_DEEPSEEK_MODEL=deepseek-flash
-```
-
-Restart the console services with `./scripts/start-console.sh` after updating `.env.console`, then check the provider in **Settings**. See the [Ollama documentation](https://docs.ollama.com/) and [DeepSeek API documentation](https://api-docs.deepseek.com/) for available models.
+Settings checks the format of the values. Emulytics tests provider access when generating a journey.
 
 ## Choose a provider for a journey
 

@@ -44,6 +44,28 @@ test("personal ChatGPT routes preserve only the session and reject arbitrary pro
   assert.equal((await proxyControl(request(path,{...post('{}','https://other.test'),method:'DELETE'}),path.split('/'),never)).status,403);
 });
 
+test("AI provider preferences proxy only scoped reads and CSRF-protected patches", async () => {
+  const endpoint = "console/account/ai-providers";
+  const path = endpoint.split("/");
+  const body = JSON.stringify({ active_provider: "ollama", deepseek_key: null });
+  for (const [method, payload] of [["GET", undefined], ["PATCH", body]]) {
+    const options = { method, body: payload, headers: { ...post().headers, Cookie: "emulytix_session=account; other=discard", Authorization: "Bearer discard" } };
+    const result = await proxyControl(request(endpoint, options), path, async (url, upstream) => {
+      assert.equal(url, `http://api.internal:8010/${endpoint}?`);
+      assert.equal(upstream.method, method);
+      assert.equal(upstream.headers.get("Cookie"), "emulytix_session=account");
+      assert.equal(upstream.headers.get("Authorization"), null);
+      assert.equal(upstream.body && new TextDecoder().decode(upstream.body), payload);
+      return Response.json({ active_provider: "ollama" });
+    });
+    assert.equal(result.status, 200);
+  }
+  const reject = () => assert.fail("Rejected request must not reach provider preferences");
+  assert.equal((await proxyControl(request(endpoint, { ...post(body, "https://other.test"), method: "PATCH" }), path, reject)).status, 403);
+  assert.equal((await proxyControl(request(endpoint, post(body)), path, reject)).status, 404);
+  assert.equal((await proxyControl(request(endpoint + "/key"), [...path, "key"], reject)).status, 404);
+});
+
 test("managed emulator routes preserve session and refuse arbitrary Docker endpoints", async () => {
   for (const endpoint of ['console/emulators', 'console/emulators/emu-example/start', 'console/emulators/emu-example/prepare', 'console/emulators/emu-example/stop', 'console/emulators/emu-example/configuration']) {
     const result = await proxyControl(request(endpoint, post()), endpoint.split('/'), async (url) => {
@@ -56,6 +78,27 @@ test("managed emulator routes preserve session and refuse arbitrary Docker endpo
     const result = await proxyControl(request(endpoint, post()), endpoint.split('/'), () => assert.fail('Unexpected backend call'));
     assert.equal(result.status, 404);
   }
+});
+
+test("system updates allow only the scoped session endpoint and same-origin JSON mutations", async () => {
+  const path = ["console", "updates"];
+  const endpoint = path.join("/");
+  const headers = { ...post().headers, Cookie: "emulytix_session=admin; other=secret", Authorization: "Bearer private" };
+  for (const [method, body] of [["GET", undefined], ["POST", '{"version":"0.3.0"}']]) {
+    const response = await proxyControl(request(endpoint, { method, body, headers }), path, async (url, upstream) => {
+      assert.equal(url, "http://api.internal:8010/console/updates?");
+      assert.equal(upstream.method, method);
+      assert.equal(upstream.headers.get("cookie"), "emulytix_session=admin");
+      assert.equal(upstream.headers.get("authorization"), null);
+      assert.equal(upstream.body && new TextDecoder().decode(upstream.body), body);
+      return Response.json({ state: "queued" }, { status: method === "POST" ? 202 : 200 });
+    });
+    assert.equal(response.status, method === "POST" ? 202 : 200);
+  }
+  const reject = () => assert.fail("Rejected requests must not reach the updater");
+  assert.equal((await proxyControl(request(endpoint, post("{}", "https://untrusted.example")), path, reject)).status, 403);
+  assert.equal((await proxyControl(request(endpoint, { method: "DELETE", headers }), path, reject)).status, 404);
+  assert.equal((await proxyControl(request(endpoint + "/exec", post()), [...path, "exec"], reject)).status, 404);
 });
 
 test("F-Droid search forwards the query and import requires a same-origin JSON request", async () => {
@@ -75,6 +118,28 @@ test("F-Droid search forwards the query and import requires a same-origin JSON r
   assert.equal(imported.status, 201);
   const rejected = await proxyControl(request(endpoint, post("{}", "https://other.test")), path, () => assert.fail("Unexpected import"));
   assert.equal(rejected.status, 403);
+});
+
+test("Aptoide searches and version reads are scoped separately from the protected import", async () => {
+  const endpoint = "console/applications/aptoide";
+  const versions = endpoint + "/versions";
+  for (const [path, query] of [[endpoint, "LinkedIn"], [versions, "com.linkedin.android"]]) {
+    const read = await proxyControl(request(`${path}?q=${query}&url=https%3A%2F%2Fignored.test`), path.split("/"), async url => {
+      assert.equal(url, `http://api.internal:8010/${path}?q=${query}`);
+      return Response.json({});
+    });
+    assert.equal(read.status, 200);
+  }
+  const selected = { package_name: "com.linkedin.android", version_id: "160123456" };
+  const imported = await proxyControl(request(endpoint, post(JSON.stringify(selected))), endpoint.split("/"), async (url, options) => {
+    assert.equal(url, `http://api.internal:8010/${endpoint}?`);
+    assert.deepEqual(JSON.parse(new TextDecoder().decode(options.body)), selected);
+    return Response.json({ id: "release" }, { status: 201 });
+  });
+  assert.equal(imported.status, 201);
+  const reject = () => assert.fail("Rejected request must not reach the store");
+  assert.equal((await proxyControl(request(versions, post()), versions.split("/"), reject)).status, 404);
+  assert.equal((await proxyControl(request(endpoint, post("{}", "https://other.test")), endpoint.split("/"), reject)).status, 403);
 });
 
 test("APK multipart uploads retain their boundary and use only the exact protected upload route", async () => {

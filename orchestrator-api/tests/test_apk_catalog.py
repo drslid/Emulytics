@@ -112,3 +112,40 @@ def test_rollback_cleanup_refuses_files_without_the_import_ownership_proof(tmp_p
         metadata['filename']='../another-artifact.apk'
     assert not apk_catalog.discard_rejected_import(metadata)
     assert target.exists()
+
+
+@pytest.mark.parametrize('fault', [None, 'md5', 'signer', 'sdk', 'abi', 'split', 'launcher'])
+def test_store_apk_requires_the_exact_signed_compatible_artifact(tmp_path, monkeypatch, fault):
+    content = archive_bytes()
+    sha1, sha256 = '1' * 40, '2' * 64
+    checksum = hashlib.md5(content, usedforsecurity=False).hexdigest() if fault != 'md5' else '3' * 32
+    expected = apk_catalog.ExpectedApk('com.example.demo', 1, None, len(content),
+                                       md5=checksum, signer_sha1=sha1, signer_sha256=sha256)
+    badging = (
+        "package: name='com.example.demo' versionCode='1'\n"
+        f"sdkVersion:'{34 if fault == 'sdk' else 23}'\n"
+        f"native-code: '{'arm64-v8a' if fault == 'abi' else 'x86_64'}'\n"
+    )
+    if fault != 'launcher':
+        badging += "launchable-activity: name='com.example.demo.MainActivity'\n"
+    if fault == 'split':
+        badging += "uses-split:'required'\n"
+
+    def verify(arguments, *, timeout):
+        assert arguments[:3] == ['apksigner', 'verify', '--print-certs']
+        assert timeout == 25
+        return (f"Signer #1 certificate SHA-1 digest: {sha1}\n"
+                f"Signer #1 certificate SHA-256 digest: {'4' * 64 if fault == 'signer' else sha256}\n")
+
+    monkeypatch.setenv('EMULYTIX_APK_ROOT', str(tmp_path))
+    monkeypatch.setattr(apk_catalog, '_badging', lambda path: badging)
+    monkeypatch.setattr(apk_catalog, '_apk_tool', verify)
+    if fault is not None:
+        with pytest.raises(HTTPException) as rejected:
+            apk_catalog.ingest_apk_chunks([content], expected=expected)
+        assert rejected.value.status_code == 422
+        assert not list(tmp_path.iterdir())
+    else:
+        accepted = apk_catalog.ingest_apk_chunks([content], expected=expected)
+        assert accepted['sha256'] == hashlib.sha256(content).hexdigest()
+        assert (tmp_path / accepted['filename']).read_bytes() == content

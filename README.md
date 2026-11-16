@@ -66,6 +66,12 @@ Sign in as `admin`, replace the temporary password, enroll an authenticator appl
 
 **Detailed procedure:** [Installation](https://drslid.github.io/Emulytics/getting-started/install/) · [First sign-in](https://drslid.github.io/Emulytics/getting-started/first-sign-in/)
 
+## Update Emulytics
+
+The console checks for newer stable releases on GitHub. An administrator can install a detected version from **Settings → Updates** on a host with the local updater enabled. The console restarts during installation and reports the result when it comes back.
+
+The Linux installer enables the updater when a systemd user session is available. If you installed a version from before the update feature, bring the existing checkout to a stable release and rerun the installer once. [Update instructions](https://drslid.github.io/Emulytics/getting-started/install/#update-emulytics) · [GitHub releases](https://github.com/drslid/Emulytics/releases)
+
 ## What Emulytics is
 
 Emulytics combines a React/Next.js console, a Python control API, selected Go read APIs, PostgreSQL-backed execution queues and a guarded Android worker. It separates device preparation, journey creation and execution so that each launch has a version, an explicit device selection and inspectable evidence.
@@ -80,7 +86,7 @@ The console and environment variables retain some **Emulytix** names, including 
 
 - Persistent Android emulators with screen, density, RAM, CPU and initial-storage settings.
 - Physical Android registration, named device groups and selected bulk actions.
-- Application preparation with verified standalone APKs from F-Droid or local uploads. Chrome comes from the runtime image.
+- Application preparation with verified standalone APKs from F-Droid, Aptoide or local uploads. Chrome comes from the runtime image.
 - Built-in reference journeys, plus OpenAI, local Ollama or DeepSeek for other supported natural-language goals.
 - Editable drafts, immutable publications and removal of unused published versions with historical evidence retained.
 - Immediate launches, daily/weekly/monthly scheduling and advanced five-field CRON with explicit timezones.
@@ -119,7 +125,7 @@ A Wikipedia reference goal also works without an external account:
 Open Chrome, go to Wikipedia, search for football and verify the article.
 ```
 
-The Android version and Wikipedia reference goals use built-in rules and templates. They run without an external account or language model. For other supported natural-language goals, select a configured provider in the journey editor. OpenAI uses a personal ChatGPT connection. The installation administrator configures Ollama and DeepSeek on the server.
+The Android version and Wikipedia reference goals use built-in rules and templates. They run without an external account or language model. In **Settings**, an administrator sets the installation-wide default provider, saves a shared DeepSeek API key, or configures a local Ollama server and model. Each user connects their own OpenAI account if they want to use OpenAI. The journey editor also lets users choose an available provider for a specific draft.
 
 Generated steps stay within the driver's supported actions. Review the draft, then publish and test it on a device.
 
@@ -127,7 +133,7 @@ Generated steps stay within the driver's supported actions. Review the draft, th
 
 ## Prepare a device
 
-In **Devices → Create an emulator**, open **Desired applications** to search F-Droid by application name or package ID. Choose a release using its version and date, then import the APK to select it for the emulator. You can also upload a compatible standalone APK supplied by your organization. The catalog's Snapchat, LinkedIn, Instagram and TikTok entries require compatible standalone APKs supplied by the operator.
+In **Devices → Create an emulator → Desired applications**, search F-Droid or Aptoide by application name or package ID. Choose a compatible release by version and date, then import it. Aptoide searches a broader catalog, including Snapchat and LinkedIn. The picker reports when it finds an app without a compatible APK for Android 10 x86. You can review and remove selected applications in the same form or upload a compatible standalone APK.
 
 Use **Prepare applications** to install the selected APKs on the emulator. **Power on** starts Android and **Power off** stops it while preserving its data.
 

@@ -20,7 +20,7 @@ The dashboard in a demonstration workspace.
 - Persistent Android emulators, physical device registration, groups and selected bulk actions.
 - Built-in reference journeys for Wikipedia searches and reading Android's version, without an account or language model.
 - OpenAI, local Ollama and DeepSeek for other goals that fit the driver's supported actions.
-- Search and import standalone APK releases from F-Droid, or upload APKs you already have.
+- Search F-Droid and Aptoide for standalone APK releases, or upload APKs you already have.
 - Versioned journeys, immediate launches, timezone-aware schedules and PostgreSQL-backed work queues.
 - Execution screenshots, an observed Android-version result, live screens during active runs and controlled retries.
 - Dashboard charts, a component map, service metrics and an audit journal.

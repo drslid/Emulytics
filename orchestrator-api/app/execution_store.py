@@ -12,6 +12,8 @@ from .run_store import RunStore
 
 
 ACTIVE = ('leased', 'running', 'recovering', 'verifying_state', 'waiting_auth')
+# scripts/update.py holds the matching exclusive lock through deployment.
+HOST_UPDATE_LOCK = 4993732774799699781
 TERMINAL = ('succeeded', 'failed', 'cancelled', 'needs_review')
 
 
@@ -148,6 +150,10 @@ class ExecutionStore(RunStore):
         if not owner_id or not 1 <= ttl_seconds <= 300:
             raise ValueError('An owner and a lease TTL between 1 and 300 seconds are required')
         with self.connect() as connection:
+            if not connection.execute(
+                'SELECT pg_try_advisory_xact_lock_shared(%s) AS available', (HOST_UPDATE_LOCK,),
+            ).fetchone()['available']:
+                return None
             locked = self._lock(connection, execution_id, skip_locked=True)
             if locked is None:
                 return None

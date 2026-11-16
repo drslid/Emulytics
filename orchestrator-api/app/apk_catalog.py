@@ -18,6 +18,7 @@ from uuid import UUID, uuid4
 import zipfile
 
 from fastapi import HTTPException, UploadFile
+import httpx
 from starlette.concurrency import run_in_threadpool
 
 MAX_APK_BYTES = 128 * 1024 * 1024
@@ -29,8 +30,11 @@ logger = logging.getLogger(__name__)
 class ExpectedApk:
     package_name: str
     version_code: int
-    sha256: str
+    sha256: str | None
     size_bytes: int
+    md5: str | None = None
+    signer_sha1: str | None = None
+    signer_sha256: str | None = None
 
 
 @contextmanager
@@ -71,12 +75,12 @@ def discard_rejected_import(metadata: dict) -> bool:
         return False
 
 
-def _badging(path: Path) -> str:
-    process = subprocess.Popen(['aapt', 'dump', 'badging', str(path)], stdout=subprocess.PIPE,
+def _apk_tool(arguments: list[str], *, timeout: float = 10) -> str:
+    process = subprocess.Popen(arguments, stdout=subprocess.PIPE,
                                stderr=subprocess.DEVNULL, start_new_session=True)
     try:
         output = bytearray()
-        deadline = time.monotonic() + 10
+        deadline = time.monotonic() + timeout
         with selectors.DefaultSelector() as selector:
             selector.register(process.stdout, selectors.EVENT_READ)
             while True:
@@ -104,6 +108,28 @@ def _badging(path: Path) -> str:
         process.stdout.close()
 
 
+def _badging(path: Path) -> str:
+    return _apk_tool(['aapt', 'dump', 'badging', str(path)])
+
+
+def _verify_store_signer(path: Path, badging: str, expected: ExpectedApk) -> None:
+    minimum = re.search(r"^sdkVersion:'([0-9]+)'", badging, re.M)
+    maximum = re.search(r"^maxSdkVersion:'([0-9]+)'", badging, re.M)
+    native = re.search(r"^native-code:([^\r\n]*)", badging, re.M)
+    if ((minimum and int(minimum[1]) > 29)
+            or (maximum and int(maximum[1]) < 29)
+            or (native and not {'x86', 'x86_64'}.intersection(re.findall(r"'([^']+)'", native[1])))
+            or re.search(r"^uses-split:", badging, re.M)
+            or not re.search(r"^launchable-activity:", badging, re.M)):
+        raise ValueError('APK is incompatible with Android 10 x86')
+    signatures = _apk_tool(['apksigner', 'verify', '--print-certs', '--min-sdk-version', '29',
+                            '--max-sdk-version', '29', str(path)], timeout=25)
+    for algorithm, required in (('SHA-1', expected.signer_sha1), ('SHA-256', expected.signer_sha256)):
+        digests = re.findall(rf"^Signer #\d+ certificate {algorithm} digest: ([0-9a-fA-F]+)$", signatures, re.M)
+        if required is not None and [digest.lower() for digest in digests] != [required]:
+            raise ValueError('APK publisher certificate differs from the store')
+
+
 def inspect_apk(path: Path, expected: ExpectedApk | None = None) -> tuple[str, str | None]:
     try:
         with zipfile.ZipFile(path) as archive:
@@ -120,6 +146,8 @@ def inspect_apk(path: Path, expected: ExpectedApk | None = None) -> tuple[str, s
             version = re.search(r"^package:[^\r\n]*\bversionCode='([0-9]{1,20})'", badging, re.M)
             if package[1] != expected.package_name or version is None or int(version[1]) != expected.version_code:
                 raise HTTPException(422, 'APK manifest does not match the selected version')
+            if expected.signer_sha1 is not None:
+                _verify_store_signer(path, badging, expected)
         label = re.search(r"^application-label:'([^'\r\n]{1,160})'", badging, re.M)
         return package[1], label[1] if label else None
     except (ValueError, zipfile.BadZipFile, subprocess.TimeoutExpired):
@@ -140,6 +168,7 @@ def ingest_apk_chunks(chunks: Iterable[bytes], name: str | None = None, *, expec
     temporary = None
     try:
         digest, size = hashlib.sha256(), 0
+        md5 = hashlib.md5(usedforsecurity=False) if expected and expected.md5 else None
         with tempfile.NamedTemporaryFile(dir=root, prefix='.import-', delete=False) as output:
             temporary = Path(output.name)
             for chunk in chunks:
@@ -149,9 +178,13 @@ def ingest_apk_chunks(chunks: Iterable[bytes], name: str | None = None, *, expec
                 if expected is not None and size > expected.size_bytes:
                     raise HTTPException(422, 'APK download does not match the selected version')
                 digest.update(chunk)
+                if md5 is not None:
+                    md5.update(chunk)
                 output.write(chunk)
         sha256 = digest.hexdigest()
-        if expected is not None and (size != expected.size_bytes or sha256 != expected.sha256):
+        if expected is not None and (size != expected.size_bytes
+                or (expected.sha256 is not None and sha256 != expected.sha256)
+                or (md5 is not None and md5.hexdigest() != expected.md5)):
             raise HTTPException(422, 'APK download does not match the selected version')
         package, manifest_label = inspect_apk(temporary, expected)
         identity = str(uuid4())
@@ -163,6 +196,25 @@ def ingest_apk_chunks(chunks: Iterable[bytes], name: str | None = None, *, expec
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
+
+
+def download_store_apk(url: str, label: str, expected: ExpectedApk) -> dict:
+    deadline = time.monotonic() + 65
+
+    def chunks(response: httpx.Response):
+        for chunk in response.iter_bytes():
+            if time.monotonic() > deadline:
+                raise TimeoutError
+            yield chunk
+
+    try:
+        with httpx.stream('GET', url, timeout=10, trust_env=False, follow_redirects=False) as response:
+            if response.status_code in {404, 410}:
+                raise HTTPException(404, 'Selected APK is no longer available')
+            response.raise_for_status()
+            return ingest_apk_chunks(chunks(response), label, expected=expected)
+    except (httpx.HTTPError, TimeoutError):
+        raise HTTPException(503, 'APK download is temporarily unavailable') from None
 
 
 async def ingest_apk(file: UploadFile, name: str | None = None) -> dict:

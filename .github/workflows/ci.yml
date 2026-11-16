@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: verify-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  queue: max
 
 jobs:
   api:
@@ -110,3 +110,63 @@ jobs:
           echo '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gitleaks.tar.gz' | sha256sum --check
           tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
           /tmp/gitleaks git . --redact=100 --no-banner --log-opts=--all
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'drslid/Emulytics'
+    needs: [api, frontend, go, deployment-contract, security]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Publish the verified version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(cat VERSION)
+          component='(0|[1-9][0-9]{0,5})'
+          version_pattern="$component[.]$component[.]$component"
+          if [[ ! "$version" =~ ^$version_pattern$ || "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]]; then
+            echo 'Expected a stable MAJOR.MINOR.PATCH version at the verified commit.' >&2
+            exit 1
+          fi
+          tag="v$version"
+
+          stable_tags=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name')
+          if grep -Fxq "$tag" <<< "$stable_tags"; then
+            echo "Release $tag is already published."
+            exit 0
+          fi
+          latest_tag=$(awk -v pattern="^v$version_pattern$" '$0 ~ pattern' <<< "$stable_tags" | sort -V | tail -n 1)
+          if [[ -n "$latest_tag" && "$(printf '%s\n' "$latest_tag" "$tag" | sort -V | tail -n 1)" != "$tag" ]]; then
+            echo "Release $tag must be newer than $latest_tag." >&2
+            exit 1
+          fi
+
+          tag_ref="refs/tags/$tag"
+          remote_tag_commit() {
+            git ls-remote --tags origin "$tag_ref" "$tag_ref^{}" | awk -v ref="$tag_ref" '
+              $2 == ref { tag = $1 }
+              $2 == ref "^{}" { peeled = $1 }
+              END { print peeled ? peeled : tag }
+            '
+          }
+          tag_commit=$(remote_tag_commit)
+          if [[ -n "$tag_commit" && "$tag_commit" != "$GITHUB_SHA" ]]; then
+            echo "Tag $tag already identifies a different commit." >&2
+            exit 1
+          fi
+
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Emulytics $tag" --generate-notes --latest
+          published_commit=$(remote_tag_commit)
+          if [[ "$published_commit" != "$GITHUB_SHA" ]]; then
+            echo "Published tag $tag does not identify the verified commit." >&2
+            exit 1
+          fi

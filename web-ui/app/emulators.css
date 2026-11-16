@@ -27,24 +27,27 @@
 .emulator-empty h3 { margin:0; color:var(--text); font-size:17px; }
 .emulator-empty p { margin:0; }
 .emulator-form-fields { border:0; margin:0; padding:0; display:grid; gap:20px; min-width:0; }
-.emulator-application-picker { display:grid; gap:16px; min-width:0; }
-.emulator-application-picker > fieldset { min-width:0; border:0; padding:0; margin:0; }
-.emulator-application-picker legend { padding:0; margin-bottom:14px; font-size:13px; font-weight:500; }
-.emulator-application-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; max-height:320px; overflow-y:auto; padding:3px; }
-.emulator-application-picker > fieldset:disabled .emulator-application-options { max-height:none; overflow:visible; }
-.emulator-application-options .emulator-app-option { display:flex; align-items:flex-start; gap:12px; padding:14px; min-height:64px; border:1px solid var(--line); border-radius:10px; cursor:pointer; min-width:0; }
-.emulator-app-option:has(input:checked) { border-color:var(--accent); background:var(--blue-soft); }
-.emulator-application-options .emulator-app-option input[type="checkbox"] { width:18px; min-width:18px; margin-block-start:2px; flex-shrink:0; }
-.emulator-app-option > span { min-width:0; display:grid; gap:6px; }
-.emulator-app-option strong { font-size:12px; line-height:1.5; font-weight:500; overflow-wrap:anywhere; }
-.emulator-app-option small { font-size:10px; color:var(--muted); line-height:1.6; }
-.emulator-app-option small.emulator-apk-missing { justify-self:start; padding:3px 6px; border-radius:5px; color:var(--warning); background:var(--warning-soft); }
+.emulator-application-picker { display:grid; gap:14px; min-width:0; border:0; padding:0; margin:0; }
+.emulator-application-picker legend { padding:0; margin-bottom:14px; font-size:14px; font-weight:500; }
+.emulator-apk-library { min-width:0; }
+.emulator-apk-library summary { cursor:pointer; min-height:44px; padding-block:12px; color:var(--accent-soft); font-size:13px; }
+.emulator-apk-library-fields { display:flex; flex-wrap:wrap; align-items:end; gap:12px; padding-block-end:8px; }
+.emulator-apk-library-fields label { flex:1 1 200px; min-width:0; }
+.emulator-apk-library-fields select { min-width:0; }
+.emulator-selected-apps { list-style:none; margin:0; padding:0; border-block-start:1px solid var(--line); }
+.emulator-selected-apps li { display:flex; align-items:center; justify-content:space-between; gap:10px; padding-block:6px; border-block-end:1px solid var(--line); }
+.emulator-selected-apps li > div { display:grid; gap:4px; min-width:0; }
+.emulator-selected-apps strong,.emulator-selected-apps small { overflow-wrap:anywhere; }
+.emulator-selected-apps strong { font-size:13px; font-weight:500; }
+.emulator-selected-apps small { color:var(--muted); font-size:11px; }
+.emulator-selected-apps small.emulator-apk-missing { color:var(--warning); }
+.emulator-selected-apps .icon-button { width:44px; height:44px; }
 .emulator-platform { font-size:12px; margin:0; color:var(--muted); }
 .emulator-application-picker > .button { justify-self:start; }
 .emulator-application-picker > .small-copy { margin:0; }
 .emulator-application-picker > input[type="file"].sr-only { width:1px; max-width:1px; height:1px; min-height:0; }
-.emulator-store { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:12px; padding-block-start:16px; border-block-start:1px solid var(--line); min-width:0; }
-.emulator-store > :not(.emulator-store-query,.emulator-store-submit) { grid-column:1/-1; }
+.emulator-store { display:grid; grid-template-columns:minmax(116px,.32fr) minmax(0,1fr) auto; align-items:end; gap:12px; min-width:0; }
+.emulator-store > :not(.emulator-store-source,.emulator-store-query,.emulator-store-submit) { grid-column:1/-1; }
 .emulator-store .small-copy { margin:0; }
 .emulator-store-results { display:grid; gap:12px; min-width:0; }
 .emulator-store :is(input,select) { min-width:0; width:100%; min-height:44px; }
@@ -103,7 +106,6 @@
 .fleet-confirm-members li { padding:12px; background:var(--blue-soft); border-radius:8px; display:grid; gap:8px; font-size:12px; overflow-wrap:anywhere; }
 @media(max-width:620px) {
  .emulator-card { padding:18px; }
- .emulator-application-options { grid-template-columns:1fr; }
  .emulator-store { grid-template-columns:minmax(0,1fr); }
  .emulator-store-submit { justify-self:start; }
  .emulator-actions .row-actions { flex-direction:column; }

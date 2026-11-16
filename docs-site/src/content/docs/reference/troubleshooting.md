@@ -7,6 +7,12 @@ description: Resolve common installation, connection, generation and execution b
 
 Use `./scripts/install.sh --check` and read the reported prerequisite. Confirm local Docker Engine, the Compose plugin, Linux x86_64, accessible KVM, available RAM and free disk space. Docker Desktop, ARM and remote Docker are outside this installer's supported runtime.
 
+## The update button is unavailable
+
+Check **Settings → Updates** as an administrator. If an update is available and the host updater is offline, enable it with `python3 scripts/update.py enable` as the installation user. Use the [manual update procedure](/Emulytics/getting-started/install/#update-an-older-installation-manually) on older versions or hosts without a user systemd session.
+
+If installation fails, read the host service log with `journalctl --user -u emulytics-update.service -n 50`. Wait for active journeys to finish and resolve local Git changes before retrying. The deployment keeps the existing database and storage. Database migrations are forward-only.
+
 If Linux/WSL reports slightly less than 8 GiB total RAM, increase the guest's memory allocation or explicitly accept reduced capacity with `--allow-low-memory`. Check with `./scripts/install.sh --check --allow-low-memory`, then add the same option to the installation command. At least 4 GiB of available RAM is still required.
 
 Do not delete `.env.console` or add `--volumes` to a shutdown command to fix an unrelated error.

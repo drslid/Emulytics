@@ -31,11 +31,16 @@ def create_recipe(payload: RecipeInput, request: Request, store: Store):
 
 @router.get('/recipes/providers')
 def recipe_providers(request: Request):
-    from .journey_provider import external_planner_settings
+    from .ai_provider_settings import ai_provider_store
+    from .auth import SESSION_COOKIE
     if _actor(request) is None:
         raise HTTPException(401, 'Connexion personnelle requise')
-    return {name: settings['model'] if (settings := external_planner_settings(name)) else None
-            for name in ('ollama', 'deepseek')}
+    settings = ai_provider_store().status(request.cookies.get(SESSION_COOKIE))
+    return {
+        'active_provider': settings['active_provider'],
+        'ollama': settings['ollama']['model'] if settings['ollama']['configured'] else None,
+        'deepseek': settings['deepseek']['model'] if settings['deepseek']['has_key'] else None,
+    }
 
 
 @router.post('/recipes/generate')
@@ -55,7 +60,8 @@ def generate_recipe(payload: GoalInput, request: Request, store: Store):
     if not user:
         raise HTTPException(401, 'Connexion personnelle requise')
     provider.limit('journey-generation', str(user['id']), request.client.host if request.client else 'unknown', maximum=10)
-    output = provider.generate(session, payload.instructions, payload.provider)
+    selected_provider = payload.provider or provider.active_provider()
+    output = provider.generate(session, payload.instructions, selected_provider)
     if (not isinstance(output, dict) or type(output.get('supported')) is not bool
             or not isinstance(output.get('reason'), str) or len(output['reason']) > 1000):
         raise HTTPException(422, 'La génération a produit une réponse invalide. Reformulez votre objectif.')
@@ -72,7 +78,7 @@ def generate_recipe(payload: GoalInput, request: Request, store: Store):
         value = validate_generated_recipe({'name': output['name'], 'steps': steps, 'recovery_budget': 0}, payload.instructions)
     except (ValueError, TypeError, KeyError, AttributeError):
         raise HTTPException(422, 'La génération ne fournit pas un parcours vérifiable. Précisez le résultat attendu.') from None
-    return {'recipe': value, 'source': 'chatgpt' if payload.provider == 'openai' else payload.provider,
+    return {'recipe': value, 'source': 'chatgpt' if selected_provider == 'openai' else selected_provider,
             'expected_result': output['reason'], 'requires_test': True,
             'capabilities': ['installed_apps', 'chrome', 'wikipedia', 'android_settings', 'android_version']}
 

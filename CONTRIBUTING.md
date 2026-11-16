@@ -58,3 +58,9 @@ Use a focused branch and pull request. Describe the user-visible behavior, inclu
 Use a small regression test for behavior or security fixes. Verify browser changes in a real browser, including keyboard navigation and a narrow viewport. Keep interface translations consistent across all supported languages.
 
 Do not commit real configuration, credentials, databases, device data, APKs, screenshots of personal data or browser state. Use the private process in [SECURITY.md](SECURITY.md) for security reports. Contributions are licensed under [Apache-2.0](LICENSE); third-party notices remain in [NOTICE](NOTICE).
+
+## Publish a release
+
+To publish a new Emulytics version, increase [`VERSION`](VERSION) using `MAJOR.MINOR.PATCH` and merge the change into `main`. Once all checks in **Verify console** pass, GitHub Actions tags the verified commit and publishes the corresponding GitHub Release with generated notes. Pushes with an already-released version keep that release available for updates.
+
+Keep release tags fixed. If publication fails, rerun the failed job for the same commit. Keep migrations compatible with the previous stable application during a failed deployment recovery. The Android runtime image has its own version and build workflow.

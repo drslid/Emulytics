@@ -14,7 +14,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends aapt \
+    && apt-get install -y --no-install-recommends aapt apksigner \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt requirements.lock ./

@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 import psycopg
 import pytest
 
-from app.execution_store import ExecutionStore
+from app.execution_store import ExecutionStore, HOST_UPDATE_LOCK
 from app.run_models import RunSubmission
 from app.run_store import RunStore
 
@@ -40,6 +40,16 @@ def test_concurrent_claims_have_one_winner(pending):
     with ThreadPoolExecutor(max_workers=8) as executor:
         claims = list(executor.map(lambda number: store.claim(execution_id, f'worker-{number}', 30), range(8)))
     assert len([claim for claim in claims if claim]) == 1
+
+
+def test_update_prevents_new_leases_until_deployment_finishes(pending, database_dsn):
+    store, run = pending
+    execution_id = run['executions'][0]['id']
+    with psycopg.connect(database_dsn) as connection:
+        connection.execute('SELECT pg_advisory_xact_lock(%s)', (HOST_UPDATE_LOCK,))
+        assert store.claim(execution_id, 'worker-1', 30) is None
+        assert rows(database_dsn, 'SELECT status FROM executions') == [('queued',)]
+    assert store.claim(execution_id, 'worker-1', 30)['execution_id'] == execution_id
 
 
 def test_candidates_target_host_and_omit_busy_devices(pending):

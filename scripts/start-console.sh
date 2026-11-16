@@ -3,6 +3,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 umask 077
 
+EMULYTIX_VERSION="$(<VERSION)"
+[[ "$EMULYTIX_VERSION" =~ ^(0|[1-9][0-9]{0,5})(\.(0|[1-9][0-9]{0,5})){2}$ ]] || { echo "Version Emulytics invalide." >&2; exit 1; }
+export EMULYTIX_VERSION
+mkdir -p storage/updates/{requests,status}
+
 python3 - <<'PY'
 import base64
 import os
@@ -27,9 +32,18 @@ Path('storage/runs').mkdir(parents=True, exist_ok=True)
 PY
 
 console=(docker compose --env-file .env.console -p emulytix-preview -f docker-compose.preview.yml)
-"${console[@]}" up -d console-postgres
-"${console[@]}" run --build --rm console-migrate
-"${console[@]}" up -d --build console-api console-go-api console-scheduler validation-ui
+if [[ "${EMULYTIX_UPDATING:-}" == 1 ]]; then
+  dependencies=(--no-deps)
+  migration_build=()
+  service_build=(--no-build)
+else
+  dependencies=()
+  migration_build=(--build)
+  service_build=(--build)
+  "${console[@]}" up -d console-postgres
+fi
+"${console[@]}" run "${dependencies[@]}" "${migration_build[@]}" --rm console-migrate
+"${console[@]}" up "${dependencies[@]}" -d "${service_build[@]}" console-api console-go-api console-scheduler validation-ui
 python3 scripts/bootstrap-console.py
 "${console[@]}" exec -T console-api python -c '
 import json, os
