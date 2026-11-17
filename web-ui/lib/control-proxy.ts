@@ -4,9 +4,10 @@ const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows
 const userPath = `console/users/${UUID}`;
 const recipePath = `console/recipes/${UUID}`;
 const schedulePath = `console/schedules/${UUID}`;
+const recipeDraft = new RegExp(`^${recipePath}$`);
 const devicePath = `console/devices/${identifier}`;
 const changes = {
-  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/(cancel|retry)|console/(fleet/(groups|bulk)|emulators|emulators/${identifier}/(configuration|start|prepare|stop)|applications(/(fdroid|aptoide|aurora))?|updates|users|recipes|recipes/(from-workflow|generate)|schedules|schedules/preview|account/(api-keys|ai-providers/test|password|recovery-codes|chatgpt/(login|cancel)|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
+  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/(cancel|retry)|console/(fleet/(groups|bulk)|emulators|emulators/${identifier}/(configuration|start|prepare|stop)|applications(/(fdroid|aptoide|aurora))?|updates|users|recipes|recipes/(from-workflow|generate|prepare-cards|suggest-cards)|schedules|schedules/preview|account/(api-keys|ai-providers/test|password|recovery-codes|chatgpt/(login|cancel)|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
   PATCH: new RegExp(`^(${userPath}|${recipePath}|${schedulePath}|${devicePath}|console/account/(profile|ai-providers)|console/fleet/groups/${UUID})$`),
   DELETE: new RegExp(`^(workflows/${identifier}/versions/[0-9]+|${schedulePath}|${devicePath}|console/fleet/groups/${UUID}|console/account/(api-keys/${UUID}|chatgpt|two-factor/enrollment))$`)
 };
@@ -32,6 +33,7 @@ export async function proxyControl(request: Request, segments: string[], fetcher
   if (!base || !origin) return error(503, "La console n’est pas encore configurée.");
   const headers = new Headers({ Accept: "application/json", Cookie: sessionCookies(request.headers.get("cookie")) });
   let body: Uint8Array<ArrayBuffer> | undefined;
+  const recipePlanning = /^console\/recipes\/(generate|prepare-cards|suggest-cards)$/.test(endpoint);
   const apkUpload = request.method === "POST" && endpoint === "console/applications";
   const apkStore = /^console\/applications\/(fdroid|(aptoide|apkmirror)(\/versions)?)$/.test(endpoint);
   const verifiedApkImport = request.method === "POST" && (endpoint === "console/applications/aptoide" || endpoint === "console/applications/aurora");
@@ -46,6 +48,9 @@ export async function proxyControl(request: Request, segments: string[], fetcher
     headers.set("Origin", origin);
     headers.set("X-Emulytix-Client", "console");
     headers.set("Content-Type", apkUpload ? contentType : "application/json");
+    const recipeCards = request.method === "POST" && (endpoint === "console/recipes" || endpoint === "console/recipes/prepare-cards")
+      || request.method === "PATCH" && recipeDraft.test(endpoint);
+    const maximumBodyBytes = apkUpload ? 128 * 1024 * 1024 + 65_536 : recipeCards ? 256 * 1024 : 65_536;
     const reader = request.body?.getReader();
     const chunks: Uint8Array[] = [];
     let length = 0;
@@ -54,7 +59,7 @@ export async function proxyControl(request: Request, segments: string[], fetcher
         const { done, value } = await reader.read();
         if (done) break;
         length += value.byteLength;
-        if (length > (apkUpload ? 128 * 1024 * 1024 + 65_536 : 65_536)) {
+        if (length > maximumBodyBytes) {
           await reader.cancel();
           return error(413, "La demande est trop volumineuse.");
         }
@@ -77,7 +82,7 @@ export async function proxyControl(request: Request, segments: string[], fetcher
     const streaming = endpoint === "console/monitor/stream";
     const controller = new AbortController();
     const timer = streaming ? setTimeout(() => controller.abort(), 15_000) : undefined;
-    const timeout = verifiedApkImport ? 120_000 : endpoint === "console/recipes/generate" || apkStore ? 100_000
+    const timeout = verifiedApkImport ? 120_000 : recipePlanning || apkStore ? 100_000
       : apkUpload || endpoint === "console/fleet/bulk" ? 60_000
       : endpoint === "console/account/ai-providers/test" ? 35_000 : 15_000;
     let upstream: Response;
@@ -101,7 +106,15 @@ export async function proxyControl(request: Request, segments: string[], fetcher
     }
     const retry = upstream.headers.get("retry-after");
     if (retry) responseHeaders.set("Retry-After", retry);
-    if (upstream.status >= 500) return error(503, "Le service est indisponible. Réessaie dans un instant.");
+    if (upstream.status >= 500) {
+      if (upstream.status === 503 && endpoint === "console/recipes/prepare-cards") {
+        const failure = await upstream.json().catch(() => null);
+        if (failure?.detail?.code === "provider_discovery_required") {
+          return Response.json({ detail: { code: "provider_discovery_required" } }, { status: 503, headers: responseHeaders });
+        }
+      }
+      return error(503, "Le service est indisponible. Réessaie dans un instant.");
+    }
     return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
   } catch {
     return error(503, "Impossible de joindre le service. Réessaie dans un instant.");

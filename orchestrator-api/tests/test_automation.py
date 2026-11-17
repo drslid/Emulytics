@@ -6,6 +6,7 @@ from uuid import uuid4
 import psycopg
 import pytest
 from fastapi import HTTPException
+from psycopg.types.json import Jsonb
 
 from app.android_driver import AndroidDriver
 from app.automation_models import RecipeInput, ScheduleInput
@@ -93,6 +94,65 @@ def test_run_authoring_update_only_replays_exact_next_revision(control_client, d
         assert connection.execute("SELECT count(*) AS n FROM audit_log WHERE action='recipe.updated'").fetchone()['n'] == 2
 
 
+def test_natural_language_authoring_snapshots_cards_with_each_publication(control_client, database_dsn):
+    cards = [
+        {"id": "open-settings", "instruction": "Ouvre les paramètres", "verification": None},
+        {"id": "version", "instruction": "Relève la version Android", "verification": "La version Android est relevée"},
+    ]
+    prepared = control_client.post("/console/recipes/prepare-cards", json={"cards": cards})
+    assert prepared.status_code == 200, prepared.text
+    technical = prepared.json()["recipe"]
+    initial = {**technical, "cards": cards, "request_id": str(uuid4())}
+    response = control_client.post("/console/recipes", json=initial)
+    assert response.status_code == 201, response.text
+    saved = response.json()
+    assert saved["cards"] == cards
+    assert control_client.post("/console/recipes", json=initial).json() == saved
+    assert control_client.post("/console/recipes", json={**initial, "cards": cards[::-1]}).status_code == 409
+    recipe_url = f"/console/recipes/{saved['id']}"
+    workflow_url = f"/workflows/{saved['workflow_id']}/versions"
+    assert control_client.post(f"{recipe_url}/publish", json={"revision": 1}).status_code == 200
+
+    # Legacy clients can rename the source without losing the saved cards.
+    renaming = control_client.patch(recipe_url, json={**technical, "name": "Nouveau nom", "revision": 1})
+    assert renaming.status_code == 200 and renaming.json()["cards"] == cards
+    edited = [{**cards[1], "instruction": "Lis la version Android"}, cards[0]]
+    recompiled = control_client.post("/console/recipes/prepare-cards", json={"cards": edited})
+    assert recompiled.status_code == 200, recompiled.text
+    update = {**recompiled.json()["recipe"], "cards": edited, "revision": 2, "accept_replay": True}
+    changed = control_client.patch(recipe_url, json=update)
+    assert changed.status_code == 200 and changed.json()["cards"] == edited
+    assert control_client.patch(recipe_url, json=update).json() == changed.json()
+    assert control_client.patch(recipe_url, json={**update, "cards": cards}).status_code == 409
+    assert control_client.post(f"{recipe_url}/publish", json={"revision": 3}).status_code == 200
+    assert control_client.get(f"{workflow_url}/1").json()["cards"] == cards
+    assert control_client.get(f"{workflow_url}/2").json()["cards"] == edited
+    assert control_client.get("/workflows").json()["items"][0]["cards"] == edited
+    with RunStore(database_dsn).connect() as connection:
+        definitions = connection.execute("SELECT definition FROM workflows").fetchall()
+    assert all("cards" not in row["definition"] for row in definitions)
+
+    altered_steps = [{**technical["steps"][0], "timeout_ms": 25_000}]
+    cleared = control_client.patch(recipe_url, json={**technical, "steps": altered_steps, "revision": 3})
+    assert cleared.status_code == 200 and cleared.json()["cards"] is None
+    assert control_client.get(f"{workflow_url}/2").json()["cards"] == edited
+
+
+def test_prepare_can_use_local_rules_before_provider_discovery(control_client, database_dsn, monkeypatch):
+    def no_remote_calls(*args, **kwargs):
+        pytest.fail("Preparing without provider discovery must stay local")
+
+    monkeypatch.setattr("app.automation_routes._generate_draft", no_remote_calls)
+    endpoint = "/console/recipes/prepare-cards"
+    exact_goal = "Ouvre les parametres du telephone, et recupere la version d'android"
+    prepared = control_client.post(endpoint, json={"cards": [{"id": "goal", "instruction": exact_goal}], "local_only": True})
+    assert prepared.status_code == 200, prepared.text
+    assert [step["action"] for step in prepared.json()["recipe"]["steps"]] == ["open_settings", "read_device_info"]
+    external = control_client.post(endpoint, json={"cards": [{"id": "goal", "instruction": "Bring up my company dashboard"}], "local_only": True})
+    assert external.status_code == 503
+    assert external.json()["detail"]["code"] == "provider_discovery_required"
+
+
 def test_builtin_workflow_can_be_opened_as_a_draft(control_client, database_dsn):
     builtin = WorkflowRegistration.model_validate_json(
         (Path(__file__).resolve().parents[2] / "workflows/chrome-wikipedia-football.v1.json").read_text()
@@ -125,11 +185,14 @@ def test_builtin_workflow_can_be_opened_as_a_draft(control_client, database_dsn)
 def test_workflow_import_copies_publication_metadata_and_preserves_existing_draft(database_dsn, workflow_payload):
     store = AutomationStore(database_dsn)
     store.register_workflow(WorkflowRegistration(**workflow_payload))
+    cards = [{"id": "go-home", "instruction": "Reviens à l’accueil", "verification": None}]
     with store.connect() as connection:
-        connection.execute("INSERT INTO automation_publications(workflow_id,version,name,instructions) VALUES('go-home',1,'Parcours publié','Consigne publiée')")
+        connection.execute("INSERT INTO automation_publications(workflow_id,version,name,instructions,cards) "
+                           "VALUES('go-home',1,'Parcours publié','Consigne publiée',%s)", (Jsonb(cards),))
     draft = store.recipe_from_workflow("go-home", 1, None, name="Autre nom", instructions="Autre consigne")
     assert draft["name"] == "Parcours publié"
     assert draft["instructions"] == "Consigne publiée"
+    assert draft["cards"] == cards
     changed = recipe(workflow_payload)
     changed.steps[0].timeout_ms = 25_000
     saved = store.update_recipe(draft["id"], draft["revision"], changed, None)

@@ -87,7 +87,7 @@ The console and environment variables retain some **Emulytix** names, including 
 - Persistent Android emulators with screen, density, RAM, CPU and initial-storage settings.
 - Physical Android registration, named device groups and selected bulk actions.
 - Application preparation with standalone APKs from F-Droid, Aptoide or local uploads, APKMirror search, and optional installation of the latest signed Aurora Store release. Chrome comes from the runtime image.
-- Built-in reference journeys, plus OpenAI, local Ollama or DeepSeek for other supported natural-language goals.
+- Editable workflow cards in plain language, with built-in reference journeys and optional help from OpenAI, local Ollama or DeepSeek.
 - Editable drafts, immutable publications and removal of unused published versions with historical evidence retained.
 - Immediate launches, daily/weekly/monthly scheduling and advanced five-field CRON with explicit timezones.
 - Live screens during active executions, step screenshots, observed device results and controlled retries.
@@ -103,7 +103,9 @@ These screenshots show the Emulytics console with demonstration data.
 ![Dashboard showing the first-journey assistant, run totals and fleet charts](docs-site/public/brand/console/dashboard.png)
 
 <details>
-<summary>APK search and AI provider settings</summary>
+<summary>Workflow cards, APK search and AI provider settings</summary>
+
+![Workflow editor showing two plain-language steps, an optional verification and the prepared actions](docs-site/public/brand/console/workflow-cards.png)
 
 ![Create an emulator dialog showing the Aurora Store option and the combined app search](docs-site/public/brand/console/apk-search.png)
 
@@ -115,8 +117,8 @@ These screenshots show the Emulytics console with demonstration data.
 
 1. Open the dashboard's **Your first successful journey** assistant.
 2. Select a device whose Android connection and required applications are ready.
-3. Write `Open the phone settings and tell me the Android version.`
-4. Review the generated steps, save the draft, then publish and test it.
+3. Write `Open the phone settings` in the first card and `Read the Android version` in the next one.
+4. Prepare the cards, review the actions, save the draft, then publish and test it.
 5. Open the execution to inspect the observed version and step screenshots.
 
 A Wikipedia reference goal also works without an external account:
@@ -125,7 +127,7 @@ A Wikipedia reference goal also works without an external account:
 Open Chrome, go to Wikipedia, search for football and verify the article.
 ```
 
-The Android version and Wikipedia reference goals use built-in rules and templates. They run without an external account or language model. In **Settings → AI providers**, an administrator sets the installation-wide default provider, saves a shared DeepSeek API key, or configures a local Ollama server and model. Open a provider and choose **Test connection** to verify its saved configuration. Each user connects and tests their own OpenAI account. The journey editor also lets users choose an available provider for a specific draft.
+The Android version and Wikipedia reference goals use built-in rules and templates. They run without an external account or language model. For other supported journeys, you can describe the whole task and ask your configured AI provider to suggest cards. In **Settings → AI providers**, an administrator sets the installation-wide default provider, saves a shared DeepSeek API key, or configures a local Ollama server and model. Open a provider and choose **Test connection** to verify its saved configuration. Each user connects and tests their own OpenAI account.
 
 Generated steps stay within the driver's supported actions. Review the draft, then publish and test it on a device.
 

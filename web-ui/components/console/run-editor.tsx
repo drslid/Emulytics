@@ -3,16 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../lib/client-api";
-import type { RunDetail, Workflow } from "../../lib/console-types";
+import type { Device, RunDetail, Workflow } from "../../lib/console-types";
 import { useT } from "../../lib/i18n";
 import { RecipeEditor } from "./recipe-editor";
 import { ErrorNotice } from "./shared";
 
 type RunSource = { run: RunDetail; workflow: Workflow };
 
-export function RunEditor({ sourceRunId, workflows, onPrepared }: {
+export function RunEditor({ sourceRunId, workflows, devices, onPrepared }: {
   sourceRunId?: string;
   workflows: Workflow[];
+  devices: Device[];
   onPrepared: (workflow: Workflow, source?: RunDetail) => void;
 }) {
   const t = useT();
@@ -44,9 +45,12 @@ export function RunEditor({ sourceRunId, workflows, onPrepared }: {
         : <p role="status">{t("Chargement de l’exécution…")}</p>}
     </div>;
   }
+  const ids = source?.run.device_ids ?? [];
+  const deviceId = ids.length === 1 && devices.some(device => device.device_id === ids[0]) ? ids[0] : undefined;
   return <RecipeEditor templates={workflows} onClose={() => router.push("/activite")} run={{
     source: source?.workflow,
     sourceRunId,
+    deviceId,
     onPrepared: workflow => onPrepared(workflow, source?.run)
   }} />;
 }

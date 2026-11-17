@@ -106,22 +106,19 @@ export function Workflows({
     } catch (failure) { setDeleteError((failure as Error).message); }
     finally { removing.current = false; setBusy(false); }
   }
+  if (canBuild && editing) return <RecipeEditor
+    inline key={editing === "new" ? "new" : editing.id}
+    recipe={editing === "new" ? null : editing}
+    templates={workflows}
+    onClose={() => setEditing(null)}
+    onSaved={() => {
+      setEditing(null);
+      void load(requestedOffset.current);
+      onChanged();
+    }}
+  />;
   return (
     <>
-      <div className="process-strip">
-        <span>
-          <b>1</b>
-          {t("Ajouter des appareils")}
-        </span>
-        <span className="process-current">
-          <b>2</b>
-          {t("Créer un parcours")}
-        </span>
-        <span>
-          <b>3</b>
-          {t("Lancer ou planifier")}
-        </span>
-      </div>
       <div className="section-heading">
         <div>
           <h2>{t("Vos parcours")}</h2>
@@ -276,19 +273,6 @@ export function Workflows({
           <div className="dialog-footer"><button type="button" className="button button--secondary" disabled={busy} autoFocus onClick={() => setDeleting(null)}>{t("Annuler")}</button><button type="button" className="button button--danger" disabled={busy} onClick={() => void removePublished()}>{t(busy ? "Demande en cours…" : "Supprimer")}</button></div>
         </div>
       </Dialog>}
-      {editing && (
-        <RecipeEditor
-          key={editing === "new" ? "new" : editing.id}
-          recipe={editing === "new" ? null : editing}
-          templates={workflows}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null);
-            void load();
-            onChanged();
-          }}
-        />
-      )}
     </>
   );
 }

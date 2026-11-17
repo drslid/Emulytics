@@ -26,7 +26,7 @@ Each OpenAI connection belongs to one local user. The server uses an isolated of
 
 ## Configure and activate an AI provider
 
-In **Settings → AI providers**, administrators set **OpenAI**, **DeepSeek**, or **Ollama** as the installation default. Open a provider's row to view or edit its settings. Users can see the default and select another available provider for a specific draft in the journey editor. Each user connects their own OpenAI account to generate journeys with OpenAI.
+In **Settings → AI providers**, administrators set **OpenAI**, **DeepSeek**, or **Ollama** as the installation default. Open a provider's row to view or edit its settings. Each user connects their own OpenAI account to generate journeys with OpenAI.
 
 For **DeepSeek**, an administrator enters the shared API key and the model name. The server encrypts the key and Settings displays a saved indicator. Leave the key field blank to keep the current key. DeepSeek receives the text of the generation request over HTTPS. [DeepSeek API documentation](https://api-docs.deepseek.com/)
 
@@ -38,11 +38,11 @@ The installer can also provide defaults through the existing `EMULYTIX_OLLAMA_UR
 
 Open a provider and choose **Test connection**. For OpenAI, the test uses your connected account to make a short request. Administrators can test Ollama and DeepSeek after saving their settings. Those tests look for the configured model on the server and verify DeepSeek accepts the saved key. A test does not create a draft or start an emulator.
 
-## Choose a provider for a journey
+## Use AI in the workflow editor
 
-The Wikipedia and Android-version reference goals use built-in rules and templates. They require neither an account nor a language model. For other supported natural-language goals, select a configured provider in the journey editor, enter your goal and generate a draft.
+The Wikipedia and Android-version reference goals use built-in rules and templates. For other supported instructions, the workflow editor uses the configured default to suggest cards from a description and to prepare actions from the current cards. You can choose another configured provider from the editor for that draft. [Workflow editor guide](/Emulytics/guides/journeys/)
 
-Providers receive text and return draft steps. The console checks those steps against the typed journey contract and the Android driver's allowed actions. Review the draft, publish it and test it on a device.
+The provider receives the text and the available app context for the task. The console checks the proposed steps against the Android driver's allowed actions. Review the draft, publish it and test it on a device.
 
 ## Deployment settings
 

@@ -64,19 +64,21 @@ class AutomationStore(RunStore):
     def create_recipe(self, recipe: RecipeInput, actor_id: UUID | None, *, request_id: UUID | None = None) -> dict:
         recipe_id = request_id or uuid4()
         definition = self._definition(recipe)
+        cards = recipe.model_dump(mode="json", include={"cards"})["cards"]
         slug = unicodedata.normalize("NFKD", recipe.name).encode("ascii", "ignore").decode().lower()
         slug = re.sub(r"[^a-z0-9]+", "-", slug).strip("-")[:70] or "workflow"
         with self.connect() as connection:
             row = connection.execute(
-                "INSERT INTO automation_recipes(id,workflow_id,name,instructions,definition,created_by) "
-                "VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING *",
-                (recipe_id, f"{slug}-{recipe_id.hex[:12]}", recipe.name, recipe.instructions, Jsonb(definition), actor_id),
+                "INSERT INTO automation_recipes(id,workflow_id,name,instructions,definition,cards,created_by) "
+                "VALUES(%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING *",
+                (recipe_id, f"{slug}-{recipe_id.hex[:12]}", recipe.name, recipe.instructions, Jsonb(definition),
+                 Jsonb(cards) if cards is not None else None, actor_id),
             ).fetchone()
             if row is None:
                 previous = connection.execute("SELECT * FROM automation_recipes WHERE id=%s", (recipe_id,)).fetchone()
                 if (not previous or previous["created_by"] != actor_id
-                        or (previous["name"], previous["instructions"], previous["definition"])
-                        != (recipe.name, recipe.instructions, definition)):
+                        or (previous["name"], previous["instructions"], previous["definition"], previous["cards"])
+                        != (recipe.name, recipe.instructions, definition, cards)):
                     raise HTTPException(409, "Request ID was already used with different content")
                 return _recipe_view(previous)
             audit_event(connection, actor_id, "recipe.created", str(recipe_id), {"revision": 1}, category="automation")
@@ -89,7 +91,7 @@ class AutomationStore(RunStore):
             if existing is not None:
                 return _recipe_view(existing)
             source = connection.execute(
-                "SELECT w.definition,p.name,p.instructions FROM workflows w "
+                "SELECT w.definition,p.name,p.instructions,p.cards FROM workflows w "
                 "LEFT JOIN automation_publications p ON p.workflow_id=w.workflow_id AND p.version=w.version "
                 "WHERE w.workflow_id=%s AND w.version=%s", (workflow_id, version),
             ).fetchone()
@@ -98,10 +100,11 @@ class AutomationStore(RunStore):
             latest = connection.execute("SELECT MAX(version) AS version FROM workflows WHERE workflow_id=%s", (workflow_id,)).fetchone()["version"]
             definition = {"steps": source["definition"]["steps"], "recovery_budget": source["definition"].get("recovery_budget", 0)}
             row = connection.execute(
-                "INSERT INTO automation_recipes(id,workflow_id,name,instructions,definition,latest_version,created_by) "
-                "VALUES(%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(workflow_id) DO NOTHING RETURNING *",
+                "INSERT INTO automation_recipes(id,workflow_id,name,instructions,definition,cards,latest_version,created_by) "
+                "VALUES(%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(workflow_id) DO NOTHING RETURNING *",
                 (uuid4(), workflow_id, source["name"] if source["name"] is not None else name or workflow_id[:120],
-                 source["instructions"] if source["instructions"] is not None else instructions or "", Jsonb(definition), latest, actor_id),
+                 source["instructions"] if source["instructions"] is not None else instructions or "", Jsonb(definition),
+                 Jsonb(source["cards"]) if source["cards"] is not None else None, latest, actor_id),
             ).fetchone()
             if row is None:
                 # Another editor opened this workflow first; keep that draft intact.
@@ -124,11 +127,16 @@ class AutomationStore(RunStore):
     def update_recipe(self, recipe_id: UUID, revision: int, recipe: RecipeInput, actor_id: UUID | None,
                       *, accept_replay: bool = False) -> dict:
         definition = self._definition(recipe)
+        cards = recipe.model_dump(mode="json", include={"cards"})["cards"]
+        cards_explicit = "cards" in recipe.model_fields_set
         with self.connect() as connection:
             row = connection.execute(
-                "UPDATE automation_recipes SET name=%s,instructions=%s,definition=%s,revision=revision+1,updated_at=clock_timestamp() "
+                "UPDATE automation_recipes SET name=%s,instructions=%s,definition=%s,"
+                "cards=CASE WHEN %s THEN %s::jsonb WHEN definition=%s THEN cards ELSE NULL END,"
+                "revision=revision+1,updated_at=clock_timestamp() "
                 "WHERE id=%s AND revision=%s RETURNING *",
-                (recipe.name, recipe.instructions, Jsonb(definition), recipe_id, revision),
+                (recipe.name, recipe.instructions, Jsonb(definition), cards_explicit,
+                 Jsonb(cards) if cards is not None else None, Jsonb(definition), recipe_id, revision),
             ).fetchone()
             if row is None:
                 current = connection.execute("SELECT * FROM automation_recipes WHERE id=%s", (recipe_id,)).fetchone()
@@ -136,7 +144,8 @@ class AutomationStore(RunStore):
                     raise HTTPException(404, "Recipe not found")
                 if (accept_replay and current['revision'] == revision + 1
                         and (current['name'], current['instructions'], current['definition'])
-                        == (recipe.name, recipe.instructions, definition)):
+                        == (recipe.name, recipe.instructions, definition)
+                        and (not cards_explicit or current['cards'] == cards)):
                     return _recipe_view(current)
                 raise HTTPException(409, "Draft changed; reload before saving")
             audit_event(connection, actor_id, "recipe.updated", str(recipe_id), {"revision": row["revision"]}, category="automation")
@@ -173,8 +182,9 @@ class AutomationStore(RunStore):
             except psycopg.errors.UniqueViolation:
                 raise HTTPException(409, "Workflow changed; retry publishing a new version") from None
             connection.execute(
-                "INSERT INTO automation_publications(workflow_id,version,name,instructions) VALUES(%s,%s,%s,%s)",
-                (row["workflow_id"], version, row["name"], row["instructions"]),
+                "INSERT INTO automation_publications(workflow_id,version,name,instructions,cards) VALUES(%s,%s,%s,%s,%s)",
+                (row["workflow_id"], version, row["name"], row["instructions"],
+                 Jsonb(row["cards"]) if row["cards"] is not None else None),
             )
             row = connection.execute(
                 "UPDATE automation_recipes SET latest_version=%s,published_revision=revision,updated_at=clock_timestamp() WHERE id=%s RETURNING *",

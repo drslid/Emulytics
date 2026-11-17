@@ -1,6 +1,6 @@
 import { browserT } from "./i18n";
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public code?: string) { super(message); }
+  constructor(public status: number, message: string, public code?: string, public card?: { id: string; message?: string }) { super(message); }
 }
 
 export async function api<T>(path: string, body?: unknown, method?: "GET" | "POST" | "PATCH" | "DELETE"): Promise<T> {
@@ -33,9 +33,14 @@ export async function api<T>(path: string, body?: unknown, method?: "GET" | "POS
       workflow_version_in_use: "Cette version est utilisée par une exécution en attente ou en cours. Attendez sa fin avant de la supprimer.",
       workflow_version_deleted: "Cette version a été supprimée. Choisissez une autre version publiée.",
     };
-    const known = ["invalid_email", "email_in_use", "username_in_use", "last_admin_required", "self_security_required", "chatgpt_required", "provider_unconfigured", "provider_auth_failed", "provider_model_unavailable", "unsupported_goal", "device_busy", "stop_emulator_first", "device_scheduled", ...Object.keys(lifecycleMessages)];
+    const known = ["invalid_email", "email_in_use", "username_in_use", "last_admin_required", "self_security_required", "chatgpt_required", "provider_unconfigured", "provider_auth_failed", "provider_model_unavailable", "unsupported_goal", "card_needs_clarification", "provider_discovery_required", "device_busy", "stop_emulator_first", "device_scheduled", ...Object.keys(lifecycleMessages)];
     const code = typeof payload?.detail?.code === "string" && known.includes(payload.detail.code) ? payload.detail.code : undefined;
-    throw new ApiError(response.status, browserT(code && Object.hasOwn(lifecycleMessages, code) ? lifecycleMessages[code] : response.status === 401 && path.startsWith("auth/") && path !== "auth/login" ? "Code incorrect ou connexion expirée. Réessayez avec le code actuel, ou revenez à la connexion." : messages[response.status] ?? "L’action n’a pas abouti. Réessayez."), code);
+    const detail = payload?.detail;
+    const card = path === "console/recipes/prepare-cards" && response.status === 422 && code === "card_needs_clarification"
+      && typeof detail.card_id === "string" && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(detail.card_id)
+      ? { id: detail.card_id, message: typeof detail.message === "string" && detail.message.length <= 500 ? detail.message : undefined }
+      : undefined;
+    throw new ApiError(response.status, browserT(code && Object.hasOwn(lifecycleMessages, code) ? lifecycleMessages[code] : response.status === 401 && path.startsWith("auth/") && path !== "auth/login" ? "Code incorrect ou connexion expirée. Réessayez avec le code actuel, ou revenez à la connexion." : messages[response.status] ?? "L’action n’a pas abouti. Réessayez."), code, card);
   }
   if (response.status === 204) return null as T;
   return response.json() as Promise<T>;

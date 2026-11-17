@@ -86,7 +86,7 @@ def required_permission(method: str, path: str) -> str | None:
         return 'workflows.read' if read else 'workflows.publish'
     if path == '/console/recipes/from-workflow':
         return 'workflows.write' if method == 'POST' else None
-    if path == '/console/recipes/generate':
+    if path in {'/console/recipes/generate', '/console/recipes/suggest-cards', '/console/recipes/prepare-cards'}:
         return 'workflows.write' if method == 'POST' else None
     if path == '/console/recipes/providers':
         return 'self' if read else None

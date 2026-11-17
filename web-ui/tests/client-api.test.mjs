@@ -8,6 +8,17 @@ const source = readFileSync(new URL("../lib/client-api.ts", import.meta.url), "u
 const compiled = ts.transpileModule(source, {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const { api, ApiError } = await import("data:text/javascript;base64," + Buffer.from(compiled).toString("base64"));
 
+test("card preparation keeps only bounded clarification metadata", async t => {
+  const response = { detail: { code: "card_needs_clarification", card_id: "card-2", message: "Précisez cette carte.", secret: "diagnostics" } };
+  t.mock.method(globalThis, "fetch", async () => Response.json(response, { status: 422 }));
+  await assert.rejects(api("console/recipes/prepare-cards", {}), error => {
+    assert.deepEqual(error.card, { id: "card-2", message: "Précisez cette carte." });
+    assert.doesNotMatch(error.message, /diagnostics/);
+    return true;
+  });
+  await assert.rejects(api("console/recipes/suggest-cards", {}), error => error.card === undefined);
+});
+
 test("device removal exposes only trusted conflict codes", async t => {
   for (const code of ["device_busy", "stop_emulator_first", "device_scheduled"]) {
     t.mock.method(globalThis, "fetch", async () => Response.json({ detail: { code, hint: "private diagnostics" } }, { status: 409 }));

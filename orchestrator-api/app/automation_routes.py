@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from .automation_models import GoalInput, PreviewInput, PublishInput, RecipeCreate, RecipeInput, RecipeUpdate, ScheduleInput, ScheduleToggle, WorkflowRecipeInput
+from .automation_models import CardPreparation, GoalInput, PreviewInput, PublishInput, RecipeCreate, RecipeInput, RecipeUpdate, ScheduleInput, ScheduleToggle, WorkflowRecipeInput
 from .automation_store import AutomationStore, next_occurrences
 from .run_routes import ControlRoute, Limit, Offset, Store
 
@@ -43,15 +43,9 @@ def recipe_providers(request: Request):
     }
 
 
-@router.post('/recipes/generate')
-def generate_recipe(payload: GoalInput, request: Request, store: Store):
-    import json
+def _generate_draft(request, data, preferred, *, task=None):
     from .auth import AuthConfig, SESSION_COOKIE, auth_enabled
-    from .journey_generation import local_goal, validate_generated_recipe
     from .journey_provider import JourneyProvider
-    local = local_goal(payload.instructions)
-    if local:
-        return local
     if not auth_enabled():
         raise HTTPException(503, 'La génération libre exige une session personnelle.')
     provider = JourneyProvider(AuthConfig.load())
@@ -60,8 +54,20 @@ def generate_recipe(payload: GoalInput, request: Request, store: Store):
     if not user:
         raise HTTPException(401, 'Connexion personnelle requise')
     provider.limit('journey-generation', str(user['id']), request.client.host if request.client else 'unknown', maximum=10)
-    selected_provider = payload.provider or provider.active_provider()
-    output = provider.generate(session, payload.instructions, selected_provider)
+    selected_provider = preferred or provider.active_provider()
+    options = {'task': task} if task else {}
+    output = provider.generate(session, data, selected_provider, **options)
+    return output, 'chatgpt' if selected_provider == 'openai' else selected_provider
+
+
+@router.post('/recipes/generate')
+def generate_recipe(payload: GoalInput, request: Request, store: Store):
+    import json
+    from .journey_generation import local_goal, validate_generated_recipe
+    local = local_goal(payload.instructions)
+    if local:
+        return local
+    output, source = _generate_draft(request, payload.instructions, payload.provider)
     if (not isinstance(output, dict) or type(output.get('supported')) is not bool
             or not isinstance(output.get('reason'), str) or len(output['reason']) > 1000):
         raise HTTPException(422, 'La génération a produit une réponse invalide. Reformulez votre objectif.')
@@ -78,9 +84,39 @@ def generate_recipe(payload: GoalInput, request: Request, store: Store):
         value = validate_generated_recipe({'name': output['name'], 'steps': steps, 'recovery_budget': 0}, payload.instructions)
     except (ValueError, TypeError, KeyError, AttributeError):
         raise HTTPException(422, 'La génération ne fournit pas un parcours vérifiable. Précisez le résultat attendu.') from None
-    return {'recipe': value, 'source': 'chatgpt' if selected_provider == 'openai' else selected_provider,
+    return {'recipe': value, 'source': source,
             'expected_result': output['reason'], 'requires_test': True,
             'capabilities': ['installed_apps', 'chrome', 'wikipedia', 'android_settings', 'android_version']}
+
+
+@router.post('/recipes/suggest-cards')
+def suggest_cards(payload: GoalInput, request: Request, store: Store):
+    from .journey_cards import SUGGEST_TASK, suggest_locally, suggested_cards
+    from .journey_context import journey_context
+    local = suggest_locally(payload.instructions, journey_context(store, None)['reference_apps'])
+    if local:
+        return {'cards': local}
+    output, _ = _generate_draft(request, payload.instructions, payload.provider, task=SUGGEST_TASK)
+    return {'cards': suggested_cards(output)}
+
+
+@router.post('/recipes/prepare-cards')
+def prepare_cards(payload: CardPreparation, request: Request, store: Store):
+    from .journey_cards import PREPARE_TASK, prepare_generated, prepare_locally
+    from .journey_context import journey_context
+    if payload.device_id:
+        user = getattr(request.state, 'auth_user', None)
+        if not user or 'devices.read' not in user['permissions']:
+            raise HTTPException(403, 'Droits insuffisants')
+    context = journey_context(store, payload.device_id)
+    local = prepare_locally(payload.cards, payload.name, context)
+    if local:
+        return local
+    if payload.local_only:
+        raise HTTPException(503, {'code': 'provider_discovery_required'})
+    data = {'cards': [card.model_dump() for card in payload.cards], 'android': context}
+    output, source = _generate_draft(request, data, payload.provider, task=PREPARE_TASK)
+    return prepare_generated(payload.cards, payload.name, context, source, output)
 
 
 @router.post("/recipes/from-workflow")
@@ -92,9 +128,8 @@ def recipe_from_workflow(payload: WorkflowRecipeInput, request: Request, store: 
 
 @router.patch("/recipes/{recipe_id}")
 def update_recipe(recipe_id: UUID, payload: RecipeUpdate, request: Request, store: Store):
-    value = RecipeInput(**payload.model_dump(exclude={"revision", "accept_replay"}, by_alias=True))
     return AutomationStore(store.dsn).update_recipe(
-        recipe_id, payload.revision, value, _actor(request), accept_replay=payload.accept_replay,
+        recipe_id, payload.revision, payload, _actor(request), accept_replay=payload.accept_replay,
     )
 
 

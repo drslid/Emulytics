@@ -79,14 +79,14 @@ class RunStore:
     def get_workflow(self, workflow_id: str, version: int) -> dict:
         with self.connect() as connection:
             record = connection.execute(
-                "SELECT w.definition,w.created_at,w.deleted_at,p.name,p.instructions FROM workflows w "
+                "SELECT w.definition,w.created_at,w.deleted_at,p.name,p.instructions,p.cards FROM workflows w "
                 "LEFT JOIN automation_publications p ON p.workflow_id=w.workflow_id AND p.version=w.version "
                 "WHERE w.workflow_id = %s AND w.version = %s",
                 (workflow_id, version),
             ).fetchone()
             if record is None:
                 raise HTTPException(404, "Workflow version not found")
-            return {**record["definition"], "created_at": record["created_at"], "deleted_at": record["deleted_at"], "name": record["name"], "instructions": record["instructions"]}
+            return {**record.pop("definition"), **record}
 
     @staticmethod
     def _available_workflow(connection, workflow_id: str, version: int) -> dict:
@@ -133,12 +133,12 @@ class RunStore:
     def list_workflows(self, limit: int, offset: int) -> list[dict]:
         with self.connect() as connection:
             rows = connection.execute(
-                "SELECT w.definition,w.created_at,p.name,p.instructions FROM workflows w "
+                "SELECT w.definition,w.created_at,p.name,p.instructions,p.cards FROM workflows w "
                 "LEFT JOIN automation_publications p ON p.workflow_id=w.workflow_id AND p.version=w.version "
                 "WHERE w.deleted_at IS NULL AND w.workflow_id NOT LIKE %s ORDER BY w.workflow_id,w.version DESC LIMIT %s OFFSET %s",
                 (INTERNAL_WORKFLOW_PREFIX+'%',limit, offset),
             ).fetchall()
-            return [{**row["definition"], "created_at": row["created_at"], "name": row["name"], "instructions": row["instructions"]} for row in rows]
+            return [{**row.pop("definition"), **row} for row in rows]
 
     @staticmethod
     def _read_run(connection, run_id: UUID) -> dict:

@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 import threading
@@ -113,11 +114,23 @@ def test_planner_deadline_is_bounded_and_cleans_its_home(fake_planner):
     binary, observation = fake_planner('timeout')
     started = time.monotonic()
     with pytest.raises(HTTPException) as error:
-        journey_provider.run_planner(AUTH, 'Only prepare a draft.', binary=binary, timeout=.15)
+        # Allow the fixture to start and write refresh credentials on a loaded runner.
+        journey_provider.run_planner(AUTH, 'Only prepare a draft.', binary=binary, timeout=.75)
     assert error.value.status_code == 504
     assert error.value.credentials == REFRESHED
     assert time.monotonic() - started < 3
     assert not Path(json.loads(observation.read_text())['private']).exists()
+
+
+def test_large_prompt_respects_the_deadline_when_the_child_does_not_read(tmp_path):
+    child = tmp_path / "planner-without-stdin"
+    child.write_text(f"#!{sys.executable}\nimport time\ntime.sleep(5)\n")
+    child.chmod(0o700)
+    started = time.monotonic()
+    with pytest.raises(HTTPException) as error:
+        journey_provider.run_planner(AUTH, '😀' * 20_000, binary=str(child), timeout=.15)
+    assert error.value.status_code == 504
+    assert time.monotonic() - started < 3
 
 
 @pytest.mark.parametrize('mode', ['output-limit', 'bad-json', 'result-limit', 'missing-result', 'failure'])

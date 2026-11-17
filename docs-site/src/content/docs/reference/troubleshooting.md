@@ -31,11 +31,11 @@ The Android worker must use the worker Compose profile and its private Android n
 
 **Power on** does not install missing applications. Prepare the selected applications and wait for a confirmed ready state. Missing APKs, a disconnected Android instance, quarantine or active work can block a new launch.
 
-## An objective is unsupported
+## The editor asks for more detail on a card
 
-Start with one of the [reference objectives](/Emulytics/getting-started/first-journey/), which use built-in templates. For other natural-language goals, check that the selected [AI provider](/Emulytics/guides/configuration/) is configured and reachable, and that the objective fits the driver's supported actions.
+Read the message next to the card and make the action or expected result more specific. Use the everyday name of the app and state what the device should show or capture. Then choose **Prepare workflow** again. [Workflow editor guide](/Emulytics/guides/journeys/)
 
-Describe the complete expected result. The generator refuses extra unsupported actions rather than accepting only part of the instruction.
+If the editor reports a provider error, test the saved connection in **Settings → AI providers**. The Android-version and Wikipedia examples can be prepared using built-in rules. [First journey](/Emulytics/getting-started/first-journey/) · [Provider setup](/Emulytics/guides/configuration/)
 
 ## A run stays queued
 

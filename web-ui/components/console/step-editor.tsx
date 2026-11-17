@@ -2,7 +2,7 @@
 
 import { useT } from "../../lib/i18n";
 import type { Step } from "../../lib/console-types";
-import { changeEditorAction, editorActions, editorArgumentField, editorRecord, editorStepTargets, patchEditorArgument, patchEditorTarget } from "../../lib/workflow-editor";
+import { changeEditorAction, editorActionLabel, editorActions, editorArgumentField, editorRecord, editorStepTargets, patchEditorArgument, patchEditorTarget } from "../../lib/workflow-editor";
 
 const labels: Record<string, string> = {
   resource_id: "Identifiant de l’élément", text: "Texte exact", text_contains: "Texte contenant",
@@ -19,6 +19,33 @@ export function stepPreview(step: Step): string {
   if (field) return String(step.args?.[field.key] ?? "");
   if (step.action === "tap") return editorStepTargets(step).map(selectorSummary).join(" / ") || `${step.args?.x ?? "—"}, ${step.args?.y ?? "—"}`;
   return step.id.replace(/-/g, " ");
+}
+
+function summarizedChecks(check: unknown, t: ReturnType<typeof useT>, depth = 0): string[] {
+  if (!editorRecord(check) || depth > 5) return [];
+  if (check.type === "all" && Array.isArray(check.checks)) return check.checks.flatMap(item => summarizedChecks(item, t, depth + 1));
+  if (check.type === "package" || check.type === "package_installed") {
+    return [[t(check.type === "package" ? "Application au premier plan" : "Application installée"), check.value].filter(Boolean).join(" · ")];
+  }
+  if (check.type === "url") return [[t("Domaine de la page"), check.host, check.path_contains].filter(Boolean).join(" · ")];
+  if (check.type === "ui" && editorRecord(check.selector)) {
+    const criteria = Object.entries(check.selector).flatMap(([key, value]) => Object.hasOwn(labels, key)
+      ? [`${t(labels[key])} · ${typeof value === "boolean" ? t(value ? "Oui" : "Non") : String(value)}`] : []);
+    return [criteria.length ? criteria.join(" / ") : t("Élément visible")];
+  }
+  return [];
+}
+
+export function CompiledStepPreview({ step }: { step: Step }) {
+  const t = useT();
+  const detail = step.action === "open_settings"
+    ? t(step.args?.section === "about" ? "À propos du téléphone" : "Paramètres du téléphone")
+    : editorArgumentField(step.action) || step.action === "tap" ? stepPreview(step) : "";
+  const checks = summarizedChecks(step.assert, t);
+  return <>
+    {t(editorActionLabel(step.action))}{detail && <> · <bdi>{detail}</bdi></>}
+    {checks.length > 0 && <small className="prepared-step-check">{t("Vérification")} · <bdi>{checks.join(" / ")}</bdi></small>}
+  </>;
 }
 
 function SelectorEditor({ selector, onChange }: { selector: Record<string, unknown>; onChange: (selector: Record<string, unknown>) => void }) {

@@ -56,14 +56,15 @@ Use the user's language for the short name and reason. Name max120 chars. Never 
 Goal follows as JSON string:\n'''
 
 
-def run_external_planner(provider, instructions, settings):
+def run_external_planner(provider, instructions, settings, *, task=None):
+    prompt, output_schema = task if task else (PROMPT, SCHEMA)
     payload = {'model': settings['model'], 'stream': False, 'messages': [
-        {'role': 'system', 'content': PROMPT.removesuffix('Goal follows as JSON string:\n')
-         + 'Return one JSON object with this schema: ' + json.dumps(SCHEMA)},
+        {'role': 'system', 'content': prompt.removesuffix('Goal follows as JSON string:\n')
+         + 'Return one JSON object with this schema: ' + json.dumps(output_schema)},
         {'role': 'user', 'content': json.dumps(instructions, ensure_ascii=False)},
     ]}
     if provider == 'ollama':
-        payload.update(format=SCHEMA, options={'temperature': 0, 'num_predict': 4096})
+        payload.update(format=output_schema, options={'temperature': 0, 'num_predict': 4096})
     else:
         payload.update(response_format={'type': 'json_object'}, thinking={'type': 'disabled'}, max_tokens=4096)
     try:
@@ -103,7 +104,8 @@ def command(binary, private_root, workspace, schema, result):
             *flags, '--cd', workspace, '--json', '--output-schema', schema, '--output-last-message', result, '-']
 
 
-def run_planner(auth, instructions, binary='/usr/local/bin/codex', timeout=90):
+def run_planner(auth, instructions, binary='/usr/local/bin/codex', timeout=90, *, task=None):
+    prompt, output_schema = task if task else (PROMPT, SCHEMA)
     with tempfile.TemporaryDirectory(prefix='emulytix-plan-') as private:
         root = Path(private)
         workspace = root / 'workspace'
@@ -112,14 +114,15 @@ def run_planner(auth, instructions, binary='/usr/local/bin/codex', timeout=90):
         auth_path.write_text(json.dumps(auth))
         auth_path.chmod(0o600)
         schema, result = root / 'schema.json', root / 'result.json'
-        schema.write_text(json.dumps(SCHEMA))
+        schema.write_text(json.dumps(output_schema))
         env = {'PATH': '/usr/local/bin:/usr/bin:/bin', 'HOME': private, 'CODEX_HOME': private, 'TMPDIR': private}
-        process = subprocess.Popen(command(binary, private, str(workspace), str(schema), str(result)),
-            cwd=workspace, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-            start_new_session=True, bufsize=0)
+        with tempfile.TemporaryFile(dir=root) as request:
+            request.write((prompt + json.dumps(instructions, ensure_ascii=False)).encode())
+            request.seek(0)
+            process = subprocess.Popen(command(binary, private, str(workspace), str(schema), str(result)),
+                cwd=workspace, env=env, stdin=request, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                start_new_session=True, bufsize=0)
         try:
-            process.stdin.write((PROMPT + json.dumps(instructions, ensure_ascii=False)).encode())
-            process.stdin.close()
             buffer, size, deadline = b'', 0, time.monotonic() + timeout
             with selectors.DefaultSelector() as selector:
                 selector.register(process.stdout, selectors.EVENT_READ)
@@ -179,15 +182,15 @@ class JourneyProvider(ChatGPTStore):
         with self.connect() as connection:
             return provider_row(connection)['active_provider']
 
-    def generate(self, session, instructions, provider='openai'):
-        return self._generate(session, instructions, provider)
+    def generate(self, session, instructions, provider='openai', *, task=None):
+        return self._generate(session, instructions, provider, task=task)
 
     def test_openai(self, session):
         output = self._generate(session, 'Connectivity check: return supported=false and no steps.', 'openai', probe=True)
         if not isinstance(output, dict) or type(output.get('supported')) is not bool:
             raise HTTPException(503, {'code': 'provider_unavailable'})
 
-    def _generate(self, session, instructions, provider, *, probe=False):
+    def _generate(self, session, instructions, provider, *, probe=False, task=None):
         if provider == 'openai' and not ChatGPTManager().available:
             raise HTTPException(503, 'La génération ChatGPT est désactivée sur cette installation.')
         if not GATES.acquire(blocking=False):
@@ -202,11 +205,12 @@ class JourneyProvider(ChatGPTStore):
                 lock = int(digest('journey:' + str(user['id']))[:15], 16)
                 if not guard.execute('SELECT pg_try_advisory_xact_lock(%s) AS ok', (lock,)).fetchone()['ok']:
                     raise HTTPException(429, 'Une génération est déjà en cours pour votre compte.')
+                options = {'task': task} if task else {}
                 if provider != 'openai':
                     settings = external_planner_settings(provider, provider_row(guard), cipher=self.config.cipher)
                     if not settings:
                         raise HTTPException(409, {'code': 'provider_unconfigured'})
-                    output = run_external_planner(provider, instructions, settings)
+                    output = run_external_planner(provider, instructions, settings, **options)
                     with self.connect() as connection:
                         current = self._session_user(connection, session)
                         if current['id'] != user['id'] or 'workflows.write' not in permissions_for(current['role']):
@@ -220,7 +224,8 @@ class JourneyProvider(ChatGPTStore):
                 if value.get('provider') != 'chatgpt' or value.get('user_id') != str(user['id']):
                     raise ValueError('Credential owner mismatch')
                 try:
-                    options = {'timeout': 20} if probe else {}
+                    if probe:
+                        options['timeout'] = 20
                     output, auth = run_planner(value['auth'], instructions, **options)
                 except PlannerFailure as failure:
                     if failure.credentials:

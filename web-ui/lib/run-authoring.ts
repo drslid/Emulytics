@@ -1,4 +1,4 @@
-import type { Recipe, Step } from "./console-types";
+import type { NaturalCard, Recipe, Step } from "./console-types";
 
 export const runEditorPath = "/activite/nouveau";
 
@@ -10,7 +10,7 @@ export function runSourceId(value: string | string[] | undefined): string | unde
   return typeof value === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value) ? value : undefined;
 }
 
-type RecipeBody = { name: string; instructions: string; steps: Step[]; recovery_budget: number };
+export type RecipeBody = { name: string; instructions: string; steps: Step[]; recovery_budget: number; cards?: NaturalCard[] | null };
 export type RunRecipeState = {
   initial?: { key: string; body: RecipeBody };
   saved?: Recipe;

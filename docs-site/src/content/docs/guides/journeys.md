@@ -1,23 +1,27 @@
 ---
 title: Create and publish journeys
-description: Turn an objective into a reviewed draft, publish a version and manage its lifecycle.
+description: Write editable Android workflow cards, review their actions and publish a version.
 ---
 
-## Start with natural language
+## Write the steps as cards
 
-Use **Workflows → Create a workflow** and describe the desired action and observable result. **Prepare my journey** produces a name and a bounded step definition. Review the summary before saving.
+Open **Workflows → Create a workflow**. Write what Android should do in each card using the app's everyday name. Add a verification when you want to check a result. For example, write `Open the phone settings` in one card and `Read the Android version` in the next. Add, reorder or remove cards as needed.
 
-Editing the objective invalidates the earlier generation. Generation does not run commands, install an application or publish a version.
+![Workflow editor showing two plain-language steps, an optional verification and the prepared actions](/Emulytics/brand/console/workflow-cards.png)
 
-Wikipedia searches and reading the Android version use built-in rules and templates. No language model is involved. For other natural-language objectives, select a configured [AI provider](/Emulytics/guides/configuration/) in the journey editor. The console checks the generated steps against the driver's supported actions before giving you a draft to review.
+Choose **Help me create steps** to describe the whole task and ask your configured provider to suggest cards. Edit the suggestions just as you would edit a manually written card. [AI provider setup](/Emulytics/guides/configuration/)
 
-The generator is not a universal agent for every Android application. It does not invent selectors for an unobserved application, accept arbitrary shell commands, generate social posts or carry out financial operations.
+## Prepare and review
+
+Choose **Prepare workflow** to review the Android actions for the current cards. When a card needs more detail, the message appears next to that card. Edit it and prepare again. Android runs the reviewed actions when you publish and confirm a test.
+
+The Wikipedia search and Android-version examples use built-in rules. Other supported instructions use the configured provider. The console checks the actions the driver can execute, such as opening an app or web page, reading Android version information and taking a screenshot. When the editor already has a target device, supported preparation can use known apps on that device.
 
 ## Drafts and versions
 
-A draft can be edited; a published version freezes the steps, name and instructions used by its executions. Saving a draft does not change older versions or schedules.
+A draft remains editable. Each published version keeps its own ordered cards, Android actions and name. Runs and schedules continue to use the published version they selected.
 
-The advanced editor can change step arguments and assertions, add, duplicate, reorder or remove steps, or edit bounded JSON. Save, then publish a new version when the change is ready to test.
+Open **Technical editor** to edit Android actions and assertions directly. Older workflows open there with their original actions. Changing those actions makes the technical definition the source for that draft.
 
 Concurrent draft changes are detected by revision. A stale save is refused instead of overwriting someone else's work.
 

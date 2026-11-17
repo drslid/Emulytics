@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import Field, field_validator, model_validator
 
-from .run_models import Contract, Identifier, Version, WorkflowStep
+from .run_models import Contract, Identifier, NaturalCards, Version, WorkflowStep
 
 
 class RecipeInput(Contract):
@@ -13,6 +13,7 @@ class RecipeInput(Contract):
     instructions: Annotated[str, Field(max_length=8000)] = ""
     steps: list[WorkflowStep] = Field(min_length=1, max_length=14)
     recovery_budget: int = Field(default=0, ge=0, le=20)
+    cards: NaturalCards | None = None
 
     @field_validator("name", "instructions", mode="before")
     @classmethod
@@ -42,6 +43,19 @@ class GoalInput(Contract):
     @field_validator('instructions', mode='before')
     @classmethod
     def trim_goal(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
+class CardPreparation(Contract):
+    cards: NaturalCards
+    provider: Literal['openai', 'ollama', 'deepseek'] | None = None
+    device_id: Identifier | None = None
+    name: Annotated[str | None, Field(min_length=1, max_length=120)] = None
+    local_only: bool = False
+
+    @field_validator('name', mode='before')
+    @classmethod
+    def trim_name(cls, value):
         return value.strip() if isinstance(value, str) else value
 
 

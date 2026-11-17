@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4
+
+- Write workflow steps as editable cards in plain language. Add a verification to any card.
+- Describe the whole workflow to let your configured AI provider suggest cards. Review and edit the cards before preparing them.
+- Prepare the current cards to inspect the actions or see which instruction needs clarification. Published versions retain their own cards for **Edit and rerun**.
+
 ## 0.1.3
 
 - Read the GitHub release notes in Emulytics before installing an update.

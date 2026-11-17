@@ -73,11 +73,11 @@ The user timer is named `emulytics-update.timer`. Its service runs as the instal
 
 ### Update an older installation manually
 
-Choose the latest stable tag on the [GitHub releases page](https://github.com/drslid/Emulytics/releases). In the installation's existing directory, fetch and check out that tag, then rerun the installer. Replace `v0.1.3` with the tag you chose.
+Choose the latest stable tag on the [GitHub releases page](https://github.com/drslid/Emulytics/releases). In the installation's existing directory, fetch and check out that tag, then rerun the installer. Replace `v0.1.4` with the tag you chose.
 
 ```bash
-git fetch origin tag v0.1.3
-git switch --no-overwrite-ignore --detach v0.1.3
+git fetch origin tag v0.1.4
+git switch --no-overwrite-ignore --detach v0.1.4
 ./scripts/install.sh
 ```
 

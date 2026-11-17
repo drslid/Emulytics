@@ -13,6 +13,39 @@ function post(body = "{}", origin = "http://localhost:3100") {
   return { method: "POST", body, headers: { Origin: origin, "Content-Type": "application/json", "X-Emulytix-Client": "console" } };
 }
 
+test("card planner routes enforce origin and give only editor mutations room for multilingual cards", async () => {
+  const cards = Array.from({ length: 14 }, (_, i) => ({ id: `card-${i}`, instruction: "😀".repeat(1500) }));
+  const payload = JSON.stringify({ cards });
+  assert(Buffer.byteLength(payload) > 65_536);
+  for (const [endpoint, method, body] of [
+    ["console/recipes/prepare-cards", "POST", payload],
+    ["console/recipes", "POST", payload],
+    ["console/recipes/12345678-1234-1234-1234-123456789012", "PATCH", payload],
+    ["console/recipes/suggest-cards", "POST", "{}"]
+  ]) {
+    const response = await proxyControl(request(endpoint, { ...post(body), method }), endpoint.split("/"), async (_, upstream) => {
+      assert.equal(upstream.method, method);
+      assert.equal(new TextDecoder().decode(upstream.body), body);
+      return Response.json({ ok: true });
+    });
+    assert.equal(response.status, 200);
+  }
+  const never = () => assert.fail("Invalid requests must stop at the browser proxy");
+  const planner = "console/recipes/prepare-cards";
+  assert.equal((await proxyControl(request(planner, post(payload, "https://elsewhere.test")), planner.split("/"), never)).status, 403);
+  assert.equal((await proxyControl(request(planner, post(JSON.stringify("x".repeat(262_144)))), planner.split("/"), never)).status, 413);
+  const suggest = "console/recipes/suggest-cards";
+  assert.equal((await proxyControl(request(suggest, post(payload)), suggest.split("/"), never)).status, 413);
+});
+
+test("the prepare route forwards only the reviewed provider-discovery 503 code", async () => {
+  const endpoint = "console/recipes/prepare-cards";
+  const response = await proxyControl(request(endpoint, post()), endpoint.split("/"), async () => Response.json({
+    detail: { code: "provider_discovery_required", message: "local diagnostics" }
+  }, { status: 503 }));
+  assert.deepEqual(await response.json(), { detail: { code: "provider_discovery_required" } });
+});
+
 test("device rename and removal only forward protected exact inventory routes", async () => {
   const path = "console/devices/phone-lab:1";
   const route = path.split("/");

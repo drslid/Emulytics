@@ -2,6 +2,22 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { canAuthorRun, runSourceId, saveRunRecipe } from "../lib/run-authoring.ts";
 
+test("natural cards are replayed exactly with the same draft-creation id", async () => {
+  const state = {};
+  const body = { name: "Android", instructions: "Read Android version", steps: [], recovery_budget: 0,
+    cards: [{ id: "card-1", instruction: "Read Android version", verification: "Version is recorded" }] };
+  const sent = [];
+  const request = async (endpoint, payload) => {
+    sent.push([endpoint, structuredClone(payload)]);
+    if (sent.length === 1) throw new Error("Response lost");
+    return { id: "recipe", revision: 1 };
+  };
+  await assert.rejects(saveRunRecipe(body, state, request), /Response lost/);
+  await saveRunRecipe(body, state, request);
+  assert.deepEqual(sent[0], sent[1]);
+  assert.deepEqual(sent[1][1].cards, body.cards);
+});
+
 test("creating a run requires authoring, publishing and execution permissions", () => {
   const required = ["runs.execute", "workflows.write", "workflows.publish"];
   assert.equal(canAuthorRun(required), true);

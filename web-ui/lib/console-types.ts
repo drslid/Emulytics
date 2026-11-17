@@ -49,7 +49,9 @@ export type Workflow = {
   steps: Step[];
   name?: string;
   instructions?: string;
+  cards?: NaturalCard[] | null;
 };
+export type NaturalCard = { id: string; instruction: string; verification?: string | null };
 export type Run = {
   id: string;
   workflow_id: string;
@@ -139,6 +141,7 @@ export type Recipe = {
   status: "draft" | "published";
   name: string;
   instructions: string;
+  cards?: NaturalCard[] | null;
   definition: { steps: Step[]; recovery_budget: number };
 };
 export type Schedule = {

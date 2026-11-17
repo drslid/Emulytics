@@ -44,7 +44,7 @@ def validate_generated_recipe(value, instructions):
             AndroidDriver.validate_step(row)
             if step.action == 'ensure_package' and (step.args.get('apk') or step.args.get('sha256')):
                 raise ValueError('Generated artifact paths are not trusted')
-        return recipe.model_dump(mode='json', by_alias=True)
+        return recipe.model_dump(mode='json', by_alias=True, exclude={'cards'})
     except (ValidationError, DriverError, ValueError, TypeError, KeyError):
         raise HTTPException(422, 'Le parcours généré dépasse les capacités du moteur. Précisez votre objectif ou utilisez les réglages avancés.') from None
 

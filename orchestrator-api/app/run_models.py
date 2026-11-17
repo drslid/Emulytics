@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Annotated, Generic, Literal, Self, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
 
 Identifier = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
@@ -95,6 +95,30 @@ class WorkflowStep(Contract):
         return self
 
 
+class NaturalCard(Contract):
+    id: Identifier
+    instruction: Annotated[str, Field(min_length=1, max_length=1500)]
+    verification: Annotated[str, Field(min_length=1, max_length=1500)] | None = None
+
+    @field_validator("instruction", "verification", mode="before")
+    @classmethod
+    def trim_text(cls, value, info):
+        if isinstance(value, str):
+            value = value.strip()
+            if info.field_name == "verification" and not value:
+                return None
+        return value
+
+
+def _unique_card_ids(cards: list[NaturalCard]) -> list[NaturalCard]:
+    if len({card.id for card in cards}) != len(cards):
+        raise ValueError("Card IDs must be unique")
+    return cards
+
+
+NaturalCards = Annotated[list[NaturalCard], Field(min_length=1, max_length=14), AfterValidator(_unique_card_ids)]
+
+
 class WorkflowRegistration(Contract):
     workflow_id: Identifier
     version: Version
@@ -142,6 +166,7 @@ class WorkflowView(WorkflowRegistration):
     deleted_at: datetime | None = None
     name: str | None = None
     instructions: str | None = None
+    cards: NaturalCards | None = None
 
 
 class ExecutionView(BaseModel):
