@@ -33,7 +33,7 @@ export async function api<T>(path: string, body?: unknown, method?: "GET" | "POS
       workflow_version_in_use: "Cette version est utilisée par une exécution en attente ou en cours. Attendez sa fin avant de la supprimer.",
       workflow_version_deleted: "Cette version a été supprimée. Choisissez une autre version publiée.",
     };
-    const known = ["invalid_email", "email_in_use", "username_in_use", "last_admin_required", "self_security_required", "chatgpt_required", "provider_unconfigured", "unsupported_goal", ...Object.keys(lifecycleMessages)];
+    const known = ["invalid_email", "email_in_use", "username_in_use", "last_admin_required", "self_security_required", "chatgpt_required", "provider_unconfigured", "provider_auth_failed", "provider_model_unavailable", "unsupported_goal", ...Object.keys(lifecycleMessages)];
     const code = typeof payload?.detail?.code === "string" && known.includes(payload.detail.code) ? payload.detail.code : undefined;
     throw new ApiError(response.status, browserT(code && Object.hasOwn(lifecycleMessages, code) ? lifecycleMessages[code] : response.status === 401 && path.startsWith("auth/") && path !== "auth/login" ? "Code incorrect ou connexion expirée. Réessayez avec le code actuel, ou revenez à la connexion." : messages[response.status] ?? "L’action n’a pas abouti. Réessayez."), code);
   }

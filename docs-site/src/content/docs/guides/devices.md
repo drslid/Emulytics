@@ -9,16 +9,17 @@ Open **Devices → Create an emulator**, enter a human-readable name, choose a w
 
 Chrome comes from the runtime image. Uploading a standalone APK identifies its package. The dialog shows the applications selected for this emulator and lets you remove them individually.
 
+Select **Install Aurora Store** to add the latest stable APK from [Aurora OSS](https://auroraoss.com/files). Emulytics checks the APK signature and saves the exact version with your emulator. **Prepare applications** installs it alongside your other selections.
+
 ### Find an APK in a store
 
-1. In **Desired applications**, choose **F-Droid** or **Aptoide**, then search by application name or package ID.
-2. Select an application and then a compatible release. The picker shows the version, version code and date from the selected store.
-3. Import the release and complete the emulator configuration. The imported application is selected for this emulator.
-4. Run **Prepare applications** to install the selected APKs and check that they are ready.
+1. In **Desired applications**, search once across **F-Droid**, **Aptoide** and **APKMirror** by application name or package ID. Results identify their source and show available versions and dates.
+2. For F-Droid or Aptoide, select a compatible version and choose **Import APK**. For APKMirror, open the release page and download a standalone APK compatible with Android 10 x86, then upload it in the form. APKMirror bundles use the `.apkm` format. [APKMirror FAQ](https://www.apkmirror.com/faq/)
+3. Complete the emulator configuration, then run **Prepare applications** to install and check the selected APKs.
 
-![Emulator creation form with the F-Droid search, K-9 Mail and the selected version and date](/Emulytics/brand/console/apk-search.png)
+![Emulator creation form with the Aurora Store checkbox and a combined catalog search](/Emulytics/brand/console/apk-search.png)
 
-F-Droid search in a demonstration workspace.
+Catalog search in a demonstration workspace.
 
 Use Aptoide to look for applications such as Snapchat and LinkedIn. A listed application may have no verified standalone build compatible with Android 10 x86. The **Web** label identifies the Snapchat web wrapper. Emulytics checks the APK and its signing certificate for Aptoide imports. Android rejects a downgrade when a release with a higher version code is already installed. You can upload a compatible standalone APK directly.
 

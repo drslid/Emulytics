@@ -5,7 +5,7 @@ description: Manage console updates and configure OpenAI, local Ollama or DeepSe
 
 Open **Settings** to see the available AI providers and connection status. Passwords and second factors are managed under **My profile**.
 
-![Settings showing OpenAI and the configured models for Ollama and DeepSeek](/Emulytics/brand/console/settings.png)
+![The AI providers section showing the shared default, connection status and connection test](/Emulytics/brand/console/settings.png)
 
 Settings in a demonstration workspace.
 
@@ -15,7 +15,7 @@ Administrators can see the installed version, the latest stable release and the 
 
 ## Connect OpenAI
 
-1. Choose the connection action under **OpenAI** in **Settings**.
+1. In **Settings → AI providers**, open **OpenAI** and choose **Connect my ChatGPT account**.
 2. Open the official URL supplied by the device-code flow.
 3. Sign in with your ChatGPT account and enter the displayed device code.
 4. Return to the console and wait for confirmation.
@@ -26,7 +26,7 @@ Each OpenAI connection belongs to one local user. The server uses an isolated of
 
 ## Configure and activate an AI provider
 
-In **Settings**, administrators select **OpenAI**, **DeepSeek**, or **Ollama** as the default for the installation. Users can see the default and select another available provider for a specific draft in the journey editor. Each user connects their own OpenAI account to generate journeys with OpenAI.
+In **Settings → AI providers**, administrators set **OpenAI**, **DeepSeek**, or **Ollama** as the installation default. Open a provider's row to view or edit its settings. Users can see the default and select another available provider for a specific draft in the journey editor. Each user connects their own OpenAI account to generate journeys with OpenAI.
 
 For **DeepSeek**, an administrator enters the shared API key and the model name. The server encrypts the key and Settings displays a saved indicator. Leave the key field blank to keep the current key. DeepSeek receives the text of the generation request over HTTPS. [DeepSeek API documentation](https://api-docs.deepseek.com/)
 
@@ -34,7 +34,9 @@ For **Ollama**, an administrator downloads the model with `ollama pull <model>` 
 
 The installer can also provide defaults through the existing `EMULYTIX_OLLAMA_URL`, `EMULYTIX_OLLAMA_MODEL`, `EMULYTIX_DEEPSEEK_API_KEY`, and `EMULYTIX_DEEPSEEK_MODEL` settings in `.env.console`.
 
-Settings checks the format of the values. Emulytics tests provider access when generating a journey.
+## Test a connection
+
+Open a provider and choose **Test connection**. For OpenAI, the test uses your connected account to make a short request. Administrators can test Ollama and DeepSeek after saving their settings. Those tests look for the configured model on the server and verify DeepSeek accepts the saved key. A test does not create a draft or start an emulator.
 
 ## Choose a provider for a journey
 

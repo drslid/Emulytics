@@ -8,7 +8,7 @@ import psycopg
 from pydantic import Field, field_validator, model_validator
 from starlette.concurrency import run_in_threadpool
 
-from . import apk_catalog, aptoide_catalog, fdroid_catalog
+from . import apk_catalog, apkmirror_catalog, aptoide_catalog, aurora_store, fdroid_catalog
 from .emulator_store import EmulatorStore
 from .emulator_hardware import EmulatorHardware
 from .run_models import Contract, Identifier
@@ -104,6 +104,30 @@ def import_fdroid_application(payload: FdroidImport, request: Request, response:
     if result['id'] != metadata['id']:
         response.status_code = 200
     return result
+
+
+@router.post('/applications/aurora', status_code=201)
+def import_aurora_application(request: Request, response: Response, store: Store):
+    try:
+        metadata = aurora_store.download_release(aurora_store.find_latest_release())
+    except aurora_store.AuroraUnavailable:
+        raise HTTPException(503, 'The official Aurora Store release is temporarily unavailable') from None
+    except aurora_store.AuroraIncompatible:
+        raise HTTPException(422, 'The latest Aurora Store APK did not pass verification') from None
+    result = _publish_application(metadata, request, store, reuse_exact=True)
+    if result['id'] != metadata['id']:
+        response.status_code = 200
+    return result
+
+
+@router.get('/applications/apkmirror')
+def search_apkmirror_applications(store: Store, q: Annotated[str, Query(min_length=2, max_length=100)]):
+    return apkmirror_catalog.search_applications(q)
+
+
+@router.get('/applications/apkmirror/versions')
+def list_apkmirror_versions(store: Store, q: Annotated[str, Query(pattern=f'^{apkmirror_catalog.APP_ID}$')]):
+    return apkmirror_catalog.list_versions(q)
 
 
 @router.get('/applications/aptoide')

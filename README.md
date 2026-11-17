@@ -86,7 +86,7 @@ The console and environment variables retain some **Emulytix** names, including 
 
 - Persistent Android emulators with screen, density, RAM, CPU and initial-storage settings.
 - Physical Android registration, named device groups and selected bulk actions.
-- Application preparation with verified standalone APKs from F-Droid, Aptoide or local uploads. Chrome comes from the runtime image.
+- Application preparation with standalone APKs from F-Droid, Aptoide or local uploads, APKMirror search, and optional installation of the latest signed Aurora Store release. Chrome comes from the runtime image.
 - Built-in reference journeys, plus OpenAI, local Ollama or DeepSeek for other supported natural-language goals.
 - Editable drafts, immutable publications and removal of unused published versions with historical evidence retained.
 - Immediate launches, daily/weekly/monthly scheduling and advanced five-field CRON with explicit timezones.
@@ -105,9 +105,9 @@ These screenshots show the Emulytics console with demonstration data.
 <details>
 <summary>APK search and AI provider settings</summary>
 
-![Create an emulator dialog with an F-Droid app and its selected release version and date](docs-site/public/brand/console/apk-search.png)
+![Create an emulator dialog showing the Aurora Store option and the combined app search](docs-site/public/brand/console/apk-search.png)
 
-![Settings showing OpenAI and the configured models for Ollama and DeepSeek](docs-site/public/brand/console/settings.png)
+![AI providers in Settings with a shared default, connection status and a connection test](docs-site/public/brand/console/settings.png)
 
 </details>
 
@@ -125,7 +125,7 @@ A Wikipedia reference goal also works without an external account:
 Open Chrome, go to Wikipedia, search for football and verify the article.
 ```
 
-The Android version and Wikipedia reference goals use built-in rules and templates. They run without an external account or language model. In **Settings**, an administrator sets the installation-wide default provider, saves a shared DeepSeek API key, or configures a local Ollama server and model. Each user connects their own OpenAI account if they want to use OpenAI. The journey editor also lets users choose an available provider for a specific draft.
+The Android version and Wikipedia reference goals use built-in rules and templates. They run without an external account or language model. In **Settings → AI providers**, an administrator sets the installation-wide default provider, saves a shared DeepSeek API key, or configures a local Ollama server and model. Open a provider and choose **Test connection** to verify its saved configuration. Each user connects and tests their own OpenAI account. The journey editor also lets users choose an available provider for a specific draft.
 
 Generated steps stay within the driver's supported actions. Review the draft, then publish and test it on a device.
 
@@ -133,7 +133,7 @@ Generated steps stay within the driver's supported actions. Review the draft, th
 
 ## Prepare a device
 
-In **Devices → Create an emulator → Desired applications**, search F-Droid or Aptoide by application name or package ID. Choose a compatible release by version and date, then import it. Aptoide searches a broader catalog, including Snapchat and LinkedIn. The picker reports when it finds an app without a compatible APK for Android 10 x86. You can review and remove selected applications in the same form or upload a compatible standalone APK.
+In **Devices → Create an emulator → Desired applications**, one search checks F-Droid, Aptoide and APKMirror. Choose a release by version and date. F-Droid and Aptoide results can be imported in the console. For APKMirror, open the release page, download a standalone APK compatible with Android 10 x86, and upload it in the form. Select **Install Aurora Store** to add the latest stable, signed build from [Aurora OSS](https://auroraoss.com/files). **Prepare applications** installs the selected APKs.
 
 Use **Prepare applications** to install the selected APKs on the emulator. **Power on** starts Android and **Power off** stops it while preserving its data.
 

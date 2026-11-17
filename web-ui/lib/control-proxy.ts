@@ -1,11 +1,11 @@
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const identifier = "[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}";
-const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events|/diagnosis)?|console/(summary|fleet|fleet/(groups(/${UUID})?|capacity)|dashboard|emulators|applications/(fdroid|aptoide(/versions)?)|updates|account/(profile|security|api-keys|chatgpt|ai-providers|two-factor/enrollment(/qr)?)|devices/${identifier}/screen|monitor(/stream)?|logs|users(/${UUID})?|recipes(/providers)?|schedules|executions/${UUID}/(captures/${identifier}|screen)))$`);
+const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows|workflows/${identifier}/versions/[0-9]+|runs|runs/${UUID}(/events|/diagnosis)?|console/(summary|fleet|fleet/(groups(/${UUID})?|capacity)|dashboard|emulators|applications/(fdroid|(aptoide|apkmirror)(/versions)?)|updates|account/(profile|security|api-keys|chatgpt|ai-providers|two-factor/enrollment(/qr)?)|devices/${identifier}/screen|monitor(/stream)?|logs|users(/${UUID})?|recipes(/providers)?|schedules|executions/${UUID}/(captures/${identifier}|screen)))$`);
 const userPath = `console/users/${UUID}`;
 const recipePath = `console/recipes/${UUID}`;
 const schedulePath = `console/schedules/${UUID}`;
 const changes = {
-  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/(cancel|retry)|console/(fleet/(groups|bulk)|emulators|emulators/${identifier}/(configuration|start|prepare|stop)|applications(/(fdroid|aptoide))?|updates|users|recipes|recipes/(from-workflow|generate)|schedules|schedules/preview|account/(api-keys|password|recovery-codes|chatgpt/(login|cancel)|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
+  POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/(cancel|retry)|console/(fleet/(groups|bulk)|emulators|emulators/${identifier}/(configuration|start|prepare|stop)|applications(/(fdroid|aptoide|aurora))?|updates|users|recipes|recipes/(from-workflow|generate)|schedules|schedules/preview|account/(api-keys|ai-providers/test|password|recovery-codes|chatgpt/(login|cancel)|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
   PATCH: new RegExp(`^(${userPath}|${recipePath}|${schedulePath}|console/account/(profile|ai-providers)|console/fleet/groups/${UUID})$`),
   DELETE: new RegExp(`^(workflows/${identifier}/versions/[0-9]+|${schedulePath}|console/fleet/groups/${UUID}|console/account/(api-keys/${UUID}|chatgpt|two-factor/enrollment))$`)
 };
@@ -32,8 +32,8 @@ export async function proxyControl(request: Request, segments: string[], fetcher
   const headers = new Headers({ Accept: "application/json", Cookie: sessionCookies(request.headers.get("cookie")) });
   let body: Uint8Array<ArrayBuffer> | undefined;
   const apkUpload = request.method === "POST" && endpoint === "console/applications";
-  const apkStore = ["console/applications/fdroid", "console/applications/aptoide", "console/applications/aptoide/versions"].includes(endpoint);
-  const aptoideImport = request.method === "POST" && endpoint === "console/applications/aptoide";
+  const apkStore = /^console\/applications\/(fdroid|(aptoide|apkmirror)(\/versions)?)$/.test(endpoint);
+  const verifiedApkImport = request.method === "POST" && (endpoint === "console/applications/aptoide" || endpoint === "console/applications/aurora");
   if (request.method !== "GET") {
     if (request.headers.get("origin") !== origin || request.headers.get("X-Emulytix-Client") !== "console") {
       return error(403, "Cette demande doit venir de la console.");
@@ -76,8 +76,9 @@ export async function proxyControl(request: Request, segments: string[], fetcher
     const streaming = endpoint === "console/monitor/stream";
     const controller = new AbortController();
     const timer = streaming ? setTimeout(() => controller.abort(), 15_000) : undefined;
-    const timeout = aptoideImport ? 120_000 : endpoint === "console/recipes/generate" || apkStore ? 100_000
-      : apkUpload || endpoint === "console/fleet/bulk" ? 60_000 : 15_000;
+    const timeout = verifiedApkImport ? 120_000 : endpoint === "console/recipes/generate" || apkStore ? 100_000
+      : apkUpload || endpoint === "console/fleet/bulk" ? 60_000
+      : endpoint === "console/account/ai-providers/test" ? 35_000 : 15_000;
     let upstream: Response;
     try { upstream = await fetcher(`${base.replace(/\/$/, "")}/${endpoint}?${query}`, {
       method: request.method, headers, body, cache: "no-store", redirect: "error", signal: streaming ? AbortSignal.any([request.signal, controller.signal]) : AbortSignal.timeout(timeout)

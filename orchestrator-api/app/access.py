@@ -48,6 +48,7 @@ def required_permission(method: str, path: str) -> str | None:
         '/console/account/chatgpt/cancel': {'POST'},
         '/console/account/api-keys': {'GET', 'HEAD', 'POST'},
         '/console/account/ai-providers': {'GET', 'HEAD', 'PATCH'},
+        '/console/account/ai-providers/test': {'POST'},
     }
     if path in account_methods:
         return 'self' if method in account_methods[path] else None
@@ -67,11 +68,11 @@ def required_permission(method: str, path: str) -> str | None:
         return 'devices.write' if method == 'POST' else None
     if path == '/console/emulators':
         return 'devices.read' if read else 'devices.write' if method=='POST' else None
-    if path == '/console/applications':
+    if path in {'/console/applications', '/console/applications/aurora'}:
         return 'devices.write' if method=='POST' else None
     if path in {'/console/applications/fdroid', '/console/applications/aptoide'}:
         return 'devices.write' if method in {'GET', 'POST'} else None
-    if path == '/console/applications/aptoide/versions':
+    if path in {'/console/applications/aptoide/versions', '/console/applications/apkmirror', '/console/applications/apkmirror/versions'}:
         return 'devices.write' if method == 'GET' else None
     if re.fullmatch(r'/console/emulators/[^/]+/(?:configuration|start|prepare|stop)',path):
         return 'devices.write' if method=='POST' else None

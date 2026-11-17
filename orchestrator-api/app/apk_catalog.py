@@ -29,12 +29,13 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class ExpectedApk:
     package_name: str
-    version_code: int
+    version_code: int | None
     sha256: str | None
     size_bytes: int
     md5: str | None = None
     signer_sha1: str | None = None
     signer_sha256: str | None = None
+    version_name: str | None = None
 
 
 @contextmanager
@@ -144,8 +145,13 @@ def inspect_apk(path: Path, expected: ExpectedApk | None = None) -> tuple[str, s
             raise ValueError('A standalone APK is required')
         if expected is not None:
             version = re.search(r"^package:[^\r\n]*\bversionCode='([0-9]{1,20})'", badging, re.M)
-            if package[1] != expected.package_name or version is None or int(version[1]) != expected.version_code:
+            if (package[1] != expected.package_name or version is None
+                    or (expected.version_code is not None and int(version[1]) != expected.version_code)):
                 raise HTTPException(422, 'APK manifest does not match the selected version')
+            if expected.version_name is not None:
+                version_name = re.search(r"^package:[^\r\n]*\bversionName='([^'\r\n]+)'", badging, re.M)
+                if version_name is None or version_name[1] != expected.version_name:
+                    raise HTTPException(422, 'APK manifest does not match the selected version')
             if expected.signer_sha1 is not None:
                 _verify_store_signer(path, badging, expected)
         label = re.search(r"^application-label:'([^'\r\n]{1,160})'", badging, re.M)

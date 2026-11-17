@@ -29,6 +29,11 @@
 .emulator-form-fields { border:0; margin:0; padding:0; display:grid; gap:20px; min-width:0; }
 .emulator-application-picker { display:grid; gap:14px; min-width:0; border:0; padding:0; margin:0; }
 .emulator-application-picker legend { padding:0; margin-bottom:14px; font-size:14px; font-weight:500; }
+.emulator-application-picker .emulator-aurora-option { display:flex; align-items:flex-start; gap:10px; min-height:44px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; }
+.emulator-aurora-option input[type=checkbox] { width:18px; margin-block-start:2px; }
+.emulator-aurora-option span { display:grid; gap:4px; }
+.emulator-aurora-option strong { font-size:13px; font-weight:500; color:var(--text); }
+.emulator-aurora-option small { font-size:12px; line-height:1.6; color:var(--muted); }
 .emulator-apk-library { min-width:0; }
 .emulator-apk-library summary { cursor:pointer; min-height:44px; padding-block:12px; color:var(--accent-soft); font-size:13px; }
 .emulator-apk-library-fields { display:flex; flex-wrap:wrap; align-items:end; gap:12px; padding-block-end:8px; }
@@ -46,13 +51,13 @@
 .emulator-application-picker > .button { justify-self:start; }
 .emulator-application-picker > .small-copy { margin:0; }
 .emulator-application-picker > input[type="file"].sr-only { width:1px; max-width:1px; height:1px; min-height:0; }
-.emulator-store { display:grid; grid-template-columns:minmax(116px,.32fr) minmax(0,1fr) auto; align-items:end; gap:12px; min-width:0; }
-.emulator-store > :not(.emulator-store-source,.emulator-store-query,.emulator-store-submit) { grid-column:1/-1; }
+.emulator-store { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:12px; min-width:0; }
+.emulator-store > :not(.emulator-store-query,.emulator-store-submit) { grid-column:1/-1; }
 .emulator-store .small-copy { margin:0; }
 .emulator-store-results { display:grid; gap:12px; min-width:0; }
 .emulator-store :is(input,select) { min-width:0; width:100%; min-height:44px; }
-.emulator-store .button { min-height:44px; }
-.emulator-store-results .button { justify-self:start; }
+.emulator-store :is(.button,.text-button) { min-height:44px; }
+.emulator-store-results .button,.emulator-store-external { justify-self:start; }
 .emulator-detail-status { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
 .emulator-detail-status > span:last-child { color:var(--muted); font-size:11px; }
 .emulator-config-form { display:grid; gap:16px; }

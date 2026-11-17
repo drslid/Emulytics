@@ -13,8 +13,9 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 from .access import audit_event
+from .ai_provider_probe import probe_openai, probe_shared_model
 from .auth import AuthConfig, SESSION_COOKIE, auth_enabled
-from .auth_routes import AuthRoute
+from .auth_routes import AuthRoute, client_ip
 from .self_security import SelfSecurityStore
 
 
@@ -87,6 +88,11 @@ class AiProviderPatch(BaseModel):
         if self.deepseek_model is not None and _model(self.deepseek_model) is None:
             raise ValueError('Invalid DeepSeek model')
         return self
+
+
+class AiProviderTest(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    provider: Provider
 
 
 def _ollama(row):
@@ -175,6 +181,33 @@ class AiProviderSettingsStore(SelfSecurityStore):
             audit_event(connection, user['id'], 'ai_providers.updated')
             return _provider_view(row, True)
 
+    def test_connection(self, session, provider: Provider, ip):
+        with self.connect() as connection:
+            user = self._session_user(connection, session)
+            if provider != 'openai' and user['role'] != 'admin':
+                raise HTTPException(403, 'Seul un administrateur peut tester un fournisseur partagé.')
+            row = provider_row(connection) if provider != 'openai' else None
+        bucket, ceiling = ('journey-generation', 10) if provider == 'openai' else ('ai-provider-test', 5)
+        try:
+            self.limit(bucket, str(user['id']), ip, maximum=ceiling)
+        except HTTPException as error:
+            if error.status_code != 429:
+                raise
+            raise HTTPException(429, {'code': 'provider_busy'}, headers=error.headers) from None
+        if provider == 'openai':
+            probe_openai(self.config, session)
+        else:
+            try:
+                settings = external_planner_settings(provider, row, cipher=self.config.cipher)
+            except InvalidToken:
+                raise HTTPException(503, {'code': 'provider_unavailable'}) from None
+            probe_shared_model(provider, settings)
+            with self.connect() as connection:
+                current = self._session_user(connection, session)
+                if current['id'] != user['id'] or current['role'] != 'admin':
+                    raise HTTPException(403, 'Droits insuffisants')
+        return {'provider': provider, 'status': 'ok'}
+
 
 router = APIRouter(prefix='/console/account/ai-providers', tags=['AI provider preferences'], route_class=AuthRoute)
 
@@ -196,3 +229,8 @@ def status(request: Request, store: Store):
 @router.patch('')
 def update(payload: AiProviderPatch, request: Request, store: Store):
     return store.update(request.cookies.get(SESSION_COOKIE), payload)
+
+
+@router.post('/test')
+def test_provider(payload: AiProviderTest, request: Request, store: Store):
+    return store.test_connection(request.cookies.get(SESSION_COOKIE), payload.provider, client_ip(request))

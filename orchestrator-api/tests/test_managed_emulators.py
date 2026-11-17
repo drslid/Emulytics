@@ -1,11 +1,13 @@
 """Managed-emulator effects require an authoritative queued operation and device lease."""
 from concurrent.futures import ThreadPoolExecutor
+from hashlib import sha256
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 from psycopg.types.json import Jsonb
 import pytest
 
+from app import aurora_store
 from app.emulator_store import EmulatorStore
 from app.execution_store import ExecutionStore
 from app.run_models import DeviceRegistration, RunSubmission, WorkflowRegistration
@@ -58,6 +60,36 @@ def test_catalog_exposes_named_presets_without_fabricating_installed_or_availabl
     with store.connect() as connection:
         pinned, = store._resolve(connection, [uploaded['id']], required=True)
         assert pinned['sha256']=='a'*64
+
+
+def test_aurora_import_requires_device_write_and_reuses_the_verified_artifact(
+        store, auth_store, app_module, monkeypatch, tmp_path):
+    _, operator, _ = signed_in(auth_store, app_module, 'operator')
+    _, viewer, _ = signed_in(auth_store, app_module, 'viewer')
+    contents = b'demo Aurora APK verified at the ingestion boundary'
+    release = aurora_store.Release('4.8.4', len(contents))
+    downloads = []
+
+    def download(candidate):
+        assert candidate == release
+        item = artifact(aurora_store.PACKAGE_NAME, name='Aurora Store (4.8.4)',
+                        sha256=sha256(contents).hexdigest(), size_bytes=len(contents))
+        (tmp_path / item['filename']).write_bytes(contents)
+        downloads.append(item)
+        return item
+
+    monkeypatch.setenv('EMULYTIX_APK_ROOT', str(tmp_path))
+    monkeypatch.setattr(aurora_store, 'find_latest_release', lambda: release)
+    monkeypatch.setattr(aurora_store, 'download_release', download)
+    path = '/console/applications/aurora'
+    assert viewer.post(path, json={}).status_code == 403 and not downloads
+    first = operator.post(path, json={})
+    repeated = operator.post(path, json={})
+    assert first.status_code == 201 and repeated.status_code == 200
+    identifier = first.json()['id']
+    assert identifier == repeated.json()['id']
+    assert list(tmp_path.glob('*.apk')) == [tmp_path / downloads[0]['filename']]
+    assert create(store, apps=['chrome', identifier])['application_ids'] == ['chrome', identifier]
 
 
 def test_only_fresh_explicitly_capable_workers_are_advertised(store):

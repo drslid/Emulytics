@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api, ApiError } from "../../lib/client-api";
 import type { AIProviderSettings, JourneyProviderId } from "../../lib/console-types";
 import { useT } from "../../lib/i18n";
+import { ChatgptConnectionPanel } from "./chatgpt-connection";
+import { ProviderConnectionTest } from "./provider-connection-test";
 import { ErrorNotice } from "./shared";
 
 const settingsPath = "console/account/ai-providers";
@@ -41,6 +43,14 @@ function changedFields(settings: AIProviderSettings, draft: SettingsDraft) {
   return change;
 }
 
+function ProviderOption({ provider, status, children }: { provider: "ollama" | "deepseek"; status: string; children?: ReactNode }) {
+  const label = <><strong>{providerNames[provider]}</strong><bdi className="ai-provider-status">{status}</bdi></>;
+  return children ? <details className="ai-provider-option" name="ai-provider" data-provider={provider}>
+    <summary className="ai-provider-summary">{label}</summary>
+    {children}
+  </details> : <div className="ai-provider-option ai-provider-summary">{label}</div>;
+}
+
 export function AIProviderSettingsPanel() {
   const t = useT();
   const [settings, setSettings] = useState<AIProviderSettings | null>(null);
@@ -48,6 +58,7 @@ export function AIProviderSettingsPanel() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savedRevision, setSavedRevision] = useState(0);
   const load = useCallback(async () => {
     setError("");
     try {
@@ -80,6 +91,7 @@ export function AIProviderSettingsPanel() {
       const current = response ?? await api<AIProviderSettings>(settingsPath);
       setSettings(current);
       setDraft(makeDraft(current));
+      setSavedRevision(revision => revision + 1);
       setSaved(true);
     } catch (failure) {
       if (failure instanceof ApiError && failure.code === "provider_unconfigured" && draft) {
@@ -94,38 +106,45 @@ export function AIProviderSettingsPanel() {
     }
   }
 
-  return <section className="surface chatgpt-connection" aria-labelledby="journey-providers-heading">
-    <div className="chatgpt-heading">
-      <div>
-        <h2 id="journey-providers-heading">{t("Fournisseurs IA")}</h2>
-        <p>{t("Le fournisseur par défaut et les réglages Ollama et DeepSeek sont communs à toute l’installation.")}</p>
-      </div>
-    </div>
-    {error && <ErrorNotice message={t(error)} />}
-    {settings && draft ? <form onSubmit={save} aria-busy={saving}>
-      <fieldset disabled={saving} className="ai-provider-settings">
-        {settings.can_edit ? <label>{t("Fournisseur utilisé par défaut")}
-          <select value={draft.active_provider} onChange={event => change("active_provider", event.target.value as JourneyProviderId)}>
+  return <section className="surface ai-settings" aria-labelledby="journey-providers-heading">
+    <header>
+      <h2 id="journey-providers-heading">{t("Fournisseurs IA")}</h2>
+      <p>{t("Le fournisseur par défaut et les réglages Ollama et DeepSeek sont communs à toute l’installation.")}</p>
+    </header>
+    <form className="ai-provider-settings" onSubmit={save} aria-busy={saving}>
+      {error && <ErrorNotice message={t(error)} />}
+      {settings && draft ? settings.can_edit ? <label className="ai-provider-default">{t("Fournisseur utilisé par défaut")}
+          <select value={draft.active_provider} disabled={saving} onChange={event => {
+            const provider = event.currentTarget.value as JourneyProviderId;
+            change("active_provider", provider);
+            const details = event.currentTarget.form?.querySelector<HTMLDetailsElement>(`[data-provider="${provider}"]`);
+            if (details) details.open = true;
+          }}>
             {Object.entries(providerNames).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
         </label> : <dl className="ai-provider-default">
           <dt>{t("Fournisseur utilisé par défaut")}</dt>
           <dd>{providerNames[settings.active_provider]}</dd>
-        </dl>}
-        <div className="ai-provider-fields">
-          <fieldset><legend>Ollama</legend>
-            {settings.can_edit ? <>
+        </dl> : error
+          ? <button type="button" className="button button--secondary" onClick={() => void load()}>{t("Réessayer")}</button>
+          : <p className="ai-provider-status" role="status">{t("Chargement…")}</p>}
+      <div className="ai-provider-list">
+        <ChatgptConnectionPanel />
+        {settings && draft && <>
+          <ProviderOption provider="ollama" status={settings.ollama.configured && settings.ollama.model || t("Non configuré")}>
+            {settings.can_edit && <fieldset className="ai-provider-fields" disabled={saving}>
               <label>{t("Adresse du serveur Ollama")}
-                <input type="url" value={draft.ollama_url} maxLength={512} placeholder="http://host.docker.internal:11434" onChange={event => change("ollama_url", event.target.value)} />
+                <input inputMode="url" value={draft.ollama_url} maxLength={512} placeholder="http://host.docker.internal:11434" onChange={event => change("ollama_url", event.target.value)} />
               </label>
               <label>{t("Modèle Ollama")}
                 <input value={draft.ollama_model} maxLength={128} onChange={event => change("ollama_model", event.target.value)} />
               </label>
-            </> : settings.ollama.configured && <p><bdi>{settings.ollama.model}</bdi></p>}
-            {!settings.ollama.configured && <p>{t("Non configuré")}</p>}
-          </fieldset>
-          <fieldset><legend>DeepSeek</legend>
-            {settings.can_edit ? <>
+              <ProviderConnectionTest key={savedRevision} provider="ollama" disabled={!settings.ollama.configured}
+                unsaved={Object.hasOwn(patch, "ollama_url") || Object.hasOwn(patch, "ollama_model")} />
+            </fieldset>}
+          </ProviderOption>
+          <ProviderOption provider="deepseek" status={settings.deepseek.has_key ? settings.deepseek.model : t("Non configuré")}>
+            {settings.can_edit && <fieldset className="ai-provider-fields" disabled={saving}>
               <label>{t("Clé API DeepSeek")}
                 <input type="password" autoComplete="new-password" value={draft.deepseek_key} maxLength={512} disabled={draft.clear_key} onChange={event => change("deepseek_key", event.target.value)} />
                 <span>{t(settings.deepseek.has_key ? "Clé API configurée" : "Non configuré")}</span>
@@ -139,15 +158,14 @@ export function AIProviderSettingsPanel() {
                   if (event.target.checked) change("deepseek_key", "");
                 }} />{t("Retirer la clé DeepSeek")}
               </label>}
-            </> : <p>{settings.deepseek.has_key ? <bdi>{settings.deepseek.model}</bdi> : t("Non configuré")}</p>}
-          </fieldset>
-        </div>
-        {saved && <p className="notice notice--success" role="status">{t("Réglages IA enregistrés.")}</p>}
-        {settings.can_edit && <button type="submit" className="button button--primary" disabled={!dirty}>{t("Enregistrer")}</button>}
-      </fieldset>
-    </form> : <div className="chatgpt-loading" aria-busy={!error}>
-      {error ? <button type="button" className="button button--secondary" onClick={() => void load()}>{t("Réessayer")}</button>
-        : <p role="status">{t("Chargement…")}</p>}
-    </div>}
+              <ProviderConnectionTest key={savedRevision} provider="deepseek" disabled={!settings.deepseek.has_key}
+                unsaved={Object.hasOwn(patch, "deepseek_key") || Object.hasOwn(patch, "deepseek_model")} />
+            </fieldset>}
+          </ProviderOption>
+        </>}
+      </div>
+      {saved && <p className="notice notice--success" role="status">{t("Réglages IA enregistrés.")}</p>}
+      {settings?.can_edit && <button type="submit" className="button button--primary" disabled={!dirty || saving}>{t(saving ? "Enregistrement…" : "Enregistrer")}</button>}
+    </form>
   </section>;
 }

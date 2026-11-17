@@ -162,10 +162,10 @@ def run_planner(auth, instructions, binary='/usr/local/bin/codex', timeout=90):
 
 
 class JourneyProvider(ChatGPTStore):
-    def _save_credentials(self, session, user_id, previous, auth):
+    def _save_credentials(self, session, user_id, previous, auth, *, probe):
         with self.connect() as connection:
             current = self._session_user(connection, session)
-            if current['id'] != user_id or 'workflows.write' not in permissions_for(current['role']):
+            if current['id'] != user_id or (not probe and 'workflows.write' not in permissions_for(current['role'])):
                 raise HTTPException(403, 'Droits insuffisants')
             value = {'provider': 'chatgpt', 'user_id': str(user_id), 'auth': auth}
             updated = self.config.cipher.encrypt(json.dumps(value).encode()).decode()
@@ -180,6 +180,14 @@ class JourneyProvider(ChatGPTStore):
             return provider_row(connection)['active_provider']
 
     def generate(self, session, instructions, provider='openai'):
+        return self._generate(session, instructions, provider)
+
+    def test_openai(self, session):
+        output = self._generate(session, 'Connectivity check: return supported=false and no steps.', 'openai', probe=True)
+        if not isinstance(output, dict) or type(output.get('supported')) is not bool:
+            raise HTTPException(503, {'code': 'provider_unavailable'})
+
+    def _generate(self, session, instructions, provider, *, probe=False):
         if provider == 'openai' and not ChatGPTManager().available:
             raise HTTPException(503, 'La génération ChatGPT est désactivée sur cette installation.')
         if not GATES.acquire(blocking=False):
@@ -187,7 +195,7 @@ class JourneyProvider(ChatGPTStore):
         try:
             with self.connect() as connection:
                 user = self._session_user(connection, session)
-                if 'workflows.write' not in permissions_for(user['role']):
+                if not probe and 'workflows.write' not in permissions_for(user['role']):
                     raise HTTPException(403, 'Droits insuffisants')
             # A per-user advisory lock serializes token refresh without holding a user row across inference.
             with self.connect() as guard:
@@ -212,12 +220,13 @@ class JourneyProvider(ChatGPTStore):
                 if value.get('provider') != 'chatgpt' or value.get('user_id') != str(user['id']):
                     raise ValueError('Credential owner mismatch')
                 try:
-                    output, auth = run_planner(value['auth'], instructions)
+                    options = {'timeout': 20} if probe else {}
+                    output, auth = run_planner(value['auth'], instructions, **options)
                 except PlannerFailure as failure:
                     if failure.credentials:
-                        self._save_credentials(session, user['id'], encrypted, failure.credentials)
+                        self._save_credentials(session, user['id'], encrypted, failure.credentials, probe=probe)
                     raise
-                self._save_credentials(session, user['id'], encrypted, auth)
+                self._save_credentials(session, user['id'], encrypted, auth, probe=probe)
                 return output
         except HTTPException:
             raise

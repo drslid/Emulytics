@@ -66,6 +66,39 @@ test("AI provider preferences proxy only scoped reads and CSRF-protected patches
   assert.equal((await proxyControl(request(endpoint + "/key"), [...path, "key"], reject)).status, 404);
 });
 
+test("provider probes and the official Aurora import only accept protected exact POST routes", async () => {
+  for (const [endpoint, body] of [
+    ["console/account/ai-providers/test", '{"provider":"ollama"}'],
+    ["console/applications/aurora", "{}"]
+  ]) {
+    const path = endpoint.split("/");
+    const reject = () => assert.fail("An invalid request reached the API");
+    assert.equal((await proxyControl(request(endpoint), path, reject)).status, 404);
+    assert.equal((await proxyControl(request(endpoint, post(body, "https://untrusted.test")), path, reject)).status, 403);
+    const response = await proxyControl(request(endpoint, post(body)), path, async (url, upstream) => {
+      assert.equal(url, `http://api.internal:8010/${endpoint}?`);
+      assert.equal(upstream.method, "POST");
+      assert.equal(new TextDecoder().decode(upstream.body), body);
+      return Response.json({ ok: true });
+    });
+    assert.equal(response.status, 200);
+  }
+});
+
+test("APKMirror exposes catalogue reads without proxying downloads or imports", async () => {
+  for (const endpoint of ["console/applications/apkmirror", "console/applications/apkmirror/versions"]) {
+    const path = endpoint.split("/");
+    const response = await proxyControl(request(`${endpoint}?q=Snapchat&download=other`), path, async url => {
+      assert.equal(url, `http://api.internal:8010/${endpoint}?q=Snapchat`);
+      return Response.json({ items: [] });
+    });
+    assert.equal(response.status, 200);
+    const reject = () => assert.fail("APKMirror proxy accepted a non-catalogue request");
+    assert.equal((await proxyControl(request(endpoint, post()), path, reject)).status, 404);
+    assert.equal((await proxyControl(request(`${endpoint}/download`), [...path, "download"], reject)).status, 404);
+  }
+});
+
 test("managed emulator routes preserve session and refuse arbitrary Docker endpoints", async () => {
   for (const endpoint of ['console/emulators', 'console/emulators/emu-example/start', 'console/emulators/emu-example/prepare', 'console/emulators/emu-example/stop', 'console/emulators/emu-example/configuration']) {
     const result = await proxyControl(request(endpoint, post()), endpoint.split('/'), async (url) => {

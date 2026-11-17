@@ -17,6 +17,7 @@ const labels = { created: "À préparer", starting: "Démarrage en cours", runni
 const definite = (failure: unknown) => failure instanceof ApiError && [401, 403, 404, 409, 422].includes(failure.status);
 const storageError = "Autorisez le stockage de session du navigateur pour sécuriser cette demande.";
 const emulatorPlatform = "Android 10 · x86_64";
+const auroraPackage = "com.aurora.store";
 
 export function ManagedEmulators({ userId, devices, canManage, canLaunch, onChanged, onLaunch, onOpenRun, onDevices }: {
   userId: string; devices: Device[]; canManage: boolean; canLaunch: boolean; onChanged: () => void; onLaunch: (device: Device) => void; onOpenRun: (runId: string) => void; onDevices: (devices: Device[]) => void;
@@ -121,15 +122,26 @@ function EmulatorActions({ emulator, applications, canManage, canLaunch, ready, 
   </div>;
 }
 
-function ApplicationPicker({ applications, selected, onChange, disabled, onUploaded, onUploading }: { applications: EmulatorApplication[]; selected: string[]; onChange: (ids: string[]) => void; disabled: boolean; onUploaded: (application: EmulatorApplication) => void; onUploading: (busy: boolean) => void }) {
+function ApplicationPicker({ applications, selected, onChange, disabled, onUploaded, onUploading, aurora }: {
+  applications: EmulatorApplication[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  disabled: boolean;
+  onUploaded: (application: EmulatorApplication) => void;
+  onUploading: (busy: boolean) => void;
+  aurora?: { checked: boolean; onChange: (checked: boolean) => void };
+}) {
   const { t } = useLocale(), fileInput = useRef<HTMLInputElement>(null);
   const [importSource, setImportSource] = useState<"file" | "store" | null>(null);
   const [error, setError] = useState(""), [imported, setImported] = useState("");
   const [libraryId, setLibraryId] = useState("");
   const uploading = importSource !== null;
-  const full = selected.length >= MAX_EMULATOR_APPLICATIONS;
-  const canSelectPackage = (packageName: string) => !full ||
+  const hasPackage = (packageName: string) =>
     applications.some(application => application.package_name === packageName && selected.includes(application.id));
+  const hasAurora = hasPackage(auroraPackage);
+  const reserveAurora = aurora?.checked && !hasAurora;
+  const full = selected.length + (reserveAurora ? 1 : 0) >= MAX_EMULATOR_APPLICATIONS;
+  const canSelectPackage = (packageName: string) => !full || hasPackage(packageName) || Boolean(reserveAurora && packageName === auroraPackage);
   const library = importedEmulatorApplications(applications).filter(application => !selected.includes(application.id));
   const libraryApplication = library.find(application => application.id === libraryId);
 
@@ -146,7 +158,8 @@ function ApplicationPicker({ applications, selected, onChange, disabled, onUploa
       if (!response.ok) throw new ApiError(response.status, t(response.status === 413 ? "Choisissez un fichier APK de moins de 128 Mio." : "L’importation a échoué. Vérifiez le fichier APK puis réessayez."));
       const uploaded = await response.json() as EmulatorApplication;
       const result = canonicalizeEmulatorUpload(uploaded, applications, selected);
-      onUploaded(result.application); onChange(result.selected);
+      onUploaded(result.application);
+      if (canSelectPackage(uploaded.package_name)) onChange(result.selected);
     } catch (failure) { setError(failure instanceof ApiError ? failure.message : t("L’importation a échoué. Vérifiez le fichier APK puis réessayez.")); }
     finally { setImportSource(null); onUploading(false); if (fileInput.current) fileInput.current.value = ""; }
   }
@@ -170,6 +183,13 @@ function ApplicationPicker({ applications, selected, onChange, disabled, onUploa
   }
   return <fieldset className="emulator-application-picker" disabled={disabled || uploading}>
     <legend>{t("Applications souhaitées")}</legend>
+    {aurora && <label className="emulator-aurora-option">
+      <input type="checkbox" checked={aurora.checked} disabled={!aurora.checked && full && !hasAurora}
+        onChange={event => aurora.onChange(event.target.checked)} />
+      <span><strong>{t("Installer Aurora Store")}</strong>
+        <small>{t("La dernière version officielle sera installée lors de la préparation.")}</small>
+      </span>
+    </label>}
     {!disabled && <>
       <ApkStorePicker busy={uploading} importing={importSource === "store"} canSelectPackage={canSelectPackage}
         onImport={(store, packageName, releaseId) => void importRelease(store, packageName, releaseId)} />
@@ -218,6 +238,7 @@ function EmulatorForm({ userId, catalog, onClose, onUploaded, onCreated }: { use
   const { t, locale } = useLocale();
   const [name, setName] = useState(""), [host, setHost] = useState(catalog.hosts.length === 1 ? catalog.hosts[0] : ""), [selected, setSelected] = useState<string[]>([]);
   const [hardware, setHardware] = useState<EmulatorHardware>({ ...DEFAULT_HARDWARE });
+  const [installAurora, setInstallAurora] = useState(false);
   const [busy, setBusy] = useState(false), [uploading, setUploading] = useState(false), [error, setError] = useState(""), [attempted, setAttempted] = useState(false);
   const intent = useRef<EmulatorCreation | null>(null), sending = useRef(false);
   useEffect(() => { try { const raw = sessionStorage.getItem(emulatorIntentKey(userId)); const saved = raw ? parseEmulatorCreation(JSON.parse(raw)) : null; if (saved) { intent.current = saved; setName(saved.name); setHost(saved.host_id); setSelected(saved.application_ids); setHardware(saved.hardware ?? { ...DEFAULT_HARDWARE }); setAttempted(true); } } catch { setError(t(storageError)); } }, [userId, t]);
@@ -225,8 +246,22 @@ function EmulatorForm({ userId, catalog, onClose, onUploaded, onCreated }: { use
     event.preventDefault(); if (sending.current || uploading) return;
     if (!intent.current && !parseHardware(hardware)) { setError(hardwareCopy[locale].bounds); return; }
     sending.current = true; setBusy(true); setError(""); let sent = false;
-    const request = intent.current ?? { name: name.trim(), host_id: host, application_ids: selected, hardware, idempotency_key: crypto.randomUUID() };
     try {
+      let applicationIds = selected;
+      if (!intent.current && installAurora) {
+        try {
+          const application = await api<EmulatorApplication>("console/applications/aurora", {});
+          if (application.package_name !== auroraPackage || !application.available) throw new Error();
+          applicationIds = selectEmulatorApplication(application, catalog.applications, selected);
+          if (!applicationIds.includes(application.id)) throw new Error();
+          onUploaded(application);
+          setSelected(applicationIds);
+        } catch {
+          setError(t("Impossible de récupérer Aurora Store. Réessayez."));
+          return;
+        }
+      }
+      const request = intent.current ?? { name: name.trim(), host_id: host, application_ids: applicationIds, hardware, idempotency_key: crypto.randomUUID() };
       sessionStorage.setItem(emulatorIntentKey(userId), JSON.stringify(request)); intent.current = request; setAttempted(true); sent = true;
       const emulator = await api<ManagedEmulator>("console/emulators", request);
       sessionStorage.removeItem(emulatorIntentKey(userId)); intent.current = null; onCreated(emulator);
@@ -238,7 +273,9 @@ function EmulatorForm({ userId, catalog, onClose, onUploaded, onCreated }: { use
   return <Dialog title={t("Créer un émulateur")} description={t("Choisissez ses applications maintenant, puis utilisez « Préparer les applications » pour les installer.")} onClose={() => { if (!busy && !uploading) onClose(); }} wide><form className="dialog-form emulator-form" onSubmit={submit}>
     {error && <ErrorNotice message={error} />}{attempted && <p className="notice notice--warning">{t("La demande précédente est conservée. Réessayez pour confirmer son résultat.")}</p>}
     <fieldset className="emulator-form-fields" disabled={busy || attempted || uploading}><label>{t("Nom de l’émulateur")}<input required maxLength={160} autoFocus value={name} onChange={event => setName(event.target.value)} placeholder={t("Ex. Android marketing")} /><span>{t("Les espaces sont acceptés. L’identifiant est généré automatiquement.")}</span></label><label>{t("Hôte de l’émulateur")}<select required value={host} onChange={event => setHost(event.target.value)}><option value="" disabled>{t("Choisir un hôte")}</option>{![...catalog.hosts].includes(host) && host && <option value={host}>{host}</option>}{catalog.hosts.map(value => <option key={value} value={value}>{value}</option>)}</select><span>{t("Jusqu’à {count} émulateurs par hôte.", { count: catalog.max_per_host })}</span></label></fieldset>
-    <p className="emulator-platform"><bdi>{emulatorPlatform}</bdi></p><EmulatorHardwareFields value={hardware} onChange={setHardware} disabled={busy || attempted || uploading} /><ApplicationPicker applications={catalog.applications} selected={selected} onChange={setSelected} disabled={busy || attempted} onUploaded={onUploaded} onUploading={setUploading} />
+    <p className="emulator-platform"><bdi>{emulatorPlatform}</bdi></p><EmulatorHardwareFields value={hardware} onChange={setHardware} disabled={busy || attempted || uploading} />
+    <ApplicationPicker applications={catalog.applications} selected={selected} onChange={setSelected} disabled={busy || attempted}
+      onUploaded={onUploaded} onUploading={setUploading} aurora={attempted ? undefined : { checked: installAurora, onChange: setInstallAurora }} />
     {missingEmulatorApplications(selected, catalog.applications).length > 0 && <p className="notice notice--info">{t("Vous pouvez enregistrer ce choix maintenant et importer les APK avant de préparer l’émulateur.")}</p>}
     <div className="dialog-footer"><button type="button" className="button button--secondary" disabled={busy || uploading} onClick={onClose}>{t("Annuler")}</button><button type="submit" className="button button--primary" disabled={busy || uploading || !attempted && (!name.trim() || !host)}>{t(busy ? "Création en cours…" : attempted ? "Confirmer le résultat de la demande" : "Créer l’émulateur")}</button></div>
   </form></Dialog>;

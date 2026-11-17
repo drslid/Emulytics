@@ -149,3 +149,29 @@ def test_store_apk_requires_the_exact_signed_compatible_artifact(tmp_path, monke
         accepted = apk_catalog.ingest_apk_chunks([content], expected=expected)
         assert accepted['sha256'] == hashlib.sha256(content).hexdigest()
         assert (tmp_path / accepted['filename']).read_bytes() == content
+
+
+@pytest.mark.parametrize(('version_code', 'version_name', 'expected_code', 'accepted'), [
+    (" versionCode='76'", '4.8.4', None, True),
+    (" versionCode='76'", '4.8.3', None, False),
+    ('', '4.8.4', None, False),
+    (" versionCode='76'", '4.8.4', 77, False),
+])
+def test_store_apk_requires_expected_version_name_and_valid_version_code(
+    tmp_path, monkeypatch, version_code, version_name, expected_code, accepted,
+):
+    content = archive_bytes()
+    path = tmp_path / 'app.apk'
+    path.write_bytes(content)
+    monkeypatch.setattr(apk_catalog, '_badging', lambda path: (
+        f"package: name='com.aurora.store'{version_code} versionName='{version_name}'\n"
+        "application-label:'Aurora Store'\n"
+    ))
+    expected = apk_catalog.ExpectedApk('com.aurora.store', expected_code, None, len(content),
+                                       version_name='4.8.4')
+    if accepted:
+        assert apk_catalog.inspect_apk(path, expected)[0] == 'com.aurora.store'
+    else:
+        with pytest.raises(HTTPException) as error:
+            apk_catalog.inspect_apk(path, expected)
+        assert error.value.status_code == 422
