@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 
@@ -28,12 +29,17 @@ if args[0] == 'compose':
         source = sys.stdin.read()
         if 'console-api' in args:
             class Connection:
-                def execute(self, query, params):
-                    assert query.startswith('SELECT device_id FROM devices WHERE host_id=')
-                    assert params == ('bench-host', 'emulator-5554')
+                def execute(self, query, params=None):
+                    if query.startswith('SELECT device_id FROM devices WHERE host_id='):
+                        assert params == ('bench-host', 'emulator-5554')
+                        self.row = {'device_id': 'existing-device'} if os.getenv('FAKE_DEVICE') else None
+                    else:
+                        assert query == "SELECT 1 FROM device_records WHERE device_id='local-emulator'"
+                        assert params is None and not os.getenv('FAKE_DEVICE')
+                        self.row = (1,) if os.getenv('FAKE_RETIRED_DEVICE') else None
                     return self
                 def fetchone(self):
-                    return {'device_id': 'existing-device'} if os.getenv('FAKE_DEVICE') else None
+                    return self.row
             class RunStore:
                 def __init__(self, dsn): pass
                 @contextmanager
@@ -132,6 +138,18 @@ def test_missing_bench_is_created_and_real_device_is_registered(launcher):
     registered = [call['fields'] for call in calls if call['event'] == 'registered']
     assert registered == [dict(device_id='local-emulator', display_name='Émulateur local',
                                host_id='bench-host', serial='emulator-5554', kind='emulator')]
+
+
+def test_retired_bench_registration_uses_a_new_id(launcher):
+    run, _ = launcher
+    result, calls = run(FAKE_RETIRED_DEVICE='true')
+    assert result.returncode == 0, result.stderr
+    registered, = [call['fields'] for call in calls if call['event'] == 'registered']
+    device_id = registered.pop('device_id')
+    assert re.fullmatch(r'local-emulator-[0-9a-f]{12}', device_id)
+    assert registered == dict(display_name='Émulateur local', host_id='bench-host',
+                              serial='emulator-5554', kind='emulator')
+    assert f'Appareil disponible dans la console : {device_id}' in result.stdout
 
 
 def test_stopped_owned_bench_is_started_without_replacing_its_data(launcher):
