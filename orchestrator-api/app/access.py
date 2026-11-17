@@ -76,6 +76,8 @@ def required_permission(method: str, path: str) -> str | None:
         return 'devices.write' if method == 'GET' else None
     if re.fullmatch(r'/console/emulators/[^/]+/(?:configuration|start|prepare|stop)',path):
         return 'devices.write' if method=='POST' else None
+    if re.fullmatch(r'/console/devices/[^/]+', path):
+        return 'devices.write' if method in {'PATCH', 'DELETE'} else None
     if re.fullmatch(r'/console/devices/[^/]+/screen', path):
         return 'devices.read' if read else None
     if re.fullmatch(r'/console/executions/[^/]+/screen', path):

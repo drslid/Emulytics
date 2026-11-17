@@ -117,12 +117,12 @@ class EmulatorStore(RunStore):
             raise HTTPException(404, 'Managed emulator not found')
 
     @staticmethod
-    def _idle(connection, device_id):
+    def _idle(connection, device_id, *, error_code=None):
         if connection.execute('SELECT 1 FROM executions WHERE device_id=%s AND status=ANY(%s) LIMIT 1', (device_id,['queued',*ACTIVE])).fetchone():
-            raise HTTPException(409, 'The device already has queued or active work')
+            raise HTTPException(409, {'code': error_code} if error_code else 'The device already has queued or active work')
         lease = connection.execute('SELECT owner_id,quarantined FROM device_leases WHERE device_id=%s', (device_id,)).fetchone()
         if lease and (lease['owner_id'] is not None or lease['quarantined']):
-            raise HTTPException(409, 'The device lease must be free and confirmed')
+            raise HTTPException(409, {'code': error_code} if error_code else 'The device lease must be free and confirmed')
 
     def list_emulators(self):
         with self.connect() as connection:
@@ -130,7 +130,7 @@ class EmulatorStore(RunStore):
             catalog = self._catalog(connection)
             hosts = self._hosts(connection)
             workers = self._workers(connection)
-            return {'items':[self._record(connection,row['device_id'],workers) for row in ids],
+            return {'items':[record for row in ids if (record := self._record(connection,row['device_id'],workers)) is not None],
                 'applications':[{key:row[key] for key in ('id','name','package_name','source','size_bytes','available')} for row in catalog],
                 'hosts':hosts,'enabled':bool(hosts),'max_per_host':4}
 
@@ -145,10 +145,13 @@ class EmulatorStore(RunStore):
         with self.connect() as connection:
             self._actor(connection,actor_id)
             connection.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))", ('emulator-create:'+key,))
-            previous = connection.execute('SELECT device_id,create_hash FROM managed_emulators WHERE create_key=%s',(key,)).fetchone()
+            previous = connection.execute('SELECT d.device_id,m.create_hash,d.deleted_at FROM managed_emulator_records m '
+                'JOIN device_records d USING(device_id) WHERE m.create_key=%s FOR SHARE OF d',(key,)).fetchone()
             if previous:
                 if previous['create_hash']!=digest:
                     raise HTTPException(409,'Creation key already used with different content')
+                if previous['deleted_at'] is not None:
+                    raise HTTPException(409, 'The emulator created by this request was removed')
                 return self._record(connection,previous['device_id']),False
             self._resolve(connection,application_ids)
             connection.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))', ('emulator-host:'+host_id,))
@@ -271,7 +274,8 @@ class EmulatorStore(RunStore):
     def list_managed(self, host_id):
         with self.connect() as connection:
             workers = self._workers(connection)
-            return [self._record(connection,row['device_id'],workers) for row in connection.execute('SELECT device_id FROM managed_emulators WHERE host_id=%s ORDER BY slot',(host_id,)).fetchall()]
+            ids = connection.execute('SELECT device_id FROM managed_emulators WHERE host_id=%s ORDER BY slot',(host_id,)).fetchall()
+            return [record for row in ids if (record := self._record(connection,row['device_id'],workers)) is not None]
 
     def operation(self, execution_id):
         with self.connect() as connection:

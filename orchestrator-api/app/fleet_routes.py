@@ -69,13 +69,14 @@ class FleetStore(RunStore):
         with self.connect() as connection:
             if actor:
                 EmulatorStore._actor(connection, actor)
+            # Device removal takes these locks in the same order before changing membership.
+            devices = connection.execute('SELECT device_id FROM devices WHERE device_id=ANY(%s) ORDER BY device_id FOR KEY SHARE', (payload.device_ids,)).fetchall()
             if group_id:
                 row = connection.execute('SELECT revision FROM device_groups WHERE id=%s FOR UPDATE', (group_id,)).fetchone()
                 if not row:
                     raise HTTPException(404, 'Groupe introuvable')
                 if row['revision'] != payload.revision:
                     raise HTTPException(409, 'Ce groupe a changé. Rechargez sa fiche avant de modifier ses appareils.')
-            devices = connection.execute('SELECT device_id FROM devices WHERE device_id=ANY(%s) ORDER BY device_id FOR KEY SHARE', (payload.device_ids,)).fetchall()
             if len(devices) != len(payload.device_ids):
                 raise HTTPException(404, 'Un appareil du groupe est introuvable')
             previous = connection.execute('SELECT id FROM device_groups WHERE lower(name)=lower(%s)', (payload.name,)).fetchone()

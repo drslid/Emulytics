@@ -1,6 +1,7 @@
 """Editable recipes and frozen, timezone-aware execution schedules."""
 
 from typing import Annotated, Literal, Self
+from uuid import UUID
 
 from pydantic import Field, field_validator, model_validator
 
@@ -25,8 +26,13 @@ class RecipeInput(Contract):
         return self
 
 
+class RecipeCreate(RecipeInput):
+    request_id: UUID | None = Field(default=None, strict=False)
+
+
 class RecipeUpdate(RecipeInput):
     revision: int = Field(ge=1, le=2_147_483_647)
+    accept_replay: bool = False
 
 
 class GoalInput(Contract):

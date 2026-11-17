@@ -48,6 +48,12 @@ Use the existing-device flow for a physical Android device or an external emulat
 
 Admin and Operator can manage devices. Builder can launch published journeys on a device that is already ready.
 
+## Edit or remove a device
+
+In **Devices**, choose **Edit** to change the device's display name. For a managed emulator, open its controls to power it on, prepare applications, or power it off. External emulators and physical devices are powered on and off from their own host or hardware.
+
+Use **Remove from inventory** to retire a device. Stop a managed emulator before removing it. Finish queued or active work and update any enabled schedule that targets the device. Run history and the stopped emulator's Android data are retained.
+
 ## Groups and capacity
 
 Create a named group, select its devices, then use the available group actions. Bulk power and application preparation apply only to managed emulators explicitly selected in the interface. Physical devices do not gain virtual power controls from group membership.

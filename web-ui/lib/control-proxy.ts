@@ -4,10 +4,11 @@ const reads = new RegExp(`^(auth/(me|enrollment|enrollment/qr)|devices|workflows
 const userPath = `console/users/${UUID}`;
 const recipePath = `console/recipes/${UUID}`;
 const schedulePath = `console/schedules/${UUID}`;
+const devicePath = `console/devices/${identifier}`;
 const changes = {
   POST: new RegExp(`^(auth/(login|change-password|verify|recovery|logout)|devices|runs|runs/${UUID}/(cancel|retry)|console/(fleet/(groups|bulk)|emulators|emulators/${identifier}/(configuration|start|prepare|stop)|applications(/(fdroid|aptoide|aurora))?|updates|users|recipes|recipes/(from-workflow|generate)|schedules|schedules/preview|account/(api-keys|ai-providers/test|password|recovery-codes|chatgpt/(login|cancel)|two-factor/(start|confirm)))|${userPath}/(reset-password|reset-2fa|revoke-sessions|force-password-change)|${recipePath}/publish)$`),
-  PATCH: new RegExp(`^(${userPath}|${recipePath}|${schedulePath}|console/account/(profile|ai-providers)|console/fleet/groups/${UUID})$`),
-  DELETE: new RegExp(`^(workflows/${identifier}/versions/[0-9]+|${schedulePath}|console/fleet/groups/${UUID}|console/account/(api-keys/${UUID}|chatgpt|two-factor/enrollment))$`)
+  PATCH: new RegExp(`^(${userPath}|${recipePath}|${schedulePath}|${devicePath}|console/account/(profile|ai-providers)|console/fleet/groups/${UUID})$`),
+  DELETE: new RegExp(`^(workflows/${identifier}/versions/[0-9]+|${schedulePath}|${devicePath}|console/fleet/groups/${UUID}|console/account/(api-keys/${UUID}|chatgpt|two-factor/enrollment))$`)
 };
 
 export function sessionCookies(raw: string | null): string {

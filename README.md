@@ -139,6 +139,8 @@ Use **Prepare applications** to install the selected APKs on the emulator. **Pow
 
 Register an existing phone or emulator with its worker host and exact ADB serial. A device name alone does not establish an Android connection.
 
+From **Devices**, operators and administrators can rename devices or remove them from the inventory. Managed emulator controls also let them power Android on and off. Removal preserves historical runs and the stopped emulator's Android storage.
+
 A worker process executes one journey at a time, and a device has one active execution at most. More workers and ready devices can increase concurrency within the host's actual resource limits. The maximum devices per request is not a measured capacity guarantee.
 
 **Detailed procedure:** [Devices and emulators](https://drslid.github.io/Emulytics/guides/devices/) · [Schedules](https://drslid.github.io/Emulytics/guides/schedules/) · [Monitoring](https://drslid.github.io/Emulytics/guides/monitoring/)

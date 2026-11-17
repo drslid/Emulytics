@@ -11,6 +11,7 @@ import { LiveScreen } from "./live-screen";
 import { ExecutionGallery } from "./execution-gallery";
 import { RunDiagnosis } from "./run-diagnosis";
 import { isExecutionLive, reconcileExecutionLive, toggleExecutionLive, type ExecutionLiveSelection } from "../../lib/execution-live";
+import { runEditorPath } from "../../lib/run-authoring";
 
 const eventLabels: Record<string, string> = {
   "run.created": "Demande enregistrée", "run.cancel_requested": "Arrêt demandé", "run.cancelled": "Exécution annulée",
@@ -19,7 +20,7 @@ const eventLabels: Record<string, string> = {
   "action.cancelled": "Action annulée", "action.uncertain": "Résultat de l’action incertain",
   "execution.step_completed": "Étape terminée"
 };
-export function RunDetail({ runId, onClose, onChanged, canCancel = true, canManageDevices = false, userId = "", canRetry = false, onOpen }: { runId: string; onClose: () => void; onChanged: () => void; canCancel?: boolean; canManageDevices?: boolean; userId?: string; canRetry?: boolean; onOpen?: (id: string) => void }) {
+export function RunDetail({ runId, onClose, onChanged, canCancel = true, canManageDevices = false, userId = "", canRetry = false, canEditRun = false, onOpen }: { runId: string; onClose: () => void; onChanged: () => void; canCancel?: boolean; canManageDevices?: boolean; userId?: string; canRetry?: boolean; canEditRun?: boolean; onOpen?: (id: string) => void }) {
   const { t, locale } = useLocale();
   const [liveSelection, setLiveSelection] = useState<ExecutionLiveSelection>({ executionId: null, hidden: false });
   const [workflowSteps, setWorkflowSteps] = useState<Step[] | undefined>();
@@ -112,7 +113,9 @@ export function RunDetail({ runId, onClose, onChanged, canCancel = true, canMana
     <div className="dialog-form">
       {error && <ErrorNotice message={error} />}
       {!run ? <p role="status" className="loading-copy">{t("Chargement de l’exécution…")}</p> : <>
-        <div className="run-detail-meta"><Badge status={run.status} cancelRequested={run.cancel_requested} /><span>{date(run.created_at, locale)}</span><span>{t("Version")} {run.workflow_version}</span></div>
+        <div className="run-detail-meta"><Badge status={run.status} cancelRequested={run.cancel_requested} /><span>{date(run.created_at, locale)}</span><span>{t("Version")} {run.workflow_version}</span>
+          {canEditRun && !workflowUnavailable && !run.workflow_id.startsWith("emulator-system-") && <a className="button button--secondary run-edit-action" href={`${runEditorPath}?source=${encodeURIComponent(run.id)}`}>{t("Modifier et relancer")}</a>}
+        </div>
         {run.status === "queued" && <div className="notice notice--info"><Icon name="clock" /><span>{t("Le worker doit être actif sur chaque hôte. Les téléphones occupés attendront leur tour ; une inscription ne confirme pas une connexion Android.")} <a href="/monitoring">{t("Monitoring")}</a></span></div>}
         {run.cancel_requested && run.status === "running" && <div className="notice notice--warning">{t("Arrêt demandé. Le worker doit encore confirmer sa fin ; l’appareil reste réservé jusque-là.")}</div>}
         {run.status === "needs_review" && <div className="notice notice--warning"><Icon name="warning" /><span>{t("Une vérification est nécessaire avant de réutiliser l’appareil. Consultez les preuves ; aucune action incertaine ne sera relancée automatiquement.")}</span></div>}

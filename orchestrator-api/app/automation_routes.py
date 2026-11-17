@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from .automation_models import GoalInput, PreviewInput, PublishInput, RecipeInput, RecipeUpdate, ScheduleInput, ScheduleToggle, WorkflowRecipeInput
+from .automation_models import GoalInput, PreviewInput, PublishInput, RecipeCreate, RecipeInput, RecipeUpdate, ScheduleInput, ScheduleToggle, WorkflowRecipeInput
 from .automation_store import AutomationStore, next_occurrences
 from .run_routes import ControlRoute, Limit, Offset, Store
 
@@ -25,8 +25,8 @@ def recipes(request: Request, store: Store, limit: Limit = 100, offset: Offset =
 
 
 @router.post("/recipes", status_code=201)
-def create_recipe(payload: RecipeInput, request: Request, store: Store):
-    return AutomationStore(store.dsn).create_recipe(payload, _actor(request))
+def create_recipe(payload: RecipeCreate, request: Request, store: Store):
+    return AutomationStore(store.dsn).create_recipe(payload, _actor(request), request_id=payload.request_id)
 
 
 @router.get('/recipes/providers')
@@ -92,8 +92,10 @@ def recipe_from_workflow(payload: WorkflowRecipeInput, request: Request, store: 
 
 @router.patch("/recipes/{recipe_id}")
 def update_recipe(recipe_id: UUID, payload: RecipeUpdate, request: Request, store: Store):
-    value = RecipeInput(**payload.model_dump(exclude={"revision"}, by_alias=True))
-    return AutomationStore(store.dsn).update_recipe(recipe_id, payload.revision, value, _actor(request))
+    value = RecipeInput(**payload.model_dump(exclude={"revision", "accept_replay"}, by_alias=True))
+    return AutomationStore(store.dsn).update_recipe(
+        recipe_id, payload.revision, value, _actor(request), accept_replay=payload.accept_replay,
+    )
 
 
 @router.post("/recipes/{recipe_id}/publish")

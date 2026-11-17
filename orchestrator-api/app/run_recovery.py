@@ -40,6 +40,9 @@ class RecoveryStore(RunStore):
     def _retry_block(connection, execution, steps):
         if execution['status'] != 'failed':
             return 'only_failed'
+        if not connection.execute('SELECT 1 FROM devices WHERE device_id=%s',
+                                  (execution['device_id'],)).fetchone():
+            return 'device_removed'
         if any(step.get('non_idempotent') for step in steps):
             return 'non_idempotent_workflow'
         journal = connection.execute('SELECT status,non_idempotent FROM action_journal WHERE execution_id=%s', (execution['id'],)).fetchall()

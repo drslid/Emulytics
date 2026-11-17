@@ -75,6 +75,7 @@ done
 "${console[@]}" exec -T console-api python - <<'PY'
 import os
 import urllib.request
+from uuid import uuid4
 
 from app.run_models import DeviceRegistration
 from app.run_store import RunStore
@@ -88,11 +89,15 @@ with store.connect() as connection:
         'SELECT device_id FROM devices WHERE host_id=%s AND serial=%s',
         ('bench-host', 'emulator-5554'),
     ).fetchone()
+    default_id_used = not existing and connection.execute(
+        "SELECT 1 FROM device_records WHERE device_id='local-emulator'",
+    ).fetchone()
 if existing:
     device_id = existing['device_id']
 else:
     record, _ = store.register_device(DeviceRegistration(
-        device_id='local-emulator', display_name='Émulateur local',
+        device_id='local-emulator-' + uuid4().hex[:12] if default_id_used else 'local-emulator',
+        display_name='Émulateur local',
         host_id='bench-host', serial='emulator-5554', kind='emulator',
     ))
     device_id = record['device_id']

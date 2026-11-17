@@ -8,6 +8,19 @@ const source = readFileSync(new URL("../lib/client-api.ts", import.meta.url), "u
 const compiled = ts.transpileModule(source, {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const { api, ApiError } = await import("data:text/javascript;base64," + Buffer.from(compiled).toString("base64"));
 
+test("device removal exposes only trusted conflict codes", async t => {
+  for (const code of ["device_busy", "stop_emulator_first", "device_scheduled"]) {
+    t.mock.method(globalThis, "fetch", async () => Response.json({ detail: { code, hint: "private diagnostics" } }, { status: 409 }));
+    await assert.rejects(api("console/devices/phone", undefined, "DELETE"), failure => {
+      assert.equal(failure.status, 409);
+      assert.equal(failure.code, code);
+      assert.doesNotMatch(failure.message, /private diagnostics/);
+      return true;
+    });
+    t.mock.restoreAll();
+  }
+});
+
 test("deleting a published version sends only the confirmed DELETE and accepts an empty response", async t => {
   t.mock.method(globalThis, "fetch", async (url, options) => {
     assert.equal(url, "/api/control/workflows/example/versions/2");

@@ -9,6 +9,12 @@ Choose a published journey, select the target devices and set parallelism within
 
 If the response is lost, use the retained confirmation to check the same request. Changing the request identifier would create another launch.
 
+### Create or adapt a run
+
+From **Executions**, open the run editor to name a new journey, describe its goal and build its numbered steps. Insert, reorder or duplicate Android actions and checks. Save a draft to return to it from **Workflows**, or publish the journey and continue to device selection and launch review.
+
+In an existing execution, **Edit and rerun** starts a new draft from the exact published journey version used for that execution. It proposes the previous target devices when they are available. Publishing and launching the draft creates a separate execution, preserving the previous result and its screenshots.
+
 ## Watch an active execution
 
 Open **Executions** and select the launch. An active device's Android screen appears beside its step screenshots. For a multi-device launch, choose the device to observe.

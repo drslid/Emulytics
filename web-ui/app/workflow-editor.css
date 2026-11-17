@@ -2,6 +2,31 @@
 .recipe-editor-inputs,.schedule-editor-fields { min-width:0; margin:0; padding:0; border:0; display:grid; gap:20px; }
 .recipe-editor-inputs > .notice { margin:0; }
 .recipe-editor-inputs:disabled { opacity:.7; }
+.recipe-editor-basics,.recipe-editor-steps { display:grid; align-content:start; gap:16px; min-width:0; }
+.run-authoring-form { padding:0; }
+.run-authoring-form .recipe-editor-inputs { grid-template-columns:minmax(230px,1fr) minmax(0,2.2fr); align-items:start; }
+.run-authoring-form .recipe-editor-basics,.run-authoring-form .recipe-editor-steps {
+  padding:20px; border:1px solid var(--line); border-radius:12px; background:var(--surface,#fff);
+}
+.run-authoring-form .recipe-editor-basics h2 { font-size:16px; line-height:1.4; margin:0; }
+.run-authoring-targets { padding-block-start:16px; border-block-start:1px solid var(--line); }
+.run-authoring-targets h3 { display:flex; align-items:center; gap:8px; font-size:13px; margin:0 0 6px; }
+.run-authoring-targets p,.run-authoring-load p,.run-authoring-saved { margin:0; font-size:12px; line-height:1.6; color:var(--muted); }
+.run-authoring-targets p+p { margin-block-start:8px; }
+.run-authoring-load { padding:20px; }
+.run-authoring-load .button { margin-block-start:12px; }
+.run-authoring-form .dialog-footer {
+  position:sticky; bottom:12px; z-index:2; margin:0; padding:12px; border:1px solid var(--line);
+  border-radius:12px; background:var(--surface,#fff); box-shadow:0 3px 10px rgb(25 44 72 / 8%);
+}
+.run-authoring-saved { margin-inline-end:auto; }
+.run-edit-action { margin-inline-start:auto; }
+@media (max-width:760px) {
+  .run-authoring-form { padding:0; }
+  .run-authoring-form .recipe-editor-inputs { grid-template-columns:1fr; }
+  .run-authoring-form .recipe-editor-basics,.run-authoring-form .recipe-editor-steps { padding:16px; }
+  .run-authoring-form .dialog-footer { position:static; justify-content:flex-start; }
+}
 .recipe-list-status { padding:18px 24px; display:grid; justify-items:start; gap:12px; }
 .recipe-list-status > .small-copy { margin:0; }
 .recipe-steps-heading { margin:0; gap:12px; }

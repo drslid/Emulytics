@@ -13,6 +13,7 @@ from .automation_routes import router as automation_router
 from .chatgpt_process import close_manager
 from .chatgpt_routes import router as chatgpt_router
 from .console_routes import router as console_router
+from .device_routes import router as device_router
 from .emulator_routes import router as emulator_router
 from .fleet_routes import router as fleet_router
 from .monitor_routes import router as monitor_router
@@ -34,7 +35,7 @@ app = FastAPI(
     version='0.2.0',
 )
 for router in (
-    run_router, auth_router, console_router, user_router, user_security_router,
+    run_router, auth_router, console_router, device_router, user_router, user_security_router,
     profile_router, automation_router, monitor_router, screen_router,
     emulator_router, self_security_router, chatgpt_router, api_keys_router,
     personal_api_router, fleet_router, recovery_router, update_router, ai_provider_router,

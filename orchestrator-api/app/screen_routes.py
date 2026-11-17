@@ -16,7 +16,8 @@ router = APIRouter(prefix="/console", tags=["Live Android display"], route_class
 @router.get("/devices/{device_id}/screen")
 def screen(device_id: Identifier, store: Store):
     with store.connect() as connection:
-        if not connection.execute("SELECT 1 FROM devices WHERE device_id=%s", (device_id,)).fetchone():
+        if not connection.execute("SELECT 1 FROM devices WHERE device_id=%s FOR KEY SHARE",
+                                  (device_id,)).fetchone():
             raise HTTPException(404, "Device not found")
         connection.execute(
             "INSERT INTO live_screen_requests(device_id,expires_at) VALUES(%s,clock_timestamp()+interval '15 seconds') "

@@ -1,7 +1,7 @@
 .managed-emulators { margin-block-end:36px; min-width:0; }
 .managed-emulators .section-heading { align-items:flex-start; }
 .emulator-grid { min-width:0; }
-.emulator-card { min-width:0; padding:22px; display:flex; flex-direction:column; gap:16px; }
+.emulator-card { min-width:0; padding:22px; display:flex; flex-direction:column; gap:16px; scroll-margin-block-start:84px; }
 .emulator-card-heading { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; }
 .emulator-card-heading h3 { margin:0; font-size:17px; line-height:1.5; overflow-wrap:anywhere; }
 .emulator-card-heading .status-badge { white-space:normal; }
@@ -12,6 +12,12 @@
 .emulator-card .small-copy,.emulator-card .execution-error { margin:0; }
 .emulator-card-links { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px 8px; margin-block-start:auto; border-block-start:1px solid var(--line); padding-block-start:10px; }
 .emulator-card-links .text-button { font-size:11px; padding-inline:4px; min-height:44px; }
+.device-inventory-actions { display:grid; grid-template-columns:auto auto; justify-content:start; align-items:center; }
+.device-inventory-actions .text-button { min-height:44px; padding-inline:6px; font-size:12px; text-align:start; }
+.device-power-link { grid-column:1/-1; justify-self:start; }
+.text-button.device-remove { color:var(--danger); }
+.text-button.device-remove:hover { background:var(--danger-soft); }
+.device-removal-target { margin:0; font-weight:500; overflow-wrap:anywhere; }
 .emulator-actions { display:grid; gap:12px; min-width:0; }
 .emulator-actions .row-actions { align-items:stretch; }
 .emulator-actions .button { min-width:0; }

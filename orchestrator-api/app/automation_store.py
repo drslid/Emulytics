@@ -61,16 +61,24 @@ class AutomationStore(RunStore):
     def _definition(recipe: RecipeInput) -> dict:
         return recipe.model_dump(mode="json", by_alias=True, include={"steps", "recovery_budget"})
 
-    def create_recipe(self, recipe: RecipeInput, actor_id: UUID | None) -> dict:
-        recipe_id = uuid4()
+    def create_recipe(self, recipe: RecipeInput, actor_id: UUID | None, *, request_id: UUID | None = None) -> dict:
+        recipe_id = request_id or uuid4()
+        definition = self._definition(recipe)
         slug = unicodedata.normalize("NFKD", recipe.name).encode("ascii", "ignore").decode().lower()
         slug = re.sub(r"[^a-z0-9]+", "-", slug).strip("-")[:70] or "workflow"
         with self.connect() as connection:
             row = connection.execute(
                 "INSERT INTO automation_recipes(id,workflow_id,name,instructions,definition,created_by) "
-                "VALUES(%s,%s,%s,%s,%s,%s) RETURNING *",
-                (recipe_id, f"{slug}-{recipe_id.hex[:12]}", recipe.name, recipe.instructions, Jsonb(self._definition(recipe)), actor_id),
+                "VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING *",
+                (recipe_id, f"{slug}-{recipe_id.hex[:12]}", recipe.name, recipe.instructions, Jsonb(definition), actor_id),
             ).fetchone()
+            if row is None:
+                previous = connection.execute("SELECT * FROM automation_recipes WHERE id=%s", (recipe_id,)).fetchone()
+                if (not previous or previous["created_by"] != actor_id
+                        or (previous["name"], previous["instructions"], previous["definition"])
+                        != (recipe.name, recipe.instructions, definition)):
+                    raise HTTPException(409, "Request ID was already used with different content")
+                return _recipe_view(previous)
             audit_event(connection, actor_id, "recipe.created", str(recipe_id), {"revision": 1}, category="automation")
             return _recipe_view(row)
 
@@ -113,16 +121,24 @@ class AutomationStore(RunStore):
             total = connection.execute("SELECT count(*) AS n FROM automation_recipes").fetchone()["n"]
             return {"items": [_recipe_view(row) for row in rows], "total": total, "limit": limit, "offset": offset}
 
-    def update_recipe(self, recipe_id: UUID, revision: int, recipe: RecipeInput, actor_id: UUID | None) -> dict:
+    def update_recipe(self, recipe_id: UUID, revision: int, recipe: RecipeInput, actor_id: UUID | None,
+                      *, accept_replay: bool = False) -> dict:
+        definition = self._definition(recipe)
         with self.connect() as connection:
             row = connection.execute(
                 "UPDATE automation_recipes SET name=%s,instructions=%s,definition=%s,revision=revision+1,updated_at=clock_timestamp() "
                 "WHERE id=%s AND revision=%s RETURNING *",
-                (recipe.name, recipe.instructions, Jsonb(self._definition(recipe)), recipe_id, revision),
+                (recipe.name, recipe.instructions, Jsonb(definition), recipe_id, revision),
             ).fetchone()
             if row is None:
-                exists = connection.execute("SELECT 1 FROM automation_recipes WHERE id=%s", (recipe_id,)).fetchone()
-                raise HTTPException(409 if exists else 404, "Draft changed; reload before saving" if exists else "Recipe not found")
+                current = connection.execute("SELECT * FROM automation_recipes WHERE id=%s", (recipe_id,)).fetchone()
+                if current is None:
+                    raise HTTPException(404, "Recipe not found")
+                if (accept_replay and current['revision'] == revision + 1
+                        and (current['name'], current['instructions'], current['definition'])
+                        == (recipe.name, recipe.instructions, definition)):
+                    return _recipe_view(current)
+                raise HTTPException(409, "Draft changed; reload before saving")
             audit_event(connection, actor_id, "recipe.updated", str(recipe_id), {"revision": row["revision"]}, category="automation")
             return _recipe_view(row)
 
@@ -176,6 +192,14 @@ class AutomationStore(RunStore):
         ).fetchone()
         return bool(owner and owner["active"] and owner["totp_enabled"] and not owner["password_change_required"] and "runs.execute" in permissions_for(owner["role"]))
 
+    @staticmethod
+    def _registered_devices(connection, device_ids):
+        found = connection.execute(
+            'SELECT device_id FROM devices WHERE device_id=ANY(%s) ORDER BY device_id FOR KEY SHARE',
+            (device_ids,),
+        ).fetchall()
+        return len(found) == len(device_ids)
+
     def create_schedule(self, schedule: ScheduleInput, actor_id: UUID) -> dict:
         schedule_id = UUID(schedule.request_id) if schedule.request_id else uuid4()
         values = schedule.model_dump(exclude={"request_id"})
@@ -193,8 +217,7 @@ class AutomationStore(RunStore):
                 raise HTTPException(403, "An active authenticated execution owner is required")
             next_run = next_occurrences(schedule.cron, schedule.timezone, count=1)[0]
             self._available_workflow(connection, schedule.workflow_id, schedule.workflow_version)
-            found = connection.execute("SELECT device_id FROM devices WHERE device_id=ANY(%s)", (schedule.device_ids,)).fetchall()
-            if len(found) != len(schedule.device_ids):
+            if not self._registered_devices(connection, schedule.device_ids):
                 raise HTTPException(404, "One or more devices are not registered")
             row = connection.execute(
                 "INSERT INTO automation_schedules(id,name,workflow_id,workflow_version,device_ids,max_concurrency,cron,timezone,enabled,created_by,next_run_at) "
@@ -222,6 +245,8 @@ class AutomationStore(RunStore):
                 raise HTTPException(409, "Schedule owner no longer has permission to execute")
             if enabled:
                 self._available_workflow(connection, row['workflow_id'], row['workflow_version'])
+                if not self._registered_devices(connection, row['device_ids']):
+                    raise HTTPException(409, 'A scheduled device is no longer registered')
             # Resume starts at the next future occurrence; paused slots are never replayed.
             next_run = next_occurrences(row["cron"], row["timezone"], count=1)[0] if enabled and not row["enabled"] else row["next_run_at"]
             updated = connection.execute(

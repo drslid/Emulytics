@@ -11,8 +11,9 @@ import { Icon } from "./icons";
 import { DeviceConnection } from "./device-connection";
 import { canSubmitDevices, isDeviceReady } from "../../lib/device-readiness";
 
-export function RunDialog({ userId, devices, workflows, initialDeviceIds, initialWorkflow, onClose, onLaunched }: {
-  userId: string; devices: Device[]; workflows: Workflow[]; initialDeviceIds: string[]; initialWorkflow?: Workflow;
+export function RunDialog({ userId, devices, workflows, initialDeviceIds, initialWorkflow, initialConcurrency = 1, preparedRun = false, onClose, onLaunched }: {
+  userId: string; devices: Device[]; workflows: Workflow[]; initialDeviceIds: string[]; initialWorkflow?: Workflow; initialConcurrency?: number;
+  preparedRun?: boolean;
   onClose: () => void; onLaunched: (run: RunDetail) => void;
 }) {
   const { t, locale } = useLocale();
@@ -21,7 +22,10 @@ export function RunDialog({ userId, devices, workflows, initialDeviceIds, initia
     .filter(item => !deletedKeys.has(`${item.workflow_id}:${item.version}`));
   const [workflowKey, setWorkflowKey] = useState(initialWorkflow ? `${initialWorkflow.workflow_id}:${initialWorkflow.version}` : "");
   const [ids, setIds] = useState(initialDeviceIds);
-  const [concurrency, setConcurrency] = useState(1);
+  const [concurrency, setConcurrency] = useState(() => {
+    const ready = initialDeviceIds.filter(id => isDeviceReady(devices.find(device => device.device_id === id))).length;
+    return Math.max(1, Math.min(initialConcurrency, ready));
+  });
   const [search, setSearch] = useState("");
   const [review, setReview] = useState<RunSubmission | null>(null);
   const [busy, setBusy] = useState(false);
@@ -38,6 +42,8 @@ export function RunDialog({ userId, devices, workflows, initialDeviceIds, initia
     if (!attempted.current) setIds((current) => current.filter((id) => isDeviceReady(devices.find((device) => device.device_id === id))));
   }, [devices]);
   const blocked = !!review && !canSubmitDevices(review.device_ids, devices);
+  const earlierRun = preparedRun && review && attempted.current && initialWorkflow
+    && (review.workflow_id !== initialWorkflow.workflow_id || review.workflow_version !== initialWorkflow.version);
   const unavailable = devices.filter(device => !isDeviceReady(device));
   const workflow = availableWorkflows.find((item) => `${item.workflow_id}:${item.version}` === workflowKey);
   const visible = devices.filter((device) => (device.display_name || device.device_id).toLocaleLowerCase(locale).includes(search.toLocaleLowerCase(locale)));
@@ -48,7 +54,7 @@ export function RunDialog({ userId, devices, workflows, initialDeviceIds, initia
     setError("");
   }
   async function launch() {
-    if (!review || busy || (blocked && !attempted.current)) return;
+    if (!review || busy || earlierRun || (blocked && !attempted.current)) return;
     setBusy(true); setError("");
     try {
       sessionStorage.setItem(draftKey(userId), JSON.stringify(review));
@@ -72,13 +78,20 @@ export function RunDialog({ userId, devices, workflows, initialDeviceIds, initia
   return <Dialog title={review ? t("Vérifier le lancement") : t("Lancer une automatisation")} description={review ? t("Ce lot sera conservé pour toute l’exécution.") : t("Un parcours, une sélection de téléphones, un résultat traçable.")} onClose={() => { if (!busy) onClose(); }} wide>
     {error && <div className="dialog-notice"><ErrorNotice message={error} /></div>}
     {review ? <div className="dialog-form">
-      {attempted.current && <div className="notice notice--warning">{t("Une demande précédente doit être confirmée. Ce bouton vérifie la même demande ; il ne crée pas un nouveau lot. Vous pouvez fermer cette fenêtre et la retrouver après connexion.")}</div>}
+      {attempted.current && <div className="notice notice--warning">{t(earlierRun
+        ? "Un autre lancement est en attente. Revenez aux exécutions pour confirmer son résultat avant de lancer ce run."
+        : "Une demande précédente doit être confirmée. Ce bouton vérifie la même demande ; il ne crée pas un nouveau lot. Vous pouvez fermer cette fenêtre et la retrouver après connexion.")}</div>}
       {blocked && !attempted.current && <ErrorNotice message={t("Un appareil sélectionné n’est plus prêt. Vérifiez sa connexion avant de lancer.")} />}
       <div className="review-section"><span className="eyebrow">{t("Automatisation")}</span><h3>{workflow?.name || t(workflowName(review.workflow_id))}</h3><p>{t("Version")} {review.workflow_version} · {workflow?.steps.length} {t("étapes")}</p></div>
       <div className="review-section"><span className="eyebrow">{t("Téléphones ciblés ·")} {review.device_ids.length}</span><div className="device-chips">{review.device_ids.map((id) => <span key={id}><Icon name="phone" size={16} />{devices.find(device => device.device_id === id)?.display_name || id}</span>)}</div></div>
       <div className="review-section"><span className="eyebrow">{t("Exécution")}</span><p>{t("{count} appareil(s) à la fois. Chaque appareil dispose de son propre journal et de ses preuves.", {count: review.max_concurrency})}</p></div>
       <div className="notice notice--info"><Icon name="clock" /><span>{t("Le worker doit être actif sur chaque hôte. Les téléphones occupés attendront leur tour ; une inscription ne confirme pas une connexion Android.")}</span></div>
-      <div className="dialog-footer"><button className="button button--secondary" disabled={busy || attempted.current} onClick={() => setReview(null)}>{t("Modifier")}</button><button className="button button--primary" disabled={busy || (blocked && !attempted.current)} onClick={() => void launch()}><Icon name="play" size={18} />{busy ? t("Envoi en cours…") : (attempted.current ? t("Confirmer le résultat de la demande") : t("Confirmer le lancement"))}</button></div>
+      <div className="dialog-footer">{earlierRun ? <>
+        <button type="button" className="button button--secondary" onClick={onClose}>{t("Annuler")}</button>
+        <a className="button button--primary" href="/activite">{t("Retour aux exécutions")}</a>
+      </> : <>
+        <button className="button button--secondary" disabled={busy || attempted.current} onClick={() => setReview(null)}>{t("Modifier")}</button><button className="button button--primary" disabled={busy || (blocked && !attempted.current)} onClick={() => void launch()}><Icon name="play" size={18} />{busy ? t("Envoi en cours…") : (attempted.current ? t("Confirmer le résultat de la demande") : t("Confirmer le lancement"))}</button>
+      </>}</div>
     </div> : <form className="dialog-form" onSubmit={prepare}>
       <label>{t("1. Choisir l’automatisation")}<select required value={workflowKey} onChange={(event) => setWorkflowKey(event.target.value)}><option value="" disabled>{t("Sélectionner un parcours")}</option>{availableWorkflows.map((item) => <option key={`${item.workflow_id}:${item.version}`} value={`${item.workflow_id}:${item.version}`}>{item.name || t(workflowName(item.workflow_id))} · v{item.version}</option>)}</select></label>
       {unavailable.length > 0 && <div className="notice notice--warning"><span>{t("Connexion Android requise pour lancer un parcours.")} {t("Appareils indisponibles : {names}.", { names: unavailable.map(device => device.display_name || device.device_id).join(", ") })}</span><a href="/monitoring">{t("Vérifier le monitoring")}</a></div>}

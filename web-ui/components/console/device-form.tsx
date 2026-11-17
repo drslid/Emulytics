@@ -14,6 +14,7 @@ export function DeviceForm({
   hosts?: string[];
 }) {
   const t = useT();
+  const [suffix] = useState(() => crypto.getRandomValues(new Uint32Array(1))[0].toString(16).padStart(8, "0"));
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -31,7 +32,7 @@ export function DeviceForm({
     setError("");
     try {
       await api("devices", {
-        device_id: normalized || `device-${crypto.randomUUID().slice(0, 8)}`,
+        device_id: `${normalized || "device"}-${suffix}`,
         display_name: name,
         host_id: String(values.get("host_id")).trim().replace(/\s+/g, "-"),
         serial: String(values.get("serial")).trim(),

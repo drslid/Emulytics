@@ -12,6 +12,7 @@ import { DEFAULT_HARDWARE, hardwareEditable, parseHardware, sameAppliedHardware,
 import { hardwareCopy, hardwareStorageCopy } from "../../lib/emulator-hardware-copy";
 import { EmulatorHardwareFields, HardwareSummary } from "./emulator-hardware-fields";
 import { ApkStorePicker, apkStoreNames, type ApkStore } from "./apk-store-picker";
+import { DeviceInventoryActions, managedEmulatorAnchor, type DeviceInventoryAction } from "./device-inventory";
 
 const labels = { created: "À préparer", starting: "Démarrage en cours", running: "Allumé · à préparer", ready: "Prêt", stopped: "Arrêté", preparing: "Préparation en cours", failed: "Échec de préparation", unknown: "État non confirmé" };
 const definite = (failure: unknown) => failure instanceof ApiError && [401, 403, 404, 409, 422].includes(failure.status);
@@ -19,8 +20,9 @@ const storageError = "Autorisez le stockage de session du navigateur pour sécur
 const emulatorPlatform = "Android 10 · x86_64";
 const auroraPackage = "com.aurora.store";
 
-export function ManagedEmulators({ userId, devices, canManage, canLaunch, onChanged, onLaunch, onOpenRun, onDevices }: {
+export function ManagedEmulators({ userId, devices, canManage, canLaunch, onChanged, onLaunch, onOpenRun, onDevices, inventoryRevision, onInventoryAction }: {
   userId: string; devices: Device[]; canManage: boolean; canLaunch: boolean; onChanged: () => void; onLaunch: (device: Device) => void; onOpenRun: (runId: string) => void; onDevices: (devices: Device[]) => void;
+  inventoryRevision: number; onInventoryAction: (action: DeviceInventoryAction) => void;
 }) {
   const { t } = useLocale();
   const [catalog, setCatalog] = useState<EmulatorCatalog | null>(null), [error, setError] = useState("");
@@ -46,7 +48,7 @@ export function ManagedEmulators({ userId, devices, canManage, canLaunch, onChan
     } catch (failure) { if (request === sequence.current && mounted.current) setError(failure instanceof ApiError ? failure.message : t("La liste des émulateurs est indisponible. Réessayez.")); }
     finally { if (loading.current === request) loading.current = null; }
   }, [userId, canManage, t]);
-  useEffect(() => { mounted.current = true; void load(); return () => { mounted.current = false; sequence.current++; loading.current = null; }; }, [load]);
+  useEffect(() => { mounted.current = true; void load(); return () => { mounted.current = false; sequence.current++; loading.current = null; }; }, [load, inventoryRevision]);
   useEffect(() => { onDevices(error ? [] : (catalog?.items ?? []).flatMap(emulator => emulator.device?.device_id === emulator.device_id ? [emulator.device] : [])); }, [catalog?.items, error, onDevices]);
   const active = catalog?.items.some(emulatorOperationActive) ?? false;
   useEffect(() => {
@@ -92,7 +94,25 @@ export function ManagedEmulators({ userId, devices, canManage, canLaunch, onChan
     {error && <ErrorNotice message={error} />}
     {!catalog ? <div className="surface emulator-loading" role="status">{t(error ? "La liste des émulateurs est indisponible. Réessayez." : "Chargement des émulateurs…")}</div> : <>
       {(!catalog.enabled || !catalog.hosts.length) && <p className="notice notice--warning">{t("Aucun hôte n’est disponible pour gérer un émulateur.")}</p>}
-      {!catalog.items.length ? <div className="surface emulator-empty"><Icon name="phone" size={28} /><h3>{t("Votre premier émulateur")}</h3><p>{t("Créez un environnement Android avec les applications dont vos parcours ont besoin.")}</p></div> : <div className="emulator-grid tw:grid tw:grid-cols-1 tw:gap-4 tw:min-[760px]:grid-cols-2 tw:min-[1500px]:grid-cols-3">{catalog.items.map(emulator => <article className="surface emulator-card" key={emulator.device_id}><div className="emulator-card-heading"><h3>{emulator.display_name}</h3><EmulatorState emulator={emulator} /></div><p className="emulator-host"><Icon name="phone" size={15} /><bdi>{emulator.host_id}</bdi><span aria-hidden="true">·</span><bdi>{emulatorPlatform}</bdi></p><EmulatorOperationStatus emulator={emulator} /><div className="emulator-app-chips">{emulator.application_ids.length ? emulator.application_ids.map(id => <span key={id}>{catalog.applications.find(application => application.id === id)?.name ?? t("Application inconnue")}</span>) : <span>{t("Aucune application sélectionnée")}</span>}</div>{emulatorOperationActive(emulator) && <p className="small-copy" role="status">{t("Opération en cours. La disponibilité sera vérifiée à la fin.")}</p>}{emulator.last_error && <p className="execution-error">{emulator.last_error}</p>}{operationErrors[emulator.device_id] && <ErrorNotice message={operationErrors[emulator.device_id]} />}{actions(emulator)}<div className="emulator-card-links"><button type="button" className="text-button" onClick={() => setSelected(emulator.device_id)}>{t("Applications et détails")}</button>{emulator.last_run_id && <button type="button" className="text-button" onClick={() => onOpenRun(emulator.last_run_id!)}>{t("Voir la dernière opération")}<Icon name="arrow" size={15} /></button>}</div></article>)}</div>}
+      {!catalog.items.length ? <div className="surface emulator-empty"><Icon name="phone" size={28} /><h3>{t("Votre premier émulateur")}</h3><p>{t("Créez un environnement Android avec les applications dont vos parcours ont besoin.")}</p></div>
+        : <div className="emulator-grid tw:grid tw:grid-cols-1 tw:gap-4 tw:min-[760px]:grid-cols-2 tw:min-[1500px]:grid-cols-3">{catalog.items.map(emulator => <article
+          className="surface emulator-card" key={emulator.device_id} id={managedEmulatorAnchor(emulator.device_id)} tabIndex={-1}>
+          <div className="emulator-card-heading"><h3>{emulator.display_name}</h3><EmulatorState emulator={emulator} /></div>
+          <p className="emulator-host"><Icon name="phone" size={15} /><bdi>{emulator.host_id}</bdi><span aria-hidden="true">·</span><bdi>{emulatorPlatform}</bdi></p>
+          <EmulatorOperationStatus emulator={emulator} />
+          <div className="emulator-app-chips">{emulator.application_ids.length ? emulator.application_ids.map(id =>
+            <span key={id}>{catalog.applications.find(application => application.id === id)?.name ?? t("Application inconnue")}</span>)
+            : <span>{t("Aucune application sélectionnée")}</span>}</div>
+          {emulatorOperationActive(emulator) && <p className="small-copy" role="status">{t("Opération en cours. La disponibilité sera vérifiée à la fin.")}</p>}
+          {emulator.last_error && <p className="execution-error">{emulator.last_error}</p>}
+          {operationErrors[emulator.device_id] && <ErrorNotice message={operationErrors[emulator.device_id]} />}
+          {actions(emulator)}
+          <div className="emulator-card-links">
+            <button type="button" className="text-button" onClick={() => setSelected(emulator.device_id)}>{t("Applications et détails")}</button>
+            {emulator.last_run_id && <button type="button" className="text-button" onClick={() => onOpenRun(emulator.last_run_id!)}>{t("Voir la dernière opération")}<Icon name="arrow" size={15} /></button>}
+            {canManage && <DeviceInventoryActions device={{ ...emulator, emulator_state: emulator.state }} onAction={onInventoryAction} />}
+          </div>
+        </article>)}</div>}
       {creating && <EmulatorForm userId={userId} catalog={catalog} onClose={() => setCreating(false)} onUploaded={uploaded} onCreated={emulator => { setCreating(false); setSelected(emulator.device_id); changed(emulator); }} />}
       {current && <EmulatorDetails key={current.device_id} emulator={current} catalog={catalog} canManage={canManage} sending={sending.includes(current.device_id)} pending={!!pending[current.device_id]} operationError={operationErrors[current.device_id]} onClose={() => setSelected(null)} onUploaded={uploaded} onSaved={changed} actions={actions(current)} onOpenRun={() => { setSelected(null); if (current.last_run_id) onOpenRun(current.last_run_id); }} />}
     </>}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "../../lib/client-api";
 import type { Data, Device, Page, Run, RunDetail as Detail, Summary, User, View, Workflow } from "../../lib/console-types";
 import { Icon } from "./icons";
@@ -11,8 +12,11 @@ import { Devices } from "./devices";
 import { Workflows } from "./workflows";
 import { Activity } from "./activity";
 import { DeviceForm } from "./device-form";
+import { DeviceInventoryDialog, type DeviceInventoryAction } from "./device-inventory";
 import { RunDialog } from "./run-dialog";
 import { RunDetail } from "./run-detail";
+import { RunEditor } from "./run-editor";
+import { canAuthorRun, runEditorPath } from "../../lib/run-authoring";
 import { useLocale, useT } from "../../lib/i18n";
 import { LanguageSelector } from "../language-selector";
 import { Schedules, ScheduleEditor } from "./schedules";
@@ -40,9 +44,11 @@ const titles: Record<View, { title: string; subtitle: string }> = {
   configuration: { title: "Configuration", subtitle: "Vos connexions personnelles et les réglages de la console." },
   profile: { title: "Mon profil", subtitle: "Votre identité, votre rôle et vos préférences." }
 };
-export function ControlConsole({ user, view }: { user: User; view: View }) {
+export function ControlConsole({ user, view, runEditor }: { user: User; view: View; runEditor?: { sourceRunId?: string } }) {
   const t = useT(); const { locale } = useLocale();
+  const router = useRouter();
   const can = (permission: string) => user.permissions?.includes(permission) ?? false;
+  const canEditRun = canAuthorRun(user.permissions);
   const canManageUpdates = can("updates.manage");
   const releaseUpdates = useReleaseUpdates(canManageUpdates);
   const allowed = view !== "users" && view !== "logs" || can(view === "users" ? "users.manage" : "logs.read");
@@ -58,9 +64,12 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
   const [loadedOffsets, setLoadedOffsets] = useState({ devices: 0, runs: 0 });
   const [selected, setSelected] = useState<string[]>([]);
   const [adding, setAdding] = useState(false);
-  const [launching, setLaunching] = useState<{ workflow?: Workflow; ids: string[]; device?: Device; groupDevices?: Device[] } | null>(null);
+  const [inventoryAction, setInventoryAction] = useState<DeviceInventoryAction | null>(null);
+  const [inventoryRevision, setInventoryRevision] = useState(0);
+  const [launching, setLaunching] = useState<{ workflow?: Workflow; ids: string[]; device?: Device; groupDevices?: Device[]; concurrency?: number } | null>(null);
   const [managedDevices, setManagedDevices] = useState<Device[]>([]);
   const [runId, setRunId] = useState<string | null>(null);
+  const leaveEditorAfterRun = useRef(false);
   const pending = useRef(false);
   const sequence = useRef(0);
   const load = useCallback(async () => {
@@ -93,10 +102,35 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
     catch (failure) { setError((failure as Error).message); }
   }
   function launched(run: Detail) {
+    leaveEditorAfterRun.current = !!runEditor && launching?.workflow?.workflow_id === run.workflow_id
+      && launching.workflow.version === run.workflow_version;
     setLaunching(null); setSelected([]); setRunId(run.id);
     setNotice(t("Exécution enregistrée. Le worker la prendra en charge sur les téléphones ciblés.")); void load();
   }
-  const title = titles[view];
+  function inventoryChanged(id: string, updated?: Device) {
+    setInventoryAction(null);
+    setInventoryRevision(current => current + 1);
+    setNotice(t(updated ? "Nom de l’appareil mis à jour." : "Appareil supprimé de l’inventaire."));
+    if (updated) {
+      setData(current => current && { ...current, devices: current.devices.map(device =>
+        device.device_id === id ? { ...device, display_name: updated.display_name } : device) });
+    } else {
+      setSelected(current => current.filter(deviceId => deviceId !== id));
+      setData(current => current?.devices.some(device => device.device_id === id)
+        ? { ...current, devices: current.devices.filter(device => device.device_id !== id), devicesTotal: current.devicesTotal - 1 } : current);
+      if (offset && data?.devices.length === 1 && data.devices[0].device_id === id) {
+        sequence.current++;
+        setOffset(Math.max(0, offset - 100));
+        return;
+      }
+    }
+    void load();
+  }
+  const inventoryDevice = inventoryAction && data?.devices.find(device => device.device_id === inventoryAction.device.device_id);
+  const title = runEditor ? {
+    title: runEditor.sourceRunId ? "Modifier et relancer" : "Créer un run",
+    subtitle: "Préparez les étapes Android avant de choisir les appareils à utiliser."
+  } : titles[view];
   return <div className="app-shell tw:block tw:min-h-dvh tw:min-w-0 tw:min-[901px]:grid tw:min-[901px]:grid-cols-[214px_minmax(0,1fr)] tw:min-[1201px]:grid-cols-[236px_minmax(0,1fr)]">
     <a className="skip-link" href="#main-content">{t("Aller au contenu")}</a>
     <aside className="app-sidebar">
@@ -106,23 +140,46 @@ export function ControlConsole({ user, view }: { user: User; view: View }) {
     </aside>
     <div className="app-main tw:min-w-0"><header className="topbar"><div><span className="workspace-indicator" />{t("Espace de travail")}<span className="topbar-separator">/</span><strong>{t(title.title)}</strong></div><LanguageSelector /></header>
       <main id="main-content" className="console-content" tabIndex={-1}>
-        <div className="page-heading"><div><h1>{t(title.title)}</h1><p>{t(title.subtitle)}</p></div>{dataView && view !== "devices" && view !== "workflows" && view !== "schedules" && can("runs.execute") && <button className="button button--primary" disabled={!data} onClick={() => setLaunching({ ids: [] })}><Icon name="plus" size={19} />{t("Lancer une automatisation")}</button>}</div>
+        <div className="page-heading">
+          <div><h1>{t(title.title)}</h1><p>{t(title.subtitle)}</p></div>
+          {runEditor ? <a className="button button--secondary" href="/activite">{t("Retour aux exécutions")}</a>
+            : view === "activity" && canEditRun ? <div className="button-row">
+              <button className="button button--secondary" disabled={!data} onClick={() => setLaunching({ ids: [] })}>{t("Lancer un parcours publié")}</button>
+              <a className="button button--primary" href={runEditorPath}><Icon name="plus" size={19} />{t("Créer un run")}</a>
+            </div>
+              : (view === "overview" || view === "activity") && can("runs.execute") && <button className="button button--primary" disabled={!data} onClick={() => setLaunching({ ids: [] })}><Icon name="plus" size={19} />{t("Lancer une automatisation")}</button>}
+        </div>
         {dataView && <div className="refresh-line"><span className={`connection-dot ${error ? "connection-dot--offline" : ""}`} /><span>{error ? t("Actualisation interrompue · dernières données conservées") : updatedAt ? t("Mis à jour à {time}", { time: new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(updatedAt) }) : t("Connexion au service…")}</span><button className="text-button" disabled={refreshing} onClick={() => void load()}><Icon name="refresh" size={15} />{refreshing ? t("Actualisation…") : t("Actualiser")}</button></div>}
         {error && <ErrorNotice message={error} />}
         {notice && <div className="notice notice--success" role="status"><Icon name="check" /><span>{notice}</span><button className="icon-button" onClick={() => setNotice("")} aria-label={t("Masquer la confirmation")}><Icon name="close" size={17} /></button></div>}
         {canManageUpdates && view !== "configuration" && <ReleaseUpdateNotice updates={releaseUpdates} />}
         {!allowed ? <section className="surface empty-state"><Icon name="shield" size={32} /><h2>{t("Accès réservé")}</h2><p>{t("Votre rôle ne permet pas d’accéder à cette section.")}</p></section> : view === "configuration" ? <Configuration user={user} releaseUpdates={canManageUpdates ? releaseUpdates : null} /> : view === "profile" ? <Profile user={user} onLogout={() => void logout()} /> : view === "users" ? <Users user={user} /> : view === "monitor" ? <Monitor permissions={user.permissions ?? []} /> : view === "logs" ? <Logs /> : !data ? <section className="surface loading-state" aria-busy={!error} role="status">{error ? <><h2>{t("La console ne peut pas charger vos données")}</h2><p>{t("Vos données restent conservées. Réessayez lorsque le service est disponible.")}</p><button className="button button--secondary" onClick={() => void load()} disabled={refreshing}>{t("Réessayer")}</button></> : <><div className="skeleton-line" /><div className="skeleton-line skeleton-line--short" /><p>{t("Chargement de votre espace…")}</p></>}</section> : <>
           {view === "overview" && <><FirstRun data={data} canBuild={can("workflows.write")} canManage={can("devices.write")} canLaunch={can("runs.execute")} onLaunch={(workflow, ids = []) => setLaunching({workflow, ids})} onOpen={setRunId} onChanged={() => void load()} /><Overview data={data} onOpen={setRunId} onLaunch={() => setLaunching({ ids: [] })} onAdd={() => setAdding(true)} canAdd={can("devices.write")} canLaunch={can("runs.execute")} /></>}
-          {view === "devices" && <><FleetGroups userId={user.id} devices={data.devices} canManage={can("devices.write")} canLaunch={can("runs.execute")} onLaunch={(ids, groupDevices) => setLaunching({ids, groupDevices})} onChanged={() => void load()} onOpenRun={setRunId} /><ManagedEmulators userId={user.id} devices={data.devices} canManage={can("devices.write")} canLaunch={can("runs.execute")} onChanged={() => void load()} onLaunch={device => setLaunching({ ids: [device.device_id], device })} onOpenRun={setRunId} onDevices={setManagedDevices} /><Devices devices={data.devices} total={data.devicesTotal} offset={loadedOffsets.devices} onPage={(value) => { setOffset(value); setSelected([]); }} selected={selected} onSelect={setSelected} onAdd={() => setAdding(true)} onLaunch={() => setLaunching({ ids: [...selected] })} canAdd={can("devices.write")} canLaunch={can("runs.execute")} /></>}
+          {view === "devices" && <>
+            <FleetGroups userId={user.id} devices={data.devices} canManage={can("devices.write")} canLaunch={can("runs.execute")}
+              onLaunch={(ids, groupDevices) => setLaunching({ids, groupDevices})} onChanged={() => void load()} onOpenRun={setRunId} />
+            <ManagedEmulators userId={user.id} devices={data.devices} canManage={can("devices.write")} canLaunch={can("runs.execute")}
+              onChanged={() => void load()} onLaunch={device => setLaunching({ ids: [device.device_id], device })}
+              onOpenRun={setRunId} onDevices={setManagedDevices} inventoryRevision={inventoryRevision} onInventoryAction={setInventoryAction} />
+            <Devices devices={data.devices} total={data.devicesTotal} offset={loadedOffsets.devices} onPage={(value) => { setOffset(value); setSelected([]); }}
+              selected={selected} onSelect={setSelected} onAdd={() => setAdding(true)} onLaunch={() => setLaunching({ ids: [...selected] })}
+              canAdd={can("devices.write")} canLaunch={can("runs.execute")} onInventoryAction={setInventoryAction} />
+          </>}
           {view === "workflows" && <Workflows workflows={data.workflows} onLaunch={(workflow) => setLaunching({ workflow, ids: [] })} onSchedule={setScheduling} canBuild={can("workflows.write")} canLaunch={can("runs.execute")} onChanged={() => void load()} />}
           {view === "schedules" && <Schedules userId={user.id} devices={data.devices} workflows={data.workflows} canWrite={can("schedules.write")} onInitialUsed={() => {}} onOpenRun={setRunId} />}
-          {view === "activity" && <Activity runs={data.runs} workflows={data.workflows} total={data.summary.runs_total} offset={loadedOffsets.runs} onPage={setRunOffset} onOpen={setRunId} onLaunch={() => setLaunching({ ids: [] })} canLaunch={can("runs.execute")} />}
+          {view === "activity" && (runEditor && canEditRun ? <RunEditor key={runEditor.sourceRunId ?? "new"}
+            sourceRunId={runEditor.sourceRunId} workflows={data.workflows}
+            onPrepared={(workflow, source) => setLaunching({ workflow, ids: source?.device_ids ?? [], concurrency: source?.max_concurrency })} />
+            : <Activity runs={data.runs} workflows={data.workflows} total={data.summary.runs_total} offset={loadedOffsets.runs} onPage={setRunOffset} onOpen={setRunId} onLaunch={() => setLaunching({ ids: [] })} canLaunch={can("runs.execute")} />)}
         </>}
       </main>
     </div>
     {adding && can("devices.write") && <DeviceForm hosts={data?.workerHosts ?? []} onClose={() => setAdding(false)} onAdded={() => { setAdding(false); setNotice(t("Téléphone ajouté. Sa connexion reste à vérifier sur le worker.")); void load(); }} />}
-    {launching && data && can("runs.execute") && <RunDialog userId={user.id} devices={mergeEmulatorLaunchDevices([...new Map([...data.devices, ...(launching.groupDevices ?? [])].map(device => [device.device_id, device])).values()], currentEmulatorLaunchDevice(launching.device, managedDevices))} workflows={data.workflows} initialWorkflow={launching.workflow} initialDeviceIds={launching.ids} onClose={() => setLaunching(null)} onLaunched={launched} />}
+    {inventoryAction && can("devices.write") && <DeviceInventoryDialog
+      action={inventoryDevice ? { ...inventoryAction, device: inventoryDevice } : inventoryAction}
+      onClose={() => setInventoryAction(null)} onSaved={device => inventoryChanged(device.device_id, device)} onRemoved={inventoryChanged} />}
+    {launching && data && can("runs.execute") && <RunDialog userId={user.id} devices={mergeEmulatorLaunchDevices([...new Map([...data.devices, ...(launching.groupDevices ?? [])].map(device => [device.device_id, device])).values()], currentEmulatorLaunchDevice(launching.device, managedDevices))} workflows={data.workflows} initialWorkflow={launching.workflow} initialDeviceIds={launching.ids} initialConcurrency={launching.concurrency} preparedRun={!!runEditor} onClose={() => setLaunching(null)} onLaunched={launched} />}
     {scheduling && data && can("schedules.write") && <ScheduleEditor userId={user.id} devices={data.devices} workflows={data.workflows} initial={scheduling} onClose={() => setScheduling(null)} onSaved={() => {setScheduling(null); setNotice(t("Planification créée."));}} />}
-    {runId && <RunDetail userId={user.id} canRetry={can("runs.execute")} onOpen={setRunId} canCancel={can("runs.cancel")} canManageDevices={can("devices.write")} key={runId} runId={runId} onClose={() => setRunId(null)} onChanged={() => void load()} />}
+    {runId && <RunDetail userId={user.id} canRetry={can("runs.execute")} canEditRun={canEditRun} onOpen={setRunId} canCancel={can("runs.cancel")} canManageDevices={can("devices.write")} key={runId} runId={runId} onClose={() => { setRunId(null); if (leaveEditorAfterRun.current) router.replace("/activite"); }} onChanged={() => void load()} />}
   </div>;
 }

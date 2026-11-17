@@ -65,6 +65,34 @@ def test_draft_publish_revision_and_driver_validation(database_dsn, workflow_pay
     assert len(RunStore(database_dsn).list_workflows(100, 0)) == 2
 
 
+def test_run_authoring_create_recipe_replays_the_same_draft(control_client, database_dsn, workflow_payload):
+    payload = {**recipe(workflow_payload).model_dump(mode="json", by_alias=True), "request_id": str(uuid4())}
+    first = control_client.post("/console/recipes", json=payload)
+    replay = control_client.post("/console/recipes", json=payload)
+    assert first.status_code == replay.status_code == 201
+    assert first.json() == replay.json() and first.json()["id"] == payload["request_id"]
+    assert control_client.post("/console/recipes", json={**payload, "name": "Different"}).status_code == 409
+    with RunStore(database_dsn).connect() as connection:
+        assert connection.execute("SELECT count(*) AS n FROM audit_log WHERE action='recipe.created'").fetchone()["n"] == 1
+
+
+def test_run_authoring_update_only_replays_exact_next_revision(control_client, database_dsn, workflow_payload):
+    initial = recipe(workflow_payload).model_dump(mode='json', by_alias=True)
+    response = control_client.post('/console/recipes', json=initial)
+    endpoint = f"/console/recipes/{response.json()['id']}"
+    update = {**initial, 'name': 'Version révisée', 'revision': 1, 'accept_replay': True}
+    first = control_client.patch(endpoint, json=update)
+    replay = control_client.patch(endpoint, json=update)
+    assert first.status_code == replay.status_code == 200
+    assert first.json() == replay.json() and first.json()['revision'] == 2
+    assert control_client.patch(endpoint, json={**update, 'name': 'Autre modification'}).status_code == 409
+    assert control_client.patch(endpoint, json={**update, 'accept_replay': False}).status_code == 409
+    assert control_client.patch(endpoint, json={**update, 'revision': 2}).status_code == 200
+    assert control_client.patch(endpoint, json=update).status_code == 409
+    with RunStore(database_dsn).connect() as connection:
+        assert connection.execute("SELECT count(*) AS n FROM audit_log WHERE action='recipe.updated'").fetchone()['n'] == 2
+
+
 def test_builtin_workflow_can_be_opened_as_a_draft(control_client, database_dsn):
     builtin = WorkflowRegistration.model_validate_json(
         (Path(__file__).resolve().parents[2] / "workflows/chrome-wikipedia-football.v1.json").read_text()

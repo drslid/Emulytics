@@ -13,6 +13,30 @@ function post(body = "{}", origin = "http://localhost:3100") {
   return { method: "POST", body, headers: { Origin: origin, "Content-Type": "application/json", "X-Emulytix-Client": "console" } };
 }
 
+test("device rename and removal only forward protected exact inventory routes", async () => {
+  const path = "console/devices/phone-lab:1";
+  const route = path.split("/");
+  const headers = { ...post().headers, Cookie: "emulytix_session=inventory; unrelated=ignore" };
+  const payload = JSON.stringify({ display_name: "Lab phone" });
+  for (const [method, body, status] of [["PATCH", payload, 200], ["DELETE", undefined, 204]]) {
+    const result = await proxyControl(request(path, { method, headers, body }), route, async (url, upstream) => {
+      assert.equal(url, `http://api.internal:8010/${path}?`);
+      assert.equal(upstream.method, method);
+      assert.equal(upstream.headers.get("Cookie"), "emulytix_session=inventory");
+      assert.equal(new TextDecoder().decode(upstream.body), body ?? "");
+      return status === 204 ? new Response(null, { status }) : Response.json({ display_name: "Lab phone" });
+    });
+    assert.equal(result.status, status);
+  }
+  const reject = () => assert.fail("Only protected device mutations may reach the service");
+  for (const method of ["GET", "POST"]) {
+    assert.equal((await proxyControl(request(path, { method, headers }), route, reject)).status, 404);
+  }
+  assert.equal((await proxyControl(request(path, { method: "DELETE", headers: { ...headers, Origin: "https://other.test" } }), route, reject)).status, 403);
+  assert.equal((await proxyControl(request(path, { method: "PATCH", headers }), [...route, "extra"], reject)).status, 404);
+  assert.equal((await proxyControl(request(path, { method: "DELETE", headers }), ["console", "devices", "bad/id"], reject)).status, 404);
+});
+
 test("personal ChatGPT routes preserve only the session and reject arbitrary provider control", async () => {
   for (const [path, method] of [
     ['console/account/chatgpt', 'GET'], ['console/account/chatgpt/login', 'POST'],
