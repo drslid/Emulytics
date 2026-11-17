@@ -10,9 +10,8 @@ import { ErrorNotice } from "./shared";
 
 type RunSource = { run: RunDetail; workflow: Workflow };
 
-export function RunEditor({ sourceRunId, workflows, devices, onPrepared }: {
+export function RunEditor({ sourceRunId, devices, onPrepared }: {
   sourceRunId?: string;
-  workflows: Workflow[];
   devices: Device[];
   onPrepared: (workflow: Workflow, source?: RunDetail) => void;
 }) {
@@ -47,7 +46,7 @@ export function RunEditor({ sourceRunId, workflows, devices, onPrepared }: {
   }
   const ids = source?.run.device_ids ?? [];
   const deviceId = ids.length === 1 && devices.some(device => device.device_id === ids[0]) ? ids[0] : undefined;
-  return <RecipeEditor templates={workflows} onClose={() => router.push("/activite")} run={{
+  return <RecipeEditor onClose={() => router.push("/activite")} run={{
     source: source?.workflow,
     sourceRunId,
     deviceId,

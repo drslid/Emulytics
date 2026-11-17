@@ -1,4 +1,13 @@
 {
+  "Préparer": "Prepare",
+  "Créer les cartes": "Create cards",
+  "Ex. Ouvre LinkedIn": "E.g. Open LinkedIn",
+  "Décrivez les étapes pour recréer cet ancien parcours.": "Describe the steps to recreate this older workflow.",
+  "Précisez les instructions, puis réessayez.": "Clarify the instructions, then try again.",
+  "Action Android": "Android action",
+  "Parcours Android": "Android workflow",
+  "Je ne reconnais pas cette application. Indiquez son nom exact, tel qu’il apparaît dans Emulytics.": "This application wasn't found. Enter its exact name as shown in Emulytics.",
+  "Plusieurs applications portent ce nom. Utilisez un nom distinct dans le catalogue.": "Several applications share this name. Use a distinct name from the catalog.",
   "Retour aux instructions": "Back to instructions",
   "Instruction": "Instruction",
   "Supprimer l’étape {n}": "Delete step {n}",

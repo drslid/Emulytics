@@ -1,4 +1,13 @@
 {
+  "Préparer": "تحضير",
+  "Créer les cartes": "إنشاء البطاقات",
+  "Ex. Ouvre LinkedIn": "مثال: افتح LinkedIn",
+  "Décrivez les étapes pour recréer cet ancien parcours.": "صِف الخطوات لإعادة إنشاء سير العمل القديم هذا.",
+  "Précisez les instructions, puis réessayez.": "وضّح التعليمات ثم حاول مرة أخرى.",
+  "Action Android": "إجراء على Android",
+  "Parcours Android": "سير عمل Android",
+  "Je ne reconnais pas cette application. Indiquez son nom exact, tel qu’il apparaît dans Emulytics.": "لم يتم العثور على هذا التطبيق. أدخل اسمه كما يظهر في Emulytics.",
+  "Plusieurs applications portent ce nom. Utilisez un nom distinct dans le catalogue.": "هناك عدة تطبيقات بهذا الاسم. استخدم اسمًا مميزًا من الكتالوج.",
   "Retour aux instructions": "العودة إلى التعليمات",
   "Instruction": "التعليمة",
   "Supprimer l’étape {n}": "حذف الخطوة {n}",

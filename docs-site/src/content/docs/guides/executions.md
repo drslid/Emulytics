@@ -11,9 +11,9 @@ If the response is lost, use the retained confirmation to check the same request
 
 ### Create or adapt a run
 
-From **Executions**, open the run editor and write the journey as numbered [workflow cards](/Emulytics/guides/journeys/). You can ask the configured AI provider to suggest cards from a full description. Edit and prepare the cards, then save a draft or publish the journey and continue to device selection and launch review.
+From **Executions**, open the run editor and write each instruction in plain language. Use the app's name, such as `Open LinkedIn`. You can use **Help me create steps** to create editable cards from one description. Prepare the cards, then save a draft or publish the journey and continue to device selection and launch review. [Workflow editor guide](/Emulytics/guides/journeys/)
 
-In an existing execution, **Edit and rerun** starts a new draft with the same cards and actions as the published version used for that execution. It proposes the previous target devices when available. Publishing and launching the draft creates a separate execution, preserving the previous result and its screenshots.
+In an existing execution, **Edit and rerun** starts a new draft from the published version's cards and proposes the previous target devices when available. If that version was created before cards were introduced, write fresh instructions in the cards. Publishing and launching the draft creates a separate execution, preserving the previous result and its screenshots.
 
 ## Watch an active execution
 

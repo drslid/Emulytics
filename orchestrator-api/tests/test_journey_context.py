@@ -1,4 +1,5 @@
 from unittest.mock import Mock
+from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
@@ -17,6 +18,35 @@ def test_journey_context_without_device_uses_fixed_app_reference_without_reading
     assert list(context) == ['reference_apps']
     assert context['reference_apps']['Google Chrome'] == 'com.android.chrome'
     store.connect.assert_not_called()
+
+
+def test_imported_apps_use_their_plain_name_even_with_multiple_versions(database_dsn, control_client, monkeypatch):
+    def add_app(name, package):
+        identity = uuid4()
+        EmulatorStore(database_dsn).add_application({
+            'id': identity, 'filename': f'{identity}.apk', 'sha256': '0' * 64,
+            'name': name, 'package_name': package, 'size_bytes': 1,
+        })
+
+    add_app('Notes du jardin (1.0)', 'org.example.notes')
+    add_app('Notes du jardin (2.0)', 'org.example.notes')
+    add_app('App privée', 'org.example.private')
+    monkeypatch.setattr('app.automation_routes._generate_draft', lambda *_, **__: pytest.fail('Expected local resolution'))
+
+    body = {'cards': [{'id': 'notes', 'instruction': 'Lance « Notes du Jardin »',
+                       'verification': 'Vérifie que Notes du Jardin est ouvert'}]}
+    response = control_client.post('/console/recipes/prepare-cards', json=body)
+    assert response.status_code == 200, response.text
+    reply = response.json()
+    assert reply['recipe']['steps'][0]['args'] == {'package_name': 'org.example.notes'}
+    assert reply['application_names']['org.example.notes'] == 'Notes du jardin'
+    assert 'org.example.private' not in reply['application_names']
+
+    add_app('Notes du Jardin (v3.0)', 'org.example.other')
+    conflict = control_client.post('/console/recipes/prepare-cards', json=body)
+    assert conflict.status_code == 422
+    assert conflict.json()['detail'] == {'code': 'card_needs_clarification', 'card_id': 'notes',
+                                         'message': 'Plusieurs applications portent ce nom. Utilisez un nom distinct dans le catalogue.'}
 
 
 @pytest.mark.parametrize('kind', ['physical', 'emulator'])

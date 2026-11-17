@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+- Create and edit workflows in one plain-language card editor, including drafts and runs based on older workflows.
+- Refer to apps by name. Emulytics resolves the Android identifiers and keeps the review readable.
+- Turn a description into editable cards directly from an empty workflow.
+
 ## 0.1.4
 
 - Write workflow steps as editable cards in plain language. Add a verification to any card.

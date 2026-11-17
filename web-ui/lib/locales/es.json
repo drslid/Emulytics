@@ -1,4 +1,13 @@
 {
+  "Préparer": "Preparar",
+  "Créer les cartes": "Crear tarjetas",
+  "Ex. Ouvre LinkedIn": "P. ej., abre LinkedIn",
+  "Décrivez les étapes pour recréer cet ancien parcours.": "Describe los pasos para recrear este flujo de trabajo anterior.",
+  "Précisez les instructions, puis réessayez.": "Aclara las instrucciones y vuelve a intentarlo.",
+  "Action Android": "Acción de Android",
+  "Parcours Android": "Flujo de trabajo de Android",
+  "Je ne reconnais pas cette application. Indiquez son nom exact, tel qu’il apparaît dans Emulytics.": "No se encontró esta aplicación. Introduce su nombre exacto tal como aparece en Emulytics.",
+  "Plusieurs applications portent ce nom. Utilisez un nom distinct dans le catalogue.": "Varias aplicaciones comparten este nombre. Utiliza un nombre distinto del catálogo.",
   "Retour aux instructions": "Volver a las instrucciones",
   "Instruction": "Instrucción",
   "Supprimer l’étape {n}": "Eliminar el paso {n}",

@@ -1,4 +1,13 @@
 {
+  "Préparer": "Подготовить",
+  "Créer les cartes": "Создать карточки",
+  "Ex. Ouvre LinkedIn": "Например, откройте LinkedIn",
+  "Décrivez les étapes pour recréer cet ancien parcours.": "Опишите шаги, чтобы заново создать этот старый сценарий.",
+  "Précisez les instructions, puis réessayez.": "Уточните инструкции и попробуйте ещё раз.",
+  "Action Android": "Действие Android",
+  "Parcours Android": "Сценарий Android",
+  "Je ne reconnais pas cette application. Indiquez son nom exact, tel qu’il apparaît dans Emulytics.": "Приложение не найдено. Введите точное имя, указанное в Emulytics.",
+  "Plusieurs applications portent ce nom. Utilisez un nom distinct dans le catalogue.": "У нескольких приложений одинаковое имя. Укажите отличающееся имя из каталога.",
   "Retour aux instructions": "Назад к инструкциям",
   "Instruction": "Инструкция",
   "Supprimer l’étape {n}": "Удалить шаг {n}",

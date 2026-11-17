@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../lib/client-api";
 import { useT } from "../../lib/i18n";
 import type { Page, Recipe, Workflow } from "../../lib/console-types";
+import { workflowStepPreview } from "../../lib/workflow-editor";
 import { Dialog, Empty, ErrorNotice, workflowName } from "./shared";
 import { Icon } from "./icons";
 import { RecipeEditor } from "./recipe-editor";
@@ -109,7 +110,6 @@ export function Workflows({
   if (canBuild && editing) return <RecipeEditor
     inline key={editing === "new" ? "new" : editing.id}
     recipe={editing === "new" ? null : editing}
-    templates={workflows}
     onClose={() => setEditing(null)}
     onSaved={() => {
       setEditing(null);
@@ -226,17 +226,14 @@ export function Workflows({
                       : "")}
                 </p>
                 <div className="metadata-line">
-                  {t("{n} étapes", { n: workflow.steps.length })}
+                  {t("{n} étapes", { n: workflow.cards?.length || workflow.steps.length })}
                 </div>
                 <details className="steps-disclosure">
                   <summary>{t("Consulter les étapes")}</summary>
                   <ol className="workflow-steps">
-                    {workflow.steps.map((s) => (
-                      <li key={s.id}>
-                        <span>{s.id.replace(/-/g, " ")}</span>
-                        <code dir="ltr">{s.action}</code>
-                      </li>
-                    ))}
+                    {workflow.cards?.length
+                      ? workflow.cards.map(card => <li key={card.id}><span dir="auto">{card.instruction}</span></li>)
+                      : workflow.steps.map(step => <li key={step.id}><span>{t(workflowStepPreview(step).label)}</span></li>)}
                   </ol>
                 </details>
               </div>

@@ -33,7 +33,7 @@ The Android worker must use the worker Compose profile and its private Android n
 
 ## The editor asks for more detail on a card
 
-Read the message next to the card and make the action or expected result more specific. Use the everyday name of the app and state what the device should show or capture. Then choose **Prepare workflow** again. [Workflow editor guide](/Emulytics/guides/journeys/)
+Read the message next to the card and make the action or expected result more specific. Use the name shown in Android, choose the full name if several apps have similar names, and state what the device should show or capture. Then choose **Prepare** again. [Workflow editor guide](/Emulytics/guides/journeys/)
 
 If the editor reports a provider error, test the saved connection in **Settings → AI providers**. The Android-version and Wikipedia examples can be prepared using built-in rules. [First journey](/Emulytics/getting-started/first-journey/) · [Provider setup](/Emulytics/guides/configuration/)
 

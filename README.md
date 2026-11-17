@@ -87,7 +87,7 @@ The console and environment variables retain some **Emulytix** names, including 
 - Persistent Android emulators with screen, density, RAM, CPU and initial-storage settings.
 - Physical Android registration, named device groups and selected bulk actions.
 - Application preparation with standalone APKs from F-Droid, Aptoide or local uploads, APKMirror search, and optional installation of the latest signed Aurora Store release. Chrome comes from the runtime image.
-- Editable workflow cards in plain language, with built-in reference journeys and optional help from OpenAI, local Ollama or DeepSeek.
+- Editable workflow cards in plain language. Name an app directly, as in `Open LinkedIn`, or turn a full description into editable cards with OpenAI, local Ollama or DeepSeek.
 - Editable drafts, immutable publications and removal of unused published versions with historical evidence retained.
 - Immediate launches, daily/weekly/monthly scheduling and advanced five-field CRON with explicit timezones.
 - Live screens during active executions, step screenshots, observed device results and controlled retries.

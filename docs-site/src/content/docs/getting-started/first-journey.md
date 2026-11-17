@@ -34,7 +34,7 @@ These two reference cases use built-in rules and templates. Other supported card
 
 ## 3. Review, publish and launch
 
-Choose **Prepare workflow**, review the expected result and the actions, then save the draft. Android runs the steps after you confirm a launch.
+Choose **Prepare**, review the expected result and the actions, then save the draft. Android runs the steps after you confirm a launch.
 
 Choose **Publish and test**, select one ready device, review the launch and confirm it. A busy device waits in the queue; registration and submission are distinct from execution.
 

@@ -93,11 +93,12 @@ def generate_recipe(payload: GoalInput, request: Request, store: Store):
 def suggest_cards(payload: GoalInput, request: Request, store: Store):
     from .journey_cards import SUGGEST_TASK, suggest_locally, suggested_cards
     from .journey_context import journey_context
-    local = suggest_locally(payload.instructions, journey_context(store, None)['reference_apps'])
+    context = journey_context(store, None, payload.instructions)
+    local = suggest_locally(payload.instructions, context)
     if local:
         return {'cards': local}
     output, _ = _generate_draft(request, payload.instructions, payload.provider, task=SUGGEST_TASK)
-    return {'cards': suggested_cards(output)}
+    return {'cards': suggested_cards(output, context)}
 
 
 @router.post('/recipes/prepare-cards')
@@ -108,7 +109,8 @@ def prepare_cards(payload: CardPreparation, request: Request, store: Store):
         user = getattr(request.state, 'auth_user', None)
         if not user or 'devices.read' not in user['permissions']:
             raise HTTPException(403, 'Droits insuffisants')
-    context = journey_context(store, payload.device_id)
+    instructions = '\n'.join(f'{card.instruction}\n{card.verification or ""}' for card in payload.cards)
+    context = journey_context(store, payload.device_id, instructions)
     local = prepare_locally(payload.cards, payload.name, context)
     if local:
         return local

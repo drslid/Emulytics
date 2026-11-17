@@ -13,6 +13,8 @@ from .run_models import NaturalCard
 
 
 CLARIFY_ACTION = "Précisez l’action Android ou l’application à utiliser dans cette carte."
+CLARIFY_APP = "Je ne reconnais pas cette application. Indiquez son nom exact, tel qu’il apparaît dans Emulytics."
+AMBIGUOUS_APP = "Plusieurs applications portent ce nom. Utilisez un nom distinct dans le catalogue."
 CLARIFY_CAPTURE = "Précisez quel écran ou quelle application capturer."
 CLARIFY_CHECK = "Précisez une vérification que le moteur Android peut observer."
 UNSUPPORTED_ACTION = "Cette action ne fait pas partie des actions Android prises en charge."
@@ -22,6 +24,14 @@ TOO_MUCH_TEXT = "Raccourcissez cette carte pour préparer le parcours."
 _SETTINGS = 'com.android.settings'
 _CHROME = 'com.android.chrome'
 _PACKAGE = r'[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+'
+_WIKIPEDIA_LINK = r'(?:[\w-]+\.)*wikipedia\.org(?:/[^\s]*)?'
+_SUGGESTED_TOKEN = re.compile(rf'https?://[^\s]+|(?<![\w./@-])(?:{_WIKIPEDIA_LINK}|{_PACKAGE})(?![\w/@-])', re.I)
+_OPEN_APP = re.compile(r"(?:ouvre|ouvrir|lance|lancer|d[ée]marre|d[ée]marrer|open|launch|start)\s+"
+                       r"(?:l'application |l'app |the app )?(.+)", re.I)
+_NAVIGATION_TARGET = re.compile(
+    r'\b(?:dans|vers|in|using|with)\b|wikipedia|https?://|'
+    r'^(?:(?:la |le |une |the |a |l\x27)?(?:page|ecran|menu|onglet|site|lien|screen|tab|website|link))\b'
+)
 _PHONE = r'(?: (?:du|de mon|de ce) (?:telephone|appareil|mobile))?'
 _VERSION = r'(?:la )?(?:numero de )?version (?:d\x27|de |d )?android' + _PHONE
 _PHOTO = r'(?:(?:fais|faire|prends|prendre|effectue|effectuer|recupere|recuperer) (?:une |la )?capture|capture|capturer)(?: d\x27ecran)?'
@@ -41,7 +51,8 @@ _PATTERNS = (
     ('version_capture', rf'{_PHOTO} (?:de |sur )?{_VERSION}'),
     ('settings_capture', rf'{_PHOTO} (?:de |des |dans ){_SETTINGS_NAME}'),
     ('capture', _PHOTO),
-    ('settings', r'open (?:the )?(?:phone |device )?settings'),
+    ('settings', r'open (?:the )?(?:phone |device |android )?settings'),
+    ('about', r'open (?:the )?about phone(?: in settings)?'),
     ('version', r'(?:read|check|get|show(?: me)?|tell me) (?:the )?android version(?: and (?:the )?api level)?'),
     ('version_capture', r'(?:take |make )?(?:a )?screenshot (?:of )?(?:the )?android version'),
     ('capture', r'(?:take |make )?(?:a )?screenshot'),
@@ -82,8 +93,9 @@ Fulfil each explicit verification with actual executable checks or return suppor
 and give the exact card id in card_id (empty on success). Never invent selectors or device state.
 For a screenshot of the Android version use open_settings about and typed read_device_info; a
 screen capture accompanies the observation and cannot by itself certify what text is visible.
-Only use app package identifiers explicitly provided, present in the last observed subset,
-or identified via a fixed reference app alias. Reference aliases do not prove installation.
+Resolve human app names with the reference and catalog names in the Android context. Only use app
+package identifiers explicitly provided, observed on the device, or associated with those names.
+Reference and catalog names do not prove installation. Never guess which app an ambiguous name refers to.
 Cards and context follow as JSON:\n"""
 PREPARE_TASK = (_PREPARE_PROMPT, {
     **SCHEMA,
@@ -101,24 +113,60 @@ def clarification(card, message=CLARIFY_ACTION):
     return HTTPException(422, {'code': 'card_needs_clarification', 'card_id': card.id, 'message': message})
 
 
+def _app_catalog(context):
+    return [(row['app_name'], row['package_name']) for row in context.get('catalog_apps', [])]
+
+
+def _app_aliases(context):
+    grouped = {}
+    candidates = [('Chrome', _CHROME), ('Android Settings', _SETTINGS),
+                  *context.get('reference_apps', {}).items(), *_app_catalog(context),
+                  *((row['name'], row['package_name']) for row in context.get('catalog_apps', []))]
+    for name, package in candidates:
+        grouped.setdefault(_normalize(name), set()).add(package)
+    observed = set(context.get('installed_packages') or [])
+    aliases = {}
+    for name, packages in grouped.items():
+        choices = observed & packages or packages
+        aliases[name] = next(iter(choices)) if len(choices) == 1 else None
+    return aliases
+
+
+def _app_names(context):
+    names = [*_app_catalog(context), ('Google Chrome', _CHROME), ('Android Settings', _SETTINGS),
+             *context.get('reference_apps', {}).items()]
+    return {package: name for name, package in names
+            if not any(_technical_token(token[0]) for token in _SUGGESTED_TOKEN.finditer(name))}
+
+
+def _technical_token(token):
+    return '://' not in token and not re.fullmatch(rf'{_WIKIPEDIA_LINK}|(?:[a-z]\.)+[a-z]|p\.ex', token, re.I)
+
+
 def _app_package(target, aliases):
+    normalized = _normalize(target)
+    if normalized in aliases:
+        return aliases[normalized]
     if len(target) <= 200 and re.fullmatch(_PACKAGE, target):
         return target
-    normalized = _normalize(target)
-    if normalized == 'chrome':
-        return _CHROME
-    return next((package for title, package in aliases.items() if _normalize(title) == normalized), None)
+    return None
 
 
-def _intent(text, reference_apps):
+def _app_target(text):
+    raw = text.strip().rstrip('.!?').replace('’', "'")
+    match = _OPEN_APP.fullmatch(raw)
+    return match[1].strip(' «»“”\"\'') if match else None
+
+
+def _intent(text, aliases):
     normalized = _normalize(text)
     for action, pattern in _PATTERNS:
         if re.fullmatch(pattern, normalized):
             return action, None
-    raw = text.strip().rstrip('.!?').replace('’', "'")
-    app = re.fullmatch(r"(?:ouvre|ouvrir|open) (?:l'application |l'app |the app )?(.+)", raw, re.I)
-    if app:
-        package = _app_package(app[1], reference_apps)
+    if target := _app_target(text):
+        package = _app_package(target, aliases)
+        if package == _SETTINGS:
+            return 'settings', None
         if package:
             return 'open_app', package
     return None
@@ -133,8 +181,8 @@ def _card_parts(text, aliases):
     return (parts, intents) if all(intents) else None
 
 
-def suggest_locally(instructions, aliases):
-    recognized = _card_parts(instructions, aliases)
+def suggest_locally(instructions, context):
+    recognized = _card_parts(instructions, _app_aliases(context))
     if recognized:
         if len(recognized[0]) > 14:
             raise HTTPException(422, TOO_MANY_STEPS)
@@ -144,15 +192,27 @@ def suggest_locally(instructions, aliases):
     return None
 
 
-def suggested_cards(output):
+def suggested_cards(output, context=None):
     if not isinstance(output, dict) or output.get('supported') is not True:
         raise HTTPException(422, {'code': 'unsupported_goal'})
     try:
         candidates = json.loads(output['cards_json'])
         if not isinstance(candidates, list) or not 1 <= len(candidates) <= 14:
             raise ValueError
-        return [NaturalCard.model_validate({**candidate, 'id': f'card-{index}'}).model_dump(exclude={'id'})
-                for index, candidate in enumerate(candidates, 1)]
+        names = _app_names(context or {})
+
+        def friendly_name(match):
+            token = match[0]
+            return names[token] if token in names or _technical_token(token) else token
+
+        suggestions = []
+        for index, candidate in enumerate(candidates, 1):
+            values = {**candidate, 'id': f'card-{index}'}
+            for field in ('instruction', 'verification'):
+                if isinstance(values.get(field), str):
+                    values[field] = _SUGGESTED_TOKEN.sub(friendly_name, values[field])
+            suggestions.append(NaturalCard.model_validate(values).model_dump(exclude={'id'}))
+        return suggestions
     except (TypeError, ValueError, KeyError, ValidationError, RecursionError):
         raise HTTPException(422, "Les suggestions reçues sont invalides. Réessayez ou saisissez les cartes.") from None
 
@@ -216,20 +276,20 @@ def _local_steps(intents, focus, card):
     return steps, focus
 
 
-def _prepared(cards, steps, name, source, reason):
+def _prepared(cards, steps, name, source, reason, context):
     steps = [dict(step, id=f'card-step-{index}') for index, step in enumerate(steps, 1)]
     instructions = '\n'.join(card.instruction for card in cards)[:8000]
     try:
         recipe = validate_generated_recipe({'name': name, 'steps': steps, 'recovery_budget': 0}, instructions)
     except HTTPException:
         raise clarification(cards[-1]) from None
-    return {'recipe': recipe, 'source': source, 'expected_result': reason,
+    return {'recipe': recipe, 'source': source, 'expected_result': reason, 'application_names': _app_names(context),
             'requires_test': True, 'capabilities': _CAPABILITIES}
 
 
 def prepare_locally(cards, name, context):
     """Recognize whole cards, with no side effects, and retain the relevant evidence."""
-    aliases = context.get('reference_apps', {})
+    aliases = _app_aliases(context)
     total_text, plans = 0, []
     for card in cards:
         total_text += len(card.instruction) + len(card.verification or '')
@@ -237,8 +297,17 @@ def prepare_locally(cards, name, context):
             raise clarification(card, TOO_MUCH_TEXT)
         exact = _card_parts(card.instruction, aliases)
         reference = local_goal(card.instruction) if not exact else None
-        if not reference and any(_UNSUPPORTED.match(_normalize(part)) for part in _SEPARATORS.split(card.instruction)):
-            raise clarification(card, UNSUPPORTED_ACTION)
+        if not exact and not reference:
+            for part in _SEPARATORS.split(card.instruction):
+                if _UNSUPPORTED.match(_normalize(part)):
+                    raise clarification(card, UNSUPPORTED_ACTION)
+                target = _app_target(part)
+                if target and not _intent(part, aliases):
+                    normalized = _normalize(target)
+                    if normalized in aliases:
+                        raise clarification(card, AMBIGUOUS_APP)
+                    if not _NAVIGATION_TARGET.search(normalized):
+                        raise clarification(card, CLARIFY_APP)
         if card.verification and not _verification(card.verification, aliases):
             raise clarification(card, CLARIFY_CHECK)
         plans.append((exact, reference))
@@ -258,7 +327,7 @@ def prepare_locally(cards, name, context):
     expected = ("La version Android sera relevée sur l’appareil avec une capture des paramètres."
                 if any(step['action'] == 'read_device_info' for step in steps)
                 else "Les résultats et captures seront vérifiés sur l’appareil pendant l’exécution.")
-    return _prepared(cards, steps, name or 'Parcours Android', 'verified_template', expected)
+    return _prepared(cards, steps, name or 'Parcours Android', 'verified_template', expected, context)
 
 
 def _safe_assertion(assertion, packages, depth=0):
@@ -308,8 +377,9 @@ def prepare_generated(cards, name, context, source, output):
             raise ValueError
     except (TypeError, ValueError, KeyError, RecursionError):
         raise clarification(cards[0]) from None
-    aliases = context.get('reference_apps', {})
-    packages = {_SETTINGS, _CHROME, *(context.get('installed_packages') or []), *aliases.values()}
+    aliases = _app_aliases(context)
+    packages = {_SETTINGS, _CHROME, *(context.get('installed_packages') or []),
+                *(package for package in aliases.values() if package)}
     steps, focus = [], None
     for card, group in zip(cards, groups, strict=True):
         packages.update(re.findall(_PACKAGE, card.instruction))
@@ -343,4 +413,4 @@ def prepare_generated(cards, name, context, source, output):
         if len(steps) > 14:
             raise clarification(card, TOO_MANY_STEPS)
     return _prepared(cards, steps, name or suggested_name, source,
-                     "Les résultats seront vérifiés sur l’appareil pendant l’exécution.")
+                     "Les résultats seront vérifiés sur l’appareil pendant l’exécution.", context)

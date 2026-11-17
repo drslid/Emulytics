@@ -1,4 +1,13 @@
 {
+  "Préparer": "Préparer",
+  "Créer les cartes": "Créer les cartes",
+  "Ex. Ouvre LinkedIn": "Ex. Ouvre LinkedIn",
+  "Décrivez les étapes pour recréer cet ancien parcours.": "Décrivez les étapes pour recréer cet ancien parcours.",
+  "Précisez les instructions, puis réessayez.": "Précisez les instructions, puis réessayez.",
+  "Action Android": "Action Android",
+  "Parcours Android": "Parcours Android",
+  "Je ne reconnais pas cette application. Indiquez son nom exact, tel qu’il apparaît dans Emulytics.": "Je ne reconnais pas cette application. Indiquez son nom exact, tel qu’il apparaît dans Emulytics.",
+  "Plusieurs applications portent ce nom. Utilisez un nom distinct dans le catalogue.": "Plusieurs applications portent ce nom. Utilisez un nom distinct dans le catalogue.",
   "Retour aux instructions": "Retour aux instructions",
   "Instruction": "Instruction",
   "Supprimer l’étape {n}": "Supprimer l’étape {n}",

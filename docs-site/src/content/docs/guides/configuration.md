@@ -40,7 +40,7 @@ Open a provider and choose **Test connection**. For OpenAI, the test uses your c
 
 ## Use AI in the workflow editor
 
-The Wikipedia and Android-version reference goals use built-in rules and templates. For other supported instructions, the workflow editor uses the configured default to suggest cards from a description and to prepare actions from the current cards. You can choose another configured provider from the editor for that draft. [Workflow editor guide](/Emulytics/guides/journeys/)
+The Wikipedia and Android-version reference goals use built-in rules and templates. When the workflow editor needs AI to create cards or prepare actions, it uses the provider selected in **Settings → AI providers**. [Workflow editor guide](/Emulytics/guides/journeys/)
 
 The provider receives the text and the available app context for the task. The console checks the proposed steps against the Android driver's allowed actions. Review the draft, publish it and test it on a device.
 

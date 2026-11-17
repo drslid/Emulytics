@@ -1,4 +1,13 @@
 {
+  "Préparer": "准备",
+  "Créer les cartes": "创建卡片",
+  "Ex. Ouvre LinkedIn": "例如：打开 LinkedIn",
+  "Décrivez les étapes pour recréer cet ancien parcours.": "描述步骤以重建这个旧工作流。",
+  "Précisez les instructions, puis réessayez.": "明确指令后重试。",
+  "Action Android": "Android 操作",
+  "Parcours Android": "Android 工作流",
+  "Je ne reconnais pas cette application. Indiquez son nom exact, tel qu’il apparaît dans Emulytics.": "找不到此应用。请输入其在 Emulytics 中显示的准确名称。",
+  "Plusieurs applications portent ce nom. Utilisez un nom distinct dans le catalogue.": "有多个应用使用此名称。请使用目录中的唯一名称。",
   "Retour aux instructions": "返回指令",
   "Instruction": "指令",
   "Supprimer l’étape {n}": "删除第 {n} 步",

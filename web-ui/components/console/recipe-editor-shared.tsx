@@ -9,14 +9,11 @@ import { Dialog } from "./shared";
 
 export type RecipeEditorProps = {
   recipe?: Recipe | null;
-  templates: Workflow[];
   onClose: () => void;
   onSaved?: (recipe?: Recipe) => void;
   run?: { source?: Workflow; sourceRunId?: string; deviceId?: string; onPrepared: (workflow: Workflow) => void };
   inline?: boolean;
 };
-
-export type RecipeEditorSession = RecipeEditorProps & { runState: RunRecipeState };
 
 export async function saveEditorRecipe(body: RecipeBody, recipe?: Recipe | null, runState?: RunRecipeState) {
   if (runState) return saveRunRecipe(body, runState, api<Recipe>);

@@ -75,6 +75,7 @@ def test_cards_resolve_exact_known_app_aliases_and_preserve_package_case():
     (card('second', 'Prends une capture d’écran'), journey_cards.CLARIFY_CAPTURE),
     (card('second', 'Ouvre les paramètres et réinitialise le téléphone.'), journey_cards.UNSUPPORTED_ACTION),
     (card('second', 'Relève la version Android', 'Confirme que la version d’Android vaut 99.'), journey_cards.CLARIFY_CHECK),
+    (card('second', 'Ouvre une application introuvable'), journey_cards.CLARIFY_APP),
 ])
 def test_invalid_cards_get_safe_targeted_clarification_without_inference(monkeypatch, bad, message):
     monkeypatch.setattr(automation_routes, '_generate_draft', lambda *_, **__: pytest.fail('Unsupported request must be clarified'))
@@ -97,9 +98,38 @@ def test_suggestions_validate_text_only_and_use_the_chosen_provider(monkeypatch)
         journey_cards.suggested_cards({'supported': True, 'cards_json': '[{"instruction":"Observer","steps":[]}]'})
 
 
+def test_model_suggestion_uses_friendly_names_and_keeps_urls_and_abbreviations(monkeypatch):
+    def generated(*cards):
+        return {'supported': True, 'cards_json': json.dumps(cards)}, 'ollama'
+
+    result = generated(dict(instruction='Ouvre com.linkedin.android', verification='com.linkedin.android est visible.'),
+                       dict(instruction='Lis p.ex. https://fr.wikipedia.org/wiki/Android, e.g. avec Chrome.'))
+    monkeypatch.setattr(automation_routes, '_generate_draft', lambda *_, **__: result)
+    payload = GoalInput(instructions='Prépare des vérifications utiles dans Android', provider='ollama')
+    assert automation_routes.suggest_cards(payload, request(), None)['cards'] == [
+        {'instruction': 'Ouvre LinkedIn', 'verification': 'LinkedIn est visible.'},
+        {'instruction': 'Lis p.ex. https://fr.wikipedia.org/wiki/Android, e.g. avec Chrome.', 'verification': None},
+    ]
+    monkeypatch.setattr(automation_routes, '_generate_draft', lambda *_, **__: generated(dict(instruction='Ouvre org.unknown.app')))
+    with pytest.raises(HTTPException) as error:
+        automation_routes.suggest_cards(payload, request(), None)
+    assert error.value.status_code == 422 and 'org.unknown.app' not in error.value.detail
+
+
+def test_navigation_cards_still_reach_the_provider(monkeypatch):
+    def generate(_request, data, _provider, *, task):
+        assert task is journey_cards.PREPARE_TASK
+        return {'supported': False, 'card_id': 'page'}, 'ollama'
+
+    monkeypatch.setattr(automation_routes, '_generate_draft', generate)
+    with pytest.raises(HTTPException) as error:
+        automation_routes.prepare_cards(CardPreparation(cards=[card('page', 'Ouvre la page Android dans Chrome')]), request(), None)
+    assert error.value.detail['message'] == journey_cards.CLARIFY_ACTION
+
+
 def test_prepare_passes_current_cards_and_minimized_verified_context(monkeypatch):
     context = {'device_kind': 'emulator', 'installed_packages': ['com.example.observed'], 'reference_apps': {}}
-    monkeypatch.setattr(journey_context, 'journey_context', lambda store, device: context if device == 'test-device' else {})
+    monkeypatch.setattr(journey_context, 'journey_context', lambda store, device, instructions: context if device == 'test-device' else {})
     submitted = card('user-card', 'Affiche mon application en cours de vérification.', 'com.example.observed est au premier plan')
 
     def generate(_request, data, provider, *, task):

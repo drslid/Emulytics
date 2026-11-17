@@ -1,15 +1,310 @@
 "use client";
 
-import { useRef } from "react";
-import type { RunRecipeState } from "../../lib/run-authoring";
-import { CardRecipeEditor } from "./card-recipe-editor";
-import type { RecipeEditorProps } from "./recipe-editor-shared";
-import { TechnicalRecipeEditor } from "./technical-recipe-editor";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { api, ApiError } from "../../lib/client-api";
+import type { JourneyModels, NaturalCard, Recipe, Workflow } from "../../lib/console-types";
+import { useT } from "../../lib/i18n";
+import { MAX_CARD_CONTEXT, MAX_CARD_TEXT, MAX_RECIPE_CARDS, normalizeRecipeCards, recipeCardTextLength, recipeCardSlots } from "../../lib/recipe-cards";
+import type { RecipeBody, RunRecipeState } from "../../lib/run-authoring";
+import { containsApplicationIdentifier, workflowStepPreview } from "../../lib/workflow-editor";
+import { Icon } from "./icons";
+import { publishEditorRecipe, RecipeEditorFrame, saveEditorRecipe, type RecipeEditorProps } from "./recipe-editor-shared";
+import { ErrorNotice, workflowName } from "./shared";
 
-export function RecipeEditor(props: RecipeEditorProps) {
+const providerNames = { openai: "OpenAI", ollama: "Ollama", deepseek: "DeepSeek" };
+type Preview = { body: RecipeBody; expected?: string; applicationNames?: Record<string, string> };
+type ProposedCard = Omit<NaturalCard, "id">;
+type Operation = "preparing" | "suggesting" | "saving";
+const freshCard = (proposal?: ProposedCard): NaturalCard => ({
+  id: crypto.randomUUID(), instruction: proposal?.instruction ?? "", verification: proposal?.verification ?? null
+});
+
+function savedBody(recipe?: Recipe | null, source?: Workflow): RecipeBody | null {
+  if (recipe?.cards?.length) return {
+    name: recipe.name, instructions: recipe.instructions, steps: recipe.definition.steps,
+    recovery_budget: recipe.definition.recovery_budget, cards: recipe.cards
+  };
+  if (source?.cards?.length) return {
+    name: source.name ?? source.workflow_id, instructions: source.instructions ?? "",
+    steps: source.steps, recovery_budget: source.recovery_budget, cards: source.cards
+  };
+  return null;
+}
+
+export function RecipeEditor({ recipe, inline, run, onClose, onSaved }: RecipeEditorProps) {
+  const t = useT();
+  const idPrefix = useId();
+  const source = run?.source;
+  const [initial] = useState(() => savedBody(recipe, source));
+  const [cards, setCards] = useState<NaturalCard[]>(() => initial?.cards ?? [freshCard()]);
+  const [name, setName] = useState(() => recipe?.name ?? (source ? source.name || t(workflowName(source.workflow_id)) : ""));
+  const [preview, setPreview] = useState<Preview | null>(() => initial ? { body: initial } : null);
+  const [discovery, setDiscovery] = useState<JourneyModels | "failed" | null>(null);
+  const [attempt, retryProviders] = useState(0);
+  const [operation, setOperation] = useState<Operation | null>(null);
+  const [error, setError] = useState("");
+  const [cardError, setCardError] = useState<{ id: string; message: string } | null>(null);
+  const [savedNotice, setSavedNotice] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [suggestions, setSuggestions] = useState<ProposedCard[] | null>(null);
+  const [suggestionError, setSuggestionError] = useState("");
+  const inFlight = useRef(false);
+  const nextFocus = useRef<string | null>(null);
+  const help = useRef<HTMLDetailsElement>(null);
   const runState = useRef<RunRecipeState>({}).current;
-  const source = props.recipe ?? props.run?.source;
-  return source && !source.cards?.length
-    ? <TechnicalRecipeEditor {...props} runState={runState} />
-    : <CardRecipeEditor {...props} runState={runState} />;
+  const models = discovery === "failed" ? null : discovery;
+  const provider = models?.active_provider;
+  const payload = normalizeRecipeCards(cards);
+  const tooLong = recipeCardTextLength(payload) > MAX_CARD_CONTEXT;
+  const ready = !tooLong && payload.every(card => card.instruction);
+  const remaining = MAX_RECIPE_CARDS - recipeCardSlots(cards).length;
+
+  useEffect(() => {
+    let active = true;
+    setDiscovery(null);
+    void api<JourneyModels>("console/recipes/providers").then(value => {
+      if (active) setDiscovery(typeof value?.active_provider === "string" && Object.hasOwn(providerNames, value.active_provider) ? value : "failed");
+    }).catch(() => { if (active) setDiscovery("failed"); });
+    return () => { active = false; };
+  }, [attempt]);
+
+  useEffect(() => {
+    if (operation || !nextFocus.current) return;
+    document.getElementById(nextFocus.current)?.focus();
+    nextFocus.current = null;
+  }, [cards, operation]);
+
+  const inputId = (id: string) => `${idPrefix}-instruction-${id}`;
+  function close() { if (!inFlight.current) onClose(); }
+  function changeCards(next: NaturalCard[]) {
+    setCards(next);
+    setPreview(null);
+    setCardError(null);
+    setError("");
+    setSavedNotice("");
+  }
+  function changeCard(id: string, change: Partial<Pick<NaturalCard, "instruction" | "verification">>) {
+    changeCards(cards.map(card => card.id === id ? { ...card, ...change } : card));
+  }
+  function moveCard(index: number, offset: number) {
+    const updated = [...cards];
+    [updated[index], updated[index + offset]] = [updated[index + offset], updated[index]];
+    changeCards(updated);
+  }
+  function addCards(proposed?: ProposedCard[]) {
+    const retained = proposed ? recipeCardSlots(cards) : cards;
+    if (retained.length + (proposed?.length ?? 1) > MAX_RECIPE_CARDS) return;
+    const added = proposed ? proposed.map(freshCard) : [freshCard()];
+    if (!added.length) return;
+    nextFocus.current = inputId(added[0].id);
+    changeCards([...retained, ...added]);
+    if (proposed) {
+      setPrompt("");
+      setSuggestions(null);
+      if (help.current) help.current.open = false;
+    }
+  }
+
+  function providerError(failure: unknown, fallback: string) {
+    if (!(failure instanceof ApiError)) return t(fallback);
+    if (failure.code === "chatgpt_required") return t("Connectez OpenAI dans Configuration pour préparer cet objectif libre.");
+    if (failure.code === "provider_unconfigured" || failure.status === 503 && provider && provider !== "openai") {
+      return t("{provider} est indisponible. Vérifiez sa configuration puis réessayez.", { provider: provider ? providerNames[provider] : "" });
+    }
+    if (failure.code === "provider_auth_failed") return t("Le fournisseur a refusé les identifiants.");
+    if (failure.code === "provider_model_unavailable") return t("Le modèle configuré est introuvable.");
+    return failure.status === 422 ? t(fallback) : failure.message;
+  }
+
+  async function perform(kind: Operation, action: () => Promise<void>, onError: (error: unknown) => void) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setOperation(kind);
+    try { await action(); }
+    catch (failure) { onError(failure); }
+    finally { inFlight.current = false; setOperation(null); }
+  }
+
+  async function prepare() {
+    if (!ready) return;
+    setError("");
+    setCardError(null);
+    await perform("preparing", async () => {
+      const result = await api<{
+        recipe: Omit<RecipeBody, "cards">;
+        expected_result: string;
+        application_names?: Record<string, string>;
+      }>("console/recipes/prepare-cards", {
+        cards: payload,
+        ...(models && provider ? { provider } : { local_only: true }),
+        ...(run?.deviceId ? { device_id: run.deviceId } : {}),
+        ...(name.trim() ? { name: name.trim() } : {})
+      });
+      const compiled = result.recipe;
+      const preparedName = name.trim() || t(containsApplicationIdentifier(compiled.name) ? "Parcours Android" : compiled.name);
+      setName(preparedName);
+      setPreview({ body: {
+        name: preparedName, instructions: compiled.instructions, steps: compiled.steps,
+        recovery_budget: compiled.recovery_budget, cards: payload
+      }, expected: containsApplicationIdentifier(result.expected_result) ? undefined : result.expected_result,
+      applicationNames: result.application_names });
+    }, failure => {
+      if (failure instanceof ApiError && failure.card && cards.some(card => card.id === failure.card?.id)) {
+        nextFocus.current = inputId(failure.card.id);
+        const message = failure.card.message;
+        setCardError({ id: failure.card.id, message: t(message && !containsApplicationIdentifier(message)
+          ? message : "Précisez l’instruction ou le résultat à vérifier.") });
+      } else if (failure instanceof ApiError && failure.code === "provider_discovery_required") {
+        setError(t("Chargez les fournisseurs IA, puis réessayez de préparer ces instructions."));
+        if (help.current) help.current.open = true;
+      } else {
+        setError(providerError(failure, "Précisez les instructions, puis réessayez."));
+      }
+    });
+  }
+
+  async function suggest() {
+    if (!provider || !models || prompt.trim().length < 8) return;
+    setSuggestionError("");
+    setSuggestions(null);
+    await perform("suggesting", async () => {
+      const result = await api<{ cards: ProposedCard[] }>("console/recipes/suggest-cards", { instructions: prompt.trim(), provider });
+      if (recipeCardSlots(cards).length === 0) addCards(result.cards);
+      else setSuggestions(result.cards);
+    }, failure => setSuggestionError(providerError(failure, "Impossible de proposer des étapes. Précisez le résultat souhaité.")));
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (inFlight.current) return;
+    if (!preview) { await prepare(); return; }
+    if (!name.trim()) return;
+    const publish = (event.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "publish";
+    setError("");
+    setSavedNotice("");
+    await perform("saving", async () => {
+      const saved = await saveEditorRecipe({ ...preview.body, name: name.trim() }, recipe, recipe ? undefined : runState);
+      if (!run) onSaved?.(saved);
+      else if (publish) {
+        const workflow = await publishEditorRecipe(saved);
+        setSavedNotice(t("Parcours publié."));
+        run.onPrepared(workflow);
+      } else setSavedNotice(t("Brouillon enregistré."));
+    }, failure => setError(failure instanceof ApiError && failure.status === 409
+      ? t("Ce brouillon a changé depuis son ouverture. Rouvrez le parcours à jour après avoir copié vos instructions.")
+      : (failure as Error).message));
+  }
+
+  const fullPage = run || inline;
+  return <RecipeEditorFrame recipe={recipe} inline={inline} run={run} onClose={close}>
+    <form className={`dialog-form card-recipe-form${fullPage ? " card-recipe-full" : ""}`} onSubmit={submit} aria-busy={!!operation}>
+      <fieldset className="recipe-editor-inputs" disabled={!!operation}>
+        {source && run?.sourceRunId && initial && <p className="small-copy">{t("Copie de l’exécution {id} · parcours v{version}", { id: run.sourceRunId.slice(0, 8), version: source.version })}</p>}
+        {(recipe || source) && !initial && <p className="small-copy">{t("Décrivez les étapes pour recréer cet ancien parcours.")}</p>}
+        <ol className="recipe-card-list">
+          {cards.map((card, index) => {
+            const clarification = cardError?.id === card.id ? cardError.message : undefined;
+            const errorId = `${inputId(card.id)}-error`;
+            const verifyId = `${inputId(card.id)}-verification`;
+            return <li key={card.id} className="surface recipe-card-input">
+              <div className="recipe-card-top">
+                <span className="recipe-step-number" aria-hidden="true">{index + 1}</span>
+                <label htmlFor={inputId(card.id)}>{t("Instruction")}</label>
+                {cards.length > 1 && <div className="recipe-card-actions">
+                  <button type="button" className="text-button" aria-label={t("Monter l’étape")} disabled={index === 0} onClick={() => moveCard(index, -1)}>↑</button>
+                  <button type="button" className="text-button" aria-label={t("Descendre l’étape")} disabled={index === cards.length - 1} onClick={() => moveCard(index, 1)}>↓</button>
+                  <button type="button" className="text-button" aria-label={t("Supprimer l’étape {n}", { n: index + 1 })} onClick={() => {
+                    nextFocus.current = inputId((cards[index + 1] ?? cards[index - 1]).id);
+                    changeCards(cards.filter(item => item.id !== card.id));
+                  }}><Icon name="close" size={16} /></button>
+                </div>}
+              </div>
+              <textarea id={inputId(card.id)} dir="auto" value={card.instruction} rows={2} maxLength={MAX_CARD_TEXT}
+                placeholder={index === 0 ? t("Ex. Ouvre LinkedIn") : undefined}
+                aria-invalid={!!clarification} aria-describedby={clarification ? errorId : undefined}
+                onChange={event => changeCard(card.id, { instruction: event.target.value })} />
+              {card.verification !== null && card.verification !== undefined ? <div className="recipe-card-verification">
+                <label>{t("Vérification (facultative)")}
+                  <textarea id={verifyId} dir="auto" rows={2} maxLength={MAX_CARD_TEXT} value={card.verification}
+                    onChange={event => changeCard(card.id, { verification: event.target.value })} />
+                </label>
+                <button type="button" className="text-button" onClick={() => {
+                  nextFocus.current = inputId(card.id);
+                  changeCard(card.id, { verification: null });
+                }}>{t("Retirer la vérification")}</button>
+              </div> : <button type="button" className="text-button" onClick={() => {
+                nextFocus.current = verifyId;
+                changeCard(card.id, { verification: "" });
+              }}><Icon name="plus" size={16} />{t("Ajouter une vérification")}</button>}
+              {clarification && <div id={errorId}><ErrorNotice message={clarification} /></div>}
+            </li>;
+          })}
+        </ol>
+        <div className="recipe-card-toolbar">
+          <button type="button" className="button button--secondary" disabled={cards.length >= MAX_RECIPE_CARDS} onClick={() => addCards()}>
+            <Icon name="plus" size={16} />{t("Ajouter une étape")}
+          </button>
+        </div>
+        {tooLong && <ErrorNotice message={t("Raccourcissez les instructions et vérifications avant de préparer le parcours.")} />}
+        {provider === "deepseek" && <p className="small-copy">{t("Les objectifs libres sont envoyés à DeepSeek.")}</p>}
+        <details ref={help} className="recipe-card-options">
+          <summary>{t("M’aider à créer les étapes")}</summary>
+          {discovery === "failed" && <div className="recipe-provider-error">
+            <ErrorNotice message={t("Impossible de charger les fournisseurs IA.")} />
+            <button type="button" className="text-button" onClick={() => retryProviders(value => value + 1)}>{t("Réessayer")}</button>
+          </div>}
+          <label>{t("Décrivez le résultat souhaité")}
+            <textarea dir="auto" rows={3} maxLength={8000} value={prompt} onChange={event => {
+              setPrompt(event.target.value);
+              setSuggestions(null);
+              setSuggestionError("");
+            }} />
+          </label>
+          <button type="button" className="button button--secondary" disabled={!models || !provider || prompt.trim().length < 8}
+            onClick={() => void suggest()}>{t(operation === "suggesting" ? "Chargement…" : "Créer les cartes")}</button>
+          {suggestionError && <ErrorNotice message={suggestionError} />}
+          {suggestions && <div className="review-section" aria-live="polite">
+            <ol>{suggestions.map((item, index) => <li key={index}>
+              <span dir="auto">{item.instruction}</span>
+              {item.verification && <p>{t("Vérification")} · <bdi>{item.verification}</bdi></p>}
+            </li>)}</ol>
+            {suggestions.length > remaining && <p>{t("Libérez des étapes avant d’ajouter ces suggestions.")}</p>}
+            <button type="button" className="button button--secondary" disabled={!suggestions.length || suggestions.length > remaining}
+              onClick={() => addCards(suggestions)}>{t("Ajouter les étapes proposées")}</button>
+          </div>}
+        </details>
+        {preview && <section className="surface recipe-card-preview" aria-live="polite">
+          <h3>{t("Étapes préparées")}</h3>
+          <label>{t(run ? "Nom du run" : "Nom du parcours")}
+            <input required maxLength={120} value={name} onChange={event => { setName(event.target.value); setSavedNotice(""); }} />
+          </label>
+          {preview.expected && <div><strong>{t("Résultat attendu")}</strong><p dir="auto">{t(preview.expected)}</p></div>}
+          <ol>{preview.body.steps.map(step => {
+            const { label, app, section, checks } = workflowStepPreview(step, preview.applicationNames);
+            return <li key={step.id}>
+              {t(label)}{(app || section) && <> · <bdi>{t(app || section || "")}</bdi></>}
+              {checks.map((check, index) => <small className="prepared-step-check" key={index}>
+                {t(check.label)}{check.app && <> · <bdi>{t(check.app)}</bdi></>}
+              </small>)}
+            </li>;
+          })}</ol>
+        </section>}
+      </fieldset>
+      {error && <ErrorNotice message={error} />}
+      <div className="dialog-footer">
+        {savedNotice && <p className="run-authoring-saved" role="status">{savedNotice}</p>}
+        <button type="button" className="button button--secondary" disabled={!!operation} onClick={close}>{t("Annuler")}</button>
+        {!preview ? <button type="submit" className="button button--primary" disabled={!!operation || !ready}>
+          {t(operation === "preparing" ? "Chargement…" : "Préparer")}
+        </button> : <>
+          <button type="submit" className={`button ${run ? "button--secondary" : "button--primary"}`} disabled={!!operation || !name.trim()}>
+            {t(operation === "saving" && !run ? "Chargement…" : "Enregistrer le brouillon")}
+          </button>
+          {run && <button type="submit" value="publish" className="button button--primary" disabled={!!operation || !name.trim()}>
+            {t(operation === "saving" ? "Chargement…" : "Publier et préparer le lancement")}
+          </button>}
+        </>}
+      </div>
+    </form>
+  </RecipeEditorFrame>;
 }

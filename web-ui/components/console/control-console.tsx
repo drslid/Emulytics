@@ -168,7 +168,7 @@ export function ControlConsole({ user, view, runEditor }: { user: User; view: Vi
           {view === "workflows" && <Workflows workflows={data.workflows} onLaunch={(workflow) => setLaunching({ workflow, ids: [] })} onSchedule={setScheduling} canBuild={can("workflows.write")} canLaunch={can("runs.execute")} onChanged={() => void load()} />}
           {view === "schedules" && <Schedules userId={user.id} devices={data.devices} workflows={data.workflows} canWrite={can("schedules.write")} onInitialUsed={() => {}} onOpenRun={setRunId} />}
           {view === "activity" && (runEditor && canEditRun ? <RunEditor key={runEditor.sourceRunId ?? "new"}
-            sourceRunId={runEditor.sourceRunId} workflows={data.workflows} devices={data.devices}
+            sourceRunId={runEditor.sourceRunId} devices={data.devices}
             onPrepared={(workflow, source) => setLaunching({ workflow, ids: source?.device_ids ?? [], concurrency: source?.max_concurrency })} />
             : <Activity runs={data.runs} workflows={data.workflows} total={data.summary.runs_total} offset={loadedOffsets.runs} onPage={setRunOffset} onOpen={setRunId} onLaunch={() => setLaunching({ ids: [] })} canLaunch={can("runs.execute")} />)}
         </>}

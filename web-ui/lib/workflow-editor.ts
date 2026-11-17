@@ -13,104 +13,46 @@ export const editorActions = {
   read_device_info: "Lire la version Android",
 };
 
-const argumentFields: Record<string, { key: string; label: string }> = {
-  open_app: { key: "package_name", label: "Identifiant de l’application" },
-  ensure_package: { key: "package", label: "Identifiant de l’application" },
-  open_url: { key: "url", label: "Adresse web" },
-  type_text: { key: "text", label: "Texte à saisir" },
-  press_key: { key: "keycode", label: "Touche Android" },
+const knownApplicationNames: Record<string, string> = {
+  "com.android.settings": "Paramètres du téléphone",
+  "com.android.chrome": "Chrome",
 };
 
-export function editorActionLabel(action: string): string {
-  return Object.hasOwn(editorActions, action) ? editorActions[action as keyof typeof editorActions] : action;
+export function containsApplicationIdentifier(text: string) {
+  return /\b[a-z][a-z\d_]*(?:\.[a-z\d_]+)+\b/i.test(text);
 }
 
-export function editorArgumentField(action: string): { key: string; label: string } | undefined {
-  return Object.hasOwn(argumentFields, action) ? argumentFields[action] : undefined;
+function applicationName(value: unknown, names: Record<string, string>) {
+  if (typeof value !== "string") return undefined;
+  const label = Object.hasOwn(names, value) ? names[value] : undefined;
+  if (typeof label === "string" && label.trim() && !containsApplicationIdentifier(label)) return label.trim();
+  return Object.hasOwn(knownApplicationNames, value) ? knownApplicationNames[value] : undefined;
 }
 
-export function editorRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
+type CheckSummary = { label: string; app?: string };
 
-const settingsActions = new Set(["open_settings", "read_device_info"]);
-
-function defaultEditorAssertion(action: string) {
-  return { type: action === "ensure_package" ? "package_installed" : "package", value: settingsActions.has(action) ? "com.android.settings" : "com.android.chrome" };
-}
-
-export function freshEditorStep(action = "open_app"): Step {
-  const args = action === "open_settings" ? { section: "main" }
-    : action === "read_device_info" ? { field: "android_version" }
-    : action === "open_app" ? { package_name: "com.android.chrome" }
-    : action === "open_url" ? { url: "https://fr.wikipedia.org/" }
-      : action === "press_key" ? { keycode: "KEYCODE_ENTER" }
-        : action === "type_text" ? { text: "", clear: true }
-          : action === "ensure_package" ? { package: "com.android.chrome" }
-            : action === "swipe" ? { x1: 500, y1: 1000, x2: 500, y2: 300, duration_ms: 400 } : {};
-  return {
-    id: `step-${crypto.randomUUID().slice(0, 8)}`, action, args,
-    selectors: action === "tap" ? [{ resource_id: "" }]
-      : action === "type_text" ? [{ class: "android.widget.EditText", focused: true }] : [],
-    assert: defaultEditorAssertion(action),
-    timeout_ms: 30000, non_idempotent: false, recovery_budget: 0,
-  };
-}
-
-export function changeEditorAction(step: Step, action: string): Step {
-  const fresh = freshEditorStep(action);
-  const previousDefault = defaultEditorAssertion(step.action);
-  const migrateDefault = (settingsActions.has(step.action) || settingsActions.has(action))
-    && Object.hasOwn(editorActions, step.action) && editorRecord(step.assert)
-    && Object.keys(step.assert).length === 2
-    && step.assert.type === previousDefault.type && step.assert.value === previousDefault.value;
-  return { ...step, action, args: fresh.args, selectors: fresh.selectors,
-    ...(migrateDefault ? {assert: fresh.assert} : {}),
-  };
-}
-
-export function duplicateEditorStep(step: Step): Step {
-  return { ...structuredClone(step), id: `step-${crypto.randomUUID().slice(0, 8)}` };
-}
-
-export function patchEditorArgument(step: Step, key: string, value: unknown): Step {
-  return { ...step, args: { ...step.args, [key]: value } };
-}
-
-export function editorStepTargets(step: Step): Record<string, unknown>[] {
-  return step.action === "tap" && editorRecord(step.args?.selector)
-    ? [step.args.selector] : step.selectors ?? [];
-}
-
-export function patchEditorTarget(step: Step, index: number, selector: Record<string, unknown>): Step {
-  if (step.action === "tap" && editorRecord(step.args?.selector))
-    return patchEditorArgument(step, "selector", selector);
-  return { ...step, selectors: (step.selectors ?? []).map((item, i) => i === index ? selector : item) };
-}
-
-/** Guard only the shape the visual editor reads; the API validates executable behavior. */
-export function parseEditorSteps(source: string): Step[] {
-  const value: unknown = JSON.parse(source);
-  if (!Array.isArray(value) || value.length < 1 || value.length > 14)
-    throw new Error("Invalid editor steps");
-  const ids = new Set<string>();
-  for (const step of value) {
-    if (
-      !editorRecord(step) ||
-      typeof step.id !== "string" ||
-      !step.id ||
-      ids.has(step.id) ||
-      typeof step.action !== "string" ||
-      !Object.hasOwn(editorActions, step.action) ||
-      (step.args !== undefined && !editorRecord(step.args)) ||
-      (step.selectors !== undefined &&
-        (!Array.isArray(step.selectors) || !step.selectors.every(editorRecord))) ||
-      !editorRecord(step.assert) ||
-      typeof step.assert.type !== "string"
-    ) {
-      throw new Error("Invalid editor step");
-    }
-    ids.add(step.id);
+function checkSummaries(check: unknown, names: Record<string, string>, depth = 0): CheckSummary[] {
+  if (!check || typeof check !== "object" || !("type" in check) || depth > 5) return [];
+  if (check.type === "all" && "checks" in check && Array.isArray(check.checks)) {
+    return check.checks.flatMap(item => checkSummaries(item, names, depth + 1));
   }
-  return value as Step[];
+  if (check.type === "package" || check.type === "package_installed") {
+    return [{ label: check.type === "package" ? "Application au premier plan" : "Application installée",
+      app: "value" in check ? applicationName(check.value, names) : undefined }];
+  }
+  if (check.type === "url") return [{ label: "Domaine de la page" }];
+  if (check.type === "ui") return [{ label: "Élément visible" }];
+  return [];
+}
+
+export function workflowStepPreview(step: Step, applicationNames: Record<string, string> = {}) {
+  return {
+    label: Object.hasOwn(editorActions, step.action)
+      ? editorActions[step.action as keyof typeof editorActions] : "Action Android",
+    app: step.action === "open_app" || step.action === "ensure_package"
+      ? applicationName(step.args?.[step.action === "open_app" ? "package_name" : "package"], applicationNames)
+      : undefined,
+    section: step.action === "open_settings" && step.args?.section === "about" ? "À propos du téléphone" : undefined,
+    checks: checkSummaries(step.assert, applicationNames),
+  };
 }

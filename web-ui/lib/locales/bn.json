@@ -1,4 +1,13 @@
 {
+  "Préparer": "প্রস্তুত করুন",
+  "Créer les cartes": "কার্ড তৈরি করুন",
+  "Ex. Ouvre LinkedIn": "যেমন LinkedIn খুলুন",
+  "Décrivez les étapes pour recréer cet ancien parcours.": "এই পুরোনো ওয়ার্কফ্লো আবার তৈরি করতে ধাপগুলো বর্ণনা করুন।",
+  "Précisez les instructions, puis réessayez.": "নির্দেশনাগুলো স্পষ্ট করে আবার চেষ্টা করুন।",
+  "Action Android": "Android অ্যাকশন",
+  "Parcours Android": "Android ওয়ার্কফ্লো",
+  "Je ne reconnais pas cette application. Indiquez son nom exact, tel qu’il apparaît dans Emulytics.": "এই অ্যাপটি পাওয়া যায়নি। Emulytics-এ প্রদর্শিত সঠিক নাম লিখুন।",
+  "Plusieurs applications portent ce nom. Utilisez un nom distinct dans le catalogue.": "একাধিক অ্যাপের এই নাম রয়েছে। ক্যাটালগ থেকে ভিন্ন একটি নাম ব্যবহার করুন।",
   "Retour aux instructions": "নির্দেশনায় ফিরে যান",
   "Instruction": "নির্দেশনা",
   "Supprimer l’étape {n}": "ধাপ {n} মুছুন",

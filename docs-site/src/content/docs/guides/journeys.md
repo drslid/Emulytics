@@ -5,15 +5,15 @@ description: Write editable Android workflow cards, review their actions and pub
 
 ## Write the steps as cards
 
-Open **Workflows → Create a workflow**. Write what Android should do in each card using the app's everyday name. Add a verification when you want to check a result. For example, write `Open the phone settings` in one card and `Read the Android version` in the next. Add, reorder or remove cards as needed.
+Open **Workflows → Create a workflow**. Write one instruction per card, such as `Open LinkedIn`. Emulytics finds the app from its name. Add, reorder or remove cards as needed. Use **Add verification** to say what Android should check after an instruction.
 
 ![Workflow editor showing two plain-language steps, an optional verification and the prepared actions](/Emulytics/brand/console/workflow-cards.png)
 
-Choose **Help me create steps** to describe the whole task and ask your configured provider to suggest cards. Edit the suggestions just as you would edit a manually written card. [AI provider setup](/Emulytics/guides/configuration/)
+To start from a single description, open **Help me create steps**, describe the whole task and choose **Create cards**. Edit the resulting cards before preparing the workflow. [AI provider setup](/Emulytics/guides/configuration/)
 
 ## Prepare and review
 
-Choose **Prepare workflow** to review the Android actions for the current cards. When a card needs more detail, the message appears next to that card. Edit it and prepare again. Android runs the reviewed actions when you publish and confirm a test.
+Choose **Prepare** to review the Android actions for the current cards. When a card needs more detail, the message appears next to it. Edit the card and prepare again. Save the draft, then publish and confirm a test to run the reviewed actions.
 
 The Wikipedia search and Android-version examples use built-in rules. Other supported instructions use the configured provider. The console checks the actions the driver can execute, such as opening an app or web page, reading Android version information and taking a screenshot. When the editor already has a target device, supported preparation can use known apps on that device.
 
@@ -21,7 +21,7 @@ The Wikipedia search and Android-version examples use built-in rules. Other supp
 
 A draft remains editable. Each published version keeps its own ordered cards, Android actions and name. Runs and schedules continue to use the published version they selected.
 
-Open **Technical editor** to edit Android actions and assertions directly. Older workflows open there with their original actions. Changing those actions makes the technical definition the source for that draft.
+When you open a workflow created before cards were introduced, write the instructions as cards and prepare them before saving. Past executions keep their original version and evidence.
 
 Concurrent draft changes are detected by revision. A stale save is refused instead of overwriting someone else's work.
 
