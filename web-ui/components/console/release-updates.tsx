@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../../lib/client-api";
 import { useT } from "../../lib/i18n";
+import { releaseNoteBlocks, releaseNoteInline } from "../../lib/release-notes";
 import { Icon } from "./icons";
 import { Dialog, ErrorNotice } from "./shared";
 
@@ -12,6 +13,7 @@ type ReleaseStatus = {
   update_available: boolean;
   can_install: boolean;
   release_url: string | null;
+  release_notes: string | null;
   state: "idle" | "queued" | "installing" | "installed" | "failed";
   target_version: string | null;
   error: string | null;
@@ -98,6 +100,38 @@ export function useReleaseUpdates(enabled: boolean) {
 
 export type ReleaseUpdates = ReturnType<typeof useReleaseUpdates>;
 
+function ReleaseNoteText({ text }: { text: string }) {
+  return releaseNoteInline(text).map((part, index) => {
+    switch (part.kind) {
+      case "link": return <a key={index} href={part.href} target="_blank" rel="noopener noreferrer">{part.text}</a>;
+      case "strong": return <strong key={index}>{part.text}</strong>;
+      case "code": return <code key={index}>{part.text}</code>;
+      default: return part.text;
+    }
+  });
+}
+
+function ReleaseNotes({ notes }: { notes: string }) {
+  const t = useT();
+  return <section className="release-update-notes" aria-labelledby="release-notes-heading" tabIndex={0}>
+    <h3 id="release-notes-heading">{t("Notes de version")}</h3>
+    {releaseNoteBlocks(notes).map((block, index) => {
+      switch (block.kind) {
+        case "heading": {
+          const Heading = block.level <= 2 ? "h4" : block.level === 3 ? "h5" : "h6";
+          return <Heading key={index} dir="auto"><ReleaseNoteText text={block.text} /></Heading>;
+        }
+        case "paragraph": return <p key={index} dir="auto"><ReleaseNoteText text={block.text} /></p>;
+        case "code": return <pre key={index} dir="auto"><code>{block.text}</code></pre>;
+        case "list": {
+          const items = block.items.map((item, itemIndex) => <li key={itemIndex}><ReleaseNoteText text={item} /></li>);
+          return block.start === null ? <ul key={index} dir="auto">{items}</ul> : <ol key={index} start={block.start} dir="auto">{items}</ol>;
+        }
+      }
+    })}
+  </section>;
+}
+
 export function ReleaseUpdateNotice({ updates }: { updates: ReleaseUpdates }) {
   const t = useT();
   const version = updates.status?.latest_version;
@@ -112,7 +146,7 @@ export function ReleaseUpdateNotice({ updates }: { updates: ReleaseUpdates }) {
 export function ReleaseUpdatePanel({ updates }: { updates: ReleaseUpdates }) {
   const t = useT();
   const { status, updating, checking, checkFailed, requestedVersion, installRejected, canInstall } = updates;
-  const [confirmVersion, setConfirmVersion] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<{ version: string; notes: string | null; url: string | null } | null>(null);
   const version = status?.latest_version;
   const releaseUrl = status?.release_url && releaseLink.test(status.release_url) ? status.release_url : null;
   const checkingUnavailable = checkFailed || !!status?.check_failed;
@@ -144,22 +178,32 @@ export function ReleaseUpdatePanel({ updates }: { updates: ReleaseUpdates }) {
         <p>{t("Installez la mise à jour depuis l’hôte.")} <a href={installGuide}>{t("Guide d’installation")}</a></p>}
     </>}
     <div className="release-update-actions">
-      {canInstall && version && <button type="button" className="button button--primary" onClick={() => setConfirmVersion(version)}>{t("Mettre à jour")}</button>}
+      {canInstall && version && <button type="button" className="button button--primary" onClick={() => setConfirmation({
+        version, notes: status?.release_notes?.trim() || null, url: releaseUrl
+      })}>{t("Mettre à jour")}</button>}
       {installed && <button type="button" className="button button--secondary" onClick={() => window.location.reload()}>{t("Recharger la console")}</button>}
       <button type="button" className="text-button" onClick={() => void updates.check()} disabled={checking || updating}>
         <Icon name="refresh" size={17} />{t("Vérifier les mises à jour")}
       </button>
       {releaseUrl && <a className="text-button" href={releaseUrl} target="_blank" rel="noreferrer">{t("Notes de version")}<Icon name="arrow" size={16} /></a>}
     </div>
-    {confirmVersion && <Dialog title={t("Installer Emulytics {version}", { version: confirmVersion })}
-      description={t("La console sera temporairement indisponible pendant le redémarrage.")} onClose={() => setConfirmVersion(null)}>
+    {confirmation && <Dialog title={t("Installer Emulytics {version}", { version: confirmation.version })}
+      description={t("La console sera temporairement indisponible pendant le redémarrage.")}
+      className="release-update-dialog" onClose={() => setConfirmation(null)}>
       <div className="dialog-form">
+        {confirmation.notes ? <ReleaseNotes notes={confirmation.notes} />
+          : <p className="small-copy">{t("Les notes de version ne sont pas disponibles.")}</p>}
         <div className="dialog-footer">
-          <button type="button" className="button button--secondary" onClick={() => setConfirmVersion(null)}>{t("Annuler")}</button>
-          <button type="button" className="button button--primary" disabled={!canInstall || version !== confirmVersion} onClick={() => {
-            setConfirmVersion(null);
-            void updates.install(confirmVersion);
-          }}>{t("Mettre à jour")}</button>
+          {confirmation.url && <a className="text-button release-note-source" href={confirmation.url} target="_blank" rel="noopener noreferrer">
+            {t("Notes de version")}<Icon name="arrow" size={16} />
+          </a>}
+          <div className="release-update-confirm-buttons">
+            <button type="button" className="button button--secondary" autoFocus onClick={() => setConfirmation(null)}>{t("Annuler")}</button>
+            <button type="button" className="button button--primary" disabled={!canInstall || version !== confirmation.version} onClick={() => {
+              setConfirmation(null);
+              void updates.install(confirmation.version);
+            }}>{t("Mettre à jour")}</button>
+          </div>
         </div>
       </div>
     </Dialog>}

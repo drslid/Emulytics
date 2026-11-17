@@ -11,7 +11,7 @@ Settings in a demonstration workspace.
 
 ## Updates
 
-Administrators can see the installed version, the latest stable release and the installation status under **Settings → Updates**. When a newer release is available, choose **Update** and confirm the restart. Keep the console open or return to Settings to read the result. [Set up the host updater](/Emulytics/getting-started/install/#update-emulytics).
+Administrators can see the installed version, the latest stable release and the installation status under **Settings → Updates**. Choose **Update** to preview the GitHub release notes, then confirm the restart. Keep the console open or return to Settings to read the result. [Set up the host updater](/Emulytics/getting-started/install/#update-emulytics).
 
 ## Connect OpenAI
 

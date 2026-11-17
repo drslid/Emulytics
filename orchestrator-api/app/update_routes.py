@@ -26,9 +26,10 @@ VERSION_PATTERN = r"(?:0|[1-9][0-9]{0,5})(?:\.(?:0|[1-9][0-9]{0,5})){2}"
 REQUEST_FILE = Path("/updates/requests/request.json")
 STATUS_FILE = Path("/updates/status/status.json")
 STATUS_MAX_AGE = 90
+RELEASE_NOTES_MAX_LENGTH = 16_000
 
 _release_lock = Lock()
-_release_cache: tuple[float, str | None, bool] = (0, None, False)
+_release_cache: tuple[float, str | None, str | None, bool] = (0, None, None, False)
 
 
 def require_update_admin(request: Request) -> None:
@@ -53,14 +54,14 @@ def version_key(value: object) -> tuple[int, ...]:
     return tuple(int(part) for part in value.split("."))
 
 
-def _fetch_release() -> str | None:
+def _fetch_release() -> tuple[str | None, str | None]:
     deadline = monotonic() + 7
     body = bytearray()
     with httpx.stream("GET", RELEASES_API, timeout=httpx.Timeout(5, connect=2),
                       headers={"Accept": "application/vnd.github+json", "User-Agent": "Emulytics"},
                       trust_env=False, follow_redirects=False) as response:
         if response.status_code == 404:
-            return None
+            return None, None
         response.raise_for_status()
         for chunk in response.iter_bytes():
             if monotonic() > deadline or len(body) + len(chunk) > 128 * 1024:
@@ -72,20 +73,23 @@ def _fetch_release() -> str | None:
     tag = release.get("tag_name")
     if not isinstance(tag, str) or not tag.startswith("v") or not version_key(tag[1:]):
         raise ValueError("Invalid stable release tag")
-    return tag[1:]
+    notes = release.get("body")
+    if isinstance(notes, str):
+        notes = notes[:RELEASE_NOTES_MAX_LENGTH].encode("utf-8", errors="replace").decode("utf-8")
+    return tag[1:], notes if isinstance(notes, str) and notes.strip() else None
 
 
-def latest_release() -> tuple[str | None, bool]:
+def latest_release() -> tuple[str | None, str | None, bool]:
     global _release_cache
     with _release_lock:
         if monotonic() >= _release_cache[0]:
             try:
-                version = _fetch_release()
+                version, notes = _fetch_release()
             except (httpx.HTTPError, OSError, ValueError, RecursionError):
-                _release_cache = (monotonic() + 30, None, True)
+                _release_cache = (monotonic() + 30, None, None, True)
             else:
-                _release_cache = (monotonic() + 300, version, False)
-        return _release_cache[1], _release_cache[2]
+                _release_cache = (monotonic() + 300, version, notes, False)
+        return _release_cache[1:]
 
 
 def _read_record(path: Path) -> dict:
@@ -103,7 +107,7 @@ def _read_record(path: Path) -> dict:
 
 def update_status() -> dict:
     installed = os.getenv("EMULYTIX_VERSION", "")
-    latest, check_failed = latest_release()
+    latest, notes, check_failed = latest_release()
     available = bool(version_key(installed) and version_key(latest) > version_key(installed))
     status = _read_record(STATUS_FILE)
     pending = _read_record(REQUEST_FILE)
@@ -124,6 +128,7 @@ def update_status() -> dict:
         "update_available": available,
         "can_install": can_install,
         "release_url": RELEASE_URL + latest if latest else None,
+        "release_notes": notes,
         "state": state,
         "target_version": target if version_key(target) else None,
         "error": error if isinstance(error, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,39}", error) else None,

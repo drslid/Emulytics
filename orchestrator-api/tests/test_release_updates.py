@@ -14,6 +14,7 @@ from app.access import permissions_for, required_permission
 
 ENDPOINT = "/console/updates"
 ADMIN = {"X-Test-Role": "admin"}
+NOTES = "## Changements\r\n\r\n- Édition des runs\r\n- [Détails](https://github.com/drslid/Emulytics)"
 
 
 @pytest.fixture
@@ -24,7 +25,7 @@ def updater(monkeypatch, tmp_path):
     status.mkdir()
     monkeypatch.setattr(updates, "REQUEST_FILE", requests / "request.json")
     monkeypatch.setattr(updates, "STATUS_FILE", status / "status.json")
-    monkeypatch.setattr(updates, "latest_release", lambda: ("0.10.0", False))
+    monkeypatch.setattr(updates, "latest_release", lambda: ("0.10.0", NOTES, False))
     monkeypatch.setenv("EMULYTIX_VERSION", "0.9.0")
 
     def state(name="idle", version=None, request_id=None, *, age=0, error=None):
@@ -69,6 +70,7 @@ def test_status_compares_numeric_versions_and_requires_a_live_installer(client, 
     status = client.get(ENDPOINT, headers=ADMIN).json()
     assert status["installed_version"] == "0.9.0"
     assert status["release_url"] == updates.RELEASE_URL + "0.10.0"
+    assert status["release_notes"] == NOTES
     assert status["update_available"] and status["can_install"]
     updater(age=120)
     status = client.get(ENDPOINT, headers=ADMIN).json()
@@ -76,6 +78,13 @@ def test_status_compares_numeric_versions_and_requires_a_live_installer(client, 
     assert client.post(ENDPOINT, headers=ADMIN, json={"version": "0.10.0"}).status_code == 409
     monkeypatch.setenv("EMULYTIX_VERSION", "1.0.0")
     assert not client.get(ENDPOINT, headers=ADMIN).json()["update_available"]
+
+
+def test_status_exposes_null_when_the_latest_release_has_no_notes(client, monkeypatch):
+    monkeypatch.setattr(updates, "latest_release", lambda: ("0.10.0", None, False))
+    status = client.get(ENDPOINT, headers=ADMIN).json()
+    assert status["release_notes"] is None
+    assert status["update_available"] and status["can_install"]
 
 
 def test_requested_version_is_stable_and_exact(client):
@@ -118,8 +127,12 @@ def test_failure_is_bounded_and_can_be_retried(client, updater):
 
 
 @pytest.mark.parametrize(("status", "payload", "expected"), [
-    (200, {"tag_name": "v0.10.0", "draft": False, "prerelease": False, "html_url": "https://other.example"}, "0.10.0"),
-    (404, {}, None),
+    (200, {"tag_name": "v0.10.0", "draft": False, "prerelease": False, "html_url": "https://other.example", "body": NOTES}, ("0.10.0", NOTES)),
+    (200, {"tag_name": "v0.10.0", "draft": False, "prerelease": False, "body": " \r\n"}, ("0.10.0", None)),
+    (200, {"tag_name": "v0.10.0", "draft": False, "prerelease": False}, ("0.10.0", None)),
+    (200, {"tag_name": "v0.10.0", "draft": False, "prerelease": False, "body": {}}, ("0.10.0", None)),
+    (200, {"tag_name": "v0.10.0", "draft": False, "prerelease": False, "body": "x" * 20_000}, ("0.10.0", "x" * 16_000)),
+    (404, {}, (None, None)),
     (200, {"tag_name": "v0.10.0-rc.1", "draft": False, "prerelease": True}, ValueError),
     (200, {"tag_name": "android-v0.9.0", "draft": False, "prerelease": False}, ValueError),
     (302, {}, httpx.HTTPStatusError),
@@ -144,7 +157,7 @@ def test_release_discovery_validates_stable_tag_and_fixed_origin(monkeypatch, st
 
 
 def test_provider_failure_is_cached_briefly_and_never_enables_installation(monkeypatch):
-    monkeypatch.setattr(updates, "_release_cache", (0, None, False))
+    monkeypatch.setattr(updates, "_release_cache", (0, "0.9.0", "Old notes", False))
     calls = []
 
     def unavailable():
@@ -152,6 +165,19 @@ def test_provider_failure_is_cached_briefly_and_never_enables_installation(monke
         raise httpx.ConnectError("network unavailable")
 
     monkeypatch.setattr(updates, "_fetch_release", unavailable)
-    assert updates.latest_release() == (None, True)
-    assert updates.latest_release() == (None, True)
+    assert updates.latest_release() == (None, None, True)
+    assert updates.latest_release() == (None, None, True)
     assert calls == [True]
+
+
+def test_latest_version_and_release_notes_share_one_cached_fetch(monkeypatch):
+    ticks = [0]
+    results = iter([("0.10.0", NOTES), ("0.11.0", None)])
+    monkeypatch.setattr(updates, "_release_cache", (0, None, None, False))
+    monkeypatch.setattr(updates, "monotonic", lambda: ticks[0])
+    monkeypatch.setattr(updates, "_fetch_release", lambda: next(results))
+    assert updates.latest_release() == ("0.10.0", NOTES, False)
+    ticks[0] += 299
+    assert updates.latest_release() == ("0.10.0", NOTES, False)
+    ticks[0] += 1
+    assert updates.latest_release() == ("0.11.0", None, False)

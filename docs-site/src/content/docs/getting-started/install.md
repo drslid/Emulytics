@@ -59,7 +59,7 @@ Continue with [First sign-in](/Emulytics/getting-started/first-sign-in/). Ordina
 
 ## Update Emulytics
 
-Sign in as an administrator and open **Settings → Updates**. Emulytics compares the running version with the latest stable GitHub release. When a newer release is available, open its notes or choose **Update**. Wait for the running journeys to finish before installing. The console may be briefly unavailable while it restarts.
+Sign in as an administrator and open **Settings → Updates**. Emulytics compares the running version with the latest stable GitHub release. When a newer release is available, choose **Update** to read its notes before confirming installation. The GitHub link opens the full release page. Wait for running journeys to finish before installing. The console may be briefly unavailable while it restarts.
 
 The host checks the selected release against GitHub, prepares the new images and starts the updated services with the same Compose project, configuration and data. The update button supports the standard local Compose database. Use a clean Git checkout of the Emulytics repository so the host can switch to the exact release tag.
 
@@ -73,11 +73,11 @@ The user timer is named `emulytics-update.timer`. Its service runs as the instal
 
 ### Update an older installation manually
 
-Choose the latest stable tag on the [GitHub releases page](https://github.com/drslid/Emulytics/releases). In the installation's existing directory, fetch and check out that tag, then rerun the installer. Replace `v0.1.2` with the tag you chose.
+Choose the latest stable tag on the [GitHub releases page](https://github.com/drslid/Emulytics/releases). In the installation's existing directory, fetch and check out that tag, then rerun the installer. Replace `v0.1.3` with the tag you chose.
 
 ```bash
-git fetch origin tag v0.1.2
-git switch --no-overwrite-ignore --detach v0.1.2
+git fetch origin tag v0.1.3
+git switch --no-overwrite-ignore --detach v0.1.3
 ./scripts/install.sh
 ```
 

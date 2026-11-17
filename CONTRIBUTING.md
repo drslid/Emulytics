@@ -61,6 +61,6 @@ Do not commit real configuration, credentials, databases, device data, APKs, scr
 
 ## Publish a release
 
-To publish a new Emulytics version, increase [`VERSION`](VERSION) using `MAJOR.MINOR.PATCH` and merge the change into `main`. Once all checks in **Verify console** pass, GitHub Actions tags the verified commit and publishes the corresponding GitHub Release with generated notes. Pushes with an already-released version keep that release available for updates.
+To publish a new Emulytics version, increase [`VERSION`](VERSION) using `MAJOR.MINOR.PATCH`, add the user-facing changes to [`CHANGELOG.md`](CHANGELOG.md) under an exact heading such as `## 1.2.3`, and merge the change into `main`. Once all checks in **Verify console** pass, GitHub Actions tags the verified commit and publishes the GitHub Release using that section. GitHub generates notes if the section is missing or empty. Pushes with an already-released version keep that release available for updates.
 
 Keep release tags fixed. If publication fails, rerun the failed job for the same commit. Keep migrations compatible with the previous stable application during a failed deployment recovery. The Android runtime image has its own version and build workflow.

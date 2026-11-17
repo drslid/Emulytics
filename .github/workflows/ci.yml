@@ -163,8 +163,22 @@ jobs:
             exit 1
           fi
 
+          release_notes=$(mktemp)
+          trap 'rm -f -- "$release_notes"' EXIT
+          notes_args=(--generate-notes)
+          if [[ -f CHANGELOG.md ]]; then
+            awk -v heading="## $version" '
+              { sub(/\r$/, "") }
+              $0 == heading { found = 1; next }
+              found && /^##[[:space:]]/ { exit }
+              found { print }
+            ' CHANGELOG.md > "$release_notes"
+            if grep -q '[^[:space:]]' "$release_notes"; then
+              notes_args=(--notes-file "$release_notes")
+            fi
+          fi
           gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Emulytics $tag" --generate-notes --latest
+            --title "Emulytics $tag" "${notes_args[@]}" --latest
           published_commit=$(remote_tag_commit)
           if [[ "$published_commit" != "$GITHUB_SHA" ]]; then
             echo "Published tag $tag does not identify the verified commit." >&2
